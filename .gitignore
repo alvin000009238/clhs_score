@@ -46,6 +46,7 @@ shared_grades/
 !manifest.json
 *.md
 !README.md
+!AGENTS.md
 0_build_and_deploy.txt
 # Exclude specific JSONs but allow config templates if any
 

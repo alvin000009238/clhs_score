@@ -66,6 +66,135 @@ class GradeAnalysisTest {
     }
 
     @Test
+    fun simulatorHistoryUsesLastThreePreviousExamsInSameTerm() {
+        val structure = listOf(
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(
+                    ExamOption("第一次段考", "E1"),
+                    ExamOption("第二次段考", "E2"),
+                    ExamOption("第三次段考", "E3"),
+                    ExamOption("第四次段考", "E4"),
+                    ExamOption("期末考", "E5"),
+                ),
+            ),
+        )
+
+        val source = structure.simulationHistorySource("114_1", "E5")
+
+        assertEquals(false, source?.usesPreviousTerm)
+        assertEquals(listOf("E2", "E3", "E4"), source?.exams?.map { it.value })
+    }
+
+    @Test
+    fun simulatorHistoryCanUsePreviousTermWhenSameTermIsEmpty() {
+        val structure = listOf(
+            YearTermOption(
+                text = "113下",
+                value = "113_2",
+                exams = listOf(
+                    ExamOption("第一次段考", "P1"),
+                    ExamOption("期末考", "P2"),
+                ),
+            ),
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(ExamOption("第一次段考", "E1")),
+            ),
+        )
+
+        val source = structure.simulationHistorySource("114_1", "E1")
+
+        assertEquals(true, source?.usesPreviousTerm)
+        assertEquals("113_2", source?.yearTerm?.value)
+        assertEquals(listOf("P1", "P2"), source?.exams?.map { it.value })
+    }
+
+    @Test
+    fun simulatorHistoryUsesPreviousThreeExamsAcrossTerms() {
+        val structure = listOf(
+            YearTermOption(
+                text = "113上",
+                value = "113_1",
+                exams = listOf(ExamOption("期末考", "A3")),
+            ),
+            YearTermOption(
+                text = "113下",
+                value = "113_2",
+                exams = listOf(
+                    ExamOption("第一次段考", "P1"),
+                    ExamOption("期末考", "P2"),
+                ),
+            ),
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(ExamOption("第一次段考", "E1")),
+            ),
+        )
+
+        val source = structure.simulationHistorySource("114_1", "E1")
+
+        assertEquals(true, source?.usesPreviousTerm)
+        assertEquals(listOf("113_1", "113_2", "113_2"), source?.historyExams?.map { it.yearValue })
+        assertEquals(listOf("A3", "P1", "P2"), source?.historyExams?.map { it.examValue })
+    }
+
+    @Test
+    fun sameTermHistoryDoesNotFallBackToPreviousTerm() {
+        val structure = listOf(
+            YearTermOption(
+                text = "113下",
+                value = "113_2",
+                exams = listOf(
+                    ExamOption("第一次段考", "P1"),
+                    ExamOption("期末考", "P2"),
+                ),
+            ),
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(ExamOption("期中考1", "E1")),
+            ),
+        )
+
+        assertNull(structure.sameTermHistorySource("114_1", "E1"))
+        assertEquals("113_2", structure.simulationHistorySource("114_1", "E1")?.yearTerm?.value)
+    }
+
+    @Test
+    fun latestYearTermAndExamPreferNewestOptions() {
+        val structure = listOf(
+            YearTermOption(
+                text = "113下",
+                value = "113_2",
+                exams = listOf(ExamOption("第一次段考", "E1")),
+            ),
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(
+                    ExamOption("第一次段考", "E1"),
+                    ExamOption("第二次段考", "E2"),
+                    ExamOption("期末考", "E3"),
+                ),
+            ),
+            YearTermOption(
+                text = "113上",
+                value = "113_1",
+                exams = listOf(ExamOption("期末考", "E3")),
+            ),
+        )
+
+        val latestYear = structure.latestYearTerm()
+
+        assertEquals("114_1", latestYear?.value)
+        assertEquals("E3", latestYear?.latestExam()?.value)
+    }
+
+    @Test
     fun comparisonCalculatesAverageRankAndSubjectDeltas() {
         val current = sampleReport()
         val previous = sampleReport(
@@ -121,6 +250,129 @@ class GradeAnalysisTest {
     }
 
     @Test
+    fun simulationDefaultScoresMatchCurrentWeightedAverage() {
+        val current = sampleReport()
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = emptyList(),
+            adjustedScores = emptyMap(),
+        )
+
+        assertEquals(current.weightedAverage(), simulation.adjustedAverage, 0.001)
+        assertEquals(current.weightedAverage(), simulation.projectedAverage, 0.001)
+        assertEquals(13, simulation.estimatedClassRank)
+    }
+
+    @Test
+    fun simulationAdjustsMultipleSubjectsAndProjectsFromHistory() {
+        val current = sampleReport()
+        val history = listOf(
+            sampleReport(mathScore = 60.0, englishScore = 70.0, chineseScore = 60.0, classRank = 20.0),
+            sampleReport(mathScore = 70.0, englishScore = 75.0, chineseScore = 65.0, classRank = 16.0),
+            sampleReport(mathScore = 78.0, englishScore = 80.0, chineseScore = 70.0, classRank = 13.0),
+        )
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = history,
+            adjustedScores = mapOf(
+                "國語文" to 68.0,
+                "英語文" to 82.0,
+                "數學" to 84.0,
+            ),
+        )
+
+        assertEquals(78.0, simulation.adjustedAverage, 0.001)
+        assertTrue(simulation.projectedAverage > simulation.adjustedAverage)
+        assertTrue((simulation.estimatedClassRank ?: 99) < 13)
+        assertTrue((simulation.estimatedClassRank ?: 0) in 1..37)
+    }
+
+    @Test
+    fun simulationDoesNotEstimateRankWithFewerThanThreeHistoryPoints() {
+        val current = sampleReport()
+        val history = listOf(
+            sampleReport(mathScore = 60.0, englishScore = 70.0, chineseScore = 60.0, classRank = 20.0),
+            sampleReport(mathScore = 70.0, englishScore = 75.0, chineseScore = 65.0, classRank = 16.0),
+        )
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = history,
+            adjustedScores = mapOf("國語文" to 68.0),
+        )
+
+        assertNull(simulation.estimatedClassRank)
+    }
+
+    @Test
+    fun simulationRankRegressionClampsToClassBounds() {
+        val current = sampleReport(mathScore = 80.0, englishScore = 80.0, chineseScore = 80.0)
+        val history = listOf(
+            sampleReport(mathScore = 60.0, englishScore = 60.0, chineseScore = 60.0, classRank = 30.0),
+            sampleReport(mathScore = 70.0, englishScore = 70.0, chineseScore = 70.0, classRank = 20.0),
+            sampleReport(mathScore = 80.0, englishScore = 80.0, chineseScore = 80.0, classRank = 10.0),
+        )
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = history,
+            adjustedScores = mapOf(
+                "國語文" to 100.0,
+                "英語文" to 100.0,
+                "數學" to 100.0,
+            ),
+        )
+
+        assertEquals(1, simulation.estimatedClassRank)
+    }
+
+    @Test
+    fun simulationRelativeRankUsesFrontBackSpreadWhenTopBottomIsInvalid() {
+        val fallbackStandards = listOf(
+            GradeStandard("國語文", 70.0, 80.0, 70.0, 60.0, 70.0, 12.0, 2, 6, 12, 10, 5, 2, 1, 1, 1, 0),
+            GradeStandard("英語文", 76.0, 82.0, 70.0, 60.0, 76.0, 13.0, 3, 8, 10, 9, 5, 2, 1, 1, 1, 0),
+            GradeStandard("數學", 68.0, 78.0, 68.0, 58.0, 68.0, 15.0, 1, 5, 11, 12, 6, 2, 1, 1, 1, 0),
+        )
+        val current = sampleReport(standards = fallbackStandards)
+        val history = listOf(
+            sampleReport(mathScore = 60.0, englishScore = 70.0, chineseScore = 60.0, classRank = 20.0, standards = fallbackStandards),
+            sampleReport(mathScore = 70.0, englishScore = 75.0, chineseScore = 65.0, classRank = 16.0, standards = fallbackStandards),
+            sampleReport(mathScore = 78.0, englishScore = 80.0, chineseScore = 70.0, classRank = 13.0, standards = fallbackStandards),
+        )
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = history,
+            adjustedScores = mapOf(
+                "國語文" to 68.0,
+                "英語文" to 82.0,
+                "數學" to 84.0,
+            ),
+        )
+
+        assertTrue((simulation.estimatedClassRank ?: 99) < 13)
+    }
+
+    @Test
+    fun simulationDoesNotEstimateRankWhenHistoryRankDataIsMissing() {
+        val current = sampleReport()
+        val history = listOf(
+            sampleReport(mathScore = 70.0, englishScore = 75.0, chineseScore = 65.0, classRank = null),
+        )
+
+        val simulation = simulateScores(
+            currentReport = current,
+            historyReports = history,
+            adjustedScores = mapOf("國語文" to 68.0),
+        )
+
+        assertTrue(simulation.projectedAverage > simulation.adjustedAverage)
+        assertNull(simulation.estimatedClassRank)
+    }
+
+    @Test
     fun localInsightsDoNotEstimateRankWhenRankDataMissing() {
         val current = sampleReport(classRank = null, classCount = null)
         val analysis = buildGradeAnalysis(current)
@@ -137,6 +389,7 @@ class GradeAnalysisTest {
         chineseScore: Double = 58.0,
         classRank: Double? = 13.0,
         classCount: Int? = 37,
+        standards: List<GradeStandard>? = null,
     ): GradeReport = GradeReport(
         message = "",
         studentInfo = StudentInfo(
@@ -167,7 +420,7 @@ class GradeAnalysisTest {
             SubjectScore("英語文", "%.2f".format(englishScore), englishScore, "76.00", 76.0, 8, 37, null, null, "114學年度 上學期", false, false, false),
             SubjectScore("數學", "%.2f".format(mathScore), mathScore, "68.00", 68.0, 5, 37, null, null, "114學年度 上學期", false, false, false),
         ),
-        standards = listOf(
+        standards = standards ?: listOf(
             GradeStandard("國語文", 88.0, 80.0, 70.0, 60.0, 50.0, 12.0, 2, 6, 12, 10, 5, 2, 1, 1, 1, 0),
             GradeStandard("英語文", 90.0, 82.0, 70.0, 60.0, 50.0, 13.0, 3, 8, 10, 9, 5, 2, 1, 1, 1, 0),
             GradeStandard("數學", 85.0, 78.0, 68.0, 58.0, 48.0, 15.0, 1, 5, 11, 12, 6, 2, 1, 1, 1, 0),

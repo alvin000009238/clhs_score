@@ -114,6 +114,10 @@ class ScoreUiTest {
         composeRule.onNodeWithText("上一考比較").assertIsDisplayed()
         composeRule.onAllNodesWithText("班級平均").assertCountEquals(0)
         composeRule.onAllNodesWithText("校排").assertCountEquals(0)
+
+        composeRule.onNodeWithText("國語文").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithText("五標落點").assertCountEquals(0)
     }
 
     @Test
@@ -211,6 +215,7 @@ class ScoreUiTest {
                 val key = cleanSubjectName(subjectName)
                 expanded = if (key in expanded) expanded - key else expanded + key
             },
+            onOpenScoreSimulator = {},
         )
     }
 

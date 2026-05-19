@@ -48,6 +48,40 @@ data class GradeTrend(
     val averageLine: String = points.joinToString(" → ") { "%.1f".format(it.weightedAverage) }
 }
 
+data class HistoryExamRef(
+    val yearTerm: YearTermOption,
+    val exam: ExamOption,
+) {
+    val yearValue: String = yearTerm.value
+    val examValue: String = exam.value
+    val examName: String = exam.text
+}
+
+data class SimulationHistorySource(
+    val yearTerm: YearTermOption,
+    val exams: List<ExamOption>,
+    val usesPreviousTerm: Boolean,
+    val examRefs: List<HistoryExamRef>? = null,
+) {
+    val historyExams: List<HistoryExamRef> = examRefs ?: exams.map { HistoryExamRef(yearTerm, it) }
+
+    val label: String = if (usesPreviousTerm) {
+        "近 ${historyExams.size} 次段考"
+    } else {
+        "同學期前 ${exams.size} 次考試"
+    }
+}
+
+data class ScoreSimulationResult(
+    val adjustedAverage: Double,
+    val projectedAverage: Double,
+    val trendDelta: Double,
+    val estimatedClassRank: Int?,
+    val classCount: Int?,
+    val historyCount: Int,
+    val hasRankProjection: Boolean,
+)
+
 data class RankProjection(
     val subjectName: String,
     val suggestedIncrease: Double,
@@ -258,6 +292,55 @@ fun YearTermOption.previousExamsOf(examValue: String?, limit: Int = 2): List<Exa
     return exams.subList(max(0, index - limit), index)
 }
 
+fun List<YearTermOption>.sameTermHistorySource(
+    yearValue: String?,
+    examValue: String?,
+): SimulationHistorySource? {
+    if (yearValue.isNullOrBlank()) return null
+    val current = firstOrNull { it.value == yearValue } ?: return null
+    val sameTermExams = current.previousExamsOf(examValue, limit = Int.MAX_VALUE)
+    if (sameTermExams.isEmpty()) return null
+    return SimulationHistorySource(
+        yearTerm = current,
+        exams = sameTermExams,
+        usesPreviousTerm = false,
+    )
+}
+
+fun List<YearTermOption>.simulationHistorySource(
+    yearValue: String?,
+    examValue: String?,
+): SimulationHistorySource? {
+    if (yearValue.isNullOrBlank() || examValue.isNullOrBlank()) return null
+    val orderedExams = sortedWith(
+        compareBy<YearTermOption>({ it.sortKey().first }, { it.sortKey().second }),
+    ).flatMap { yearTerm ->
+        yearTerm.exams.map { exam -> HistoryExamRef(yearTerm, exam) }
+    }
+    val currentIndex = orderedExams.indexOfFirst {
+        it.yearValue == yearValue && it.examValue == examValue
+    }
+    if (currentIndex <= 0) return null
+    val historyExams = orderedExams.subList(max(0, currentIndex - 3), currentIndex)
+    if (historyExams.isEmpty()) return null
+    return SimulationHistorySource(
+        yearTerm = historyExams.first().yearTerm,
+        exams = historyExams.map { it.exam },
+        usesPreviousTerm = historyExams.any { it.yearValue != yearValue },
+        examRefs = historyExams,
+    )
+}
+
+fun List<YearTermOption>.latestYearTerm(): YearTermOption? =
+    maxWithOrNull(
+        compareBy<YearTermOption>(
+            { option -> parseYearTerm(option.value, defaultYear = "0", defaultTerm = "0").first.toIntOrNull() ?: 0 },
+            { option -> parseYearTerm(option.value, defaultYear = "0", defaultTerm = "0").second.toIntOrNull() ?: 0 },
+        ),
+    )
+
+fun YearTermOption.latestExam(): ExamOption? = exams.lastOrNull()
+
 fun buildGradeTrend(
     currentExamName: String,
     currentReport: GradeReport,
@@ -267,6 +350,46 @@ fun buildGradeTrend(
         report.toTrendPoint(examName)
     }
     return GradeTrend(points = previousPoints + currentReport.toTrendPoint(currentExamName))
+}
+
+fun simulateScores(
+    currentReport: GradeReport,
+    historyReports: List<GradeReport>,
+    adjustedScores: Map<String, Double>,
+): ScoreSimulationResult {
+    val adjustedAverage = weightedAverageFor(currentReport.subjects, adjustedScores)
+    val historyPoints = historyReports + currentReport
+    val trendDelta = historyPoints
+        .zipWithNext { previous, next -> next.weightedAverage() - previous.weightedAverage() }
+        .takeIf { it.isNotEmpty() }
+        ?.average()
+        ?: 0.0
+    val projectedAverage = (adjustedAverage + trendDelta).coerceIn(0.0, 100.0)
+    val currentRank = currentReport.examSummary?.classRank?.toInt()
+    val classCount = currentReport.examSummary?.classCount
+    val estimatedRank = if (!hasAdjustedScores(currentReport, adjustedScores)) {
+        currentRank?.let { rank ->
+            if (classCount != null && classCount > 0) rank.coerceIn(1, classCount) else rank
+        }
+    } else if (classCount != null && classCount > 0) {
+        relativeRegressionRank(
+            historyReports = historyReports,
+            currentReport = currentReport,
+            adjustedScores = adjustedScores,
+            classCount = classCount,
+        )
+    } else {
+        null
+    }
+    return ScoreSimulationResult(
+        adjustedAverage = adjustedAverage,
+        projectedAverage = projectedAverage,
+        trendDelta = trendDelta,
+        estimatedClassRank = estimatedRank,
+        classCount = classCount,
+        historyCount = historyReports.size,
+        hasRankProjection = estimatedRank != null,
+    )
 }
 
 fun deltaText(label: String, delta: Double, unit: String = ""): String {
@@ -287,6 +410,93 @@ fun rankDeltaText(label: String, delta: Int): String = when {
 private fun rankDelta(current: Double?, previous: Double?): Int? {
     if (current == null || previous == null) return null
     return previous.toInt() - current.toInt()
+}
+
+private fun YearTermOption.sortKey(): Pair<Int, Int> {
+    val (year, term) = parseYearTerm(value, defaultYear = "0", defaultTerm = "0")
+    return (year.toIntOrNull() ?: 0) to (term.toIntOrNull() ?: 0)
+}
+
+private fun weightedAverageFor(
+    subjects: List<SubjectScore>,
+    adjustedScores: Map<String, Double>,
+): Double {
+    val totalWeight = subjects.sumOf { subjectWeight(it.subjectName) }
+    if (totalWeight <= 0) return 0.0
+    val weightedTotal = subjects.sumOf { subject ->
+        val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
+        score.coerceIn(0.0, 100.0) * subjectWeight(subject.subjectName)
+    }
+    return weightedTotal / totalWeight
+}
+
+private fun hasAdjustedScores(
+    report: GradeReport,
+    adjustedScores: Map<String, Double>,
+): Boolean = report.subjects.any { subject ->
+    val adjusted = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
+    abs(adjusted - subject.scoreValue) > 0.05
+}
+
+private fun relativeRegressionRank(
+    historyReports: List<GradeReport>,
+    currentReport: GradeReport,
+    adjustedScores: Map<String, Double>,
+    classCount: Int,
+): Int? {
+    val points = historyReports.mapNotNull { report ->
+        val rank = report.examSummary?.classRank ?: return@mapNotNull null
+        val relativeScore = report.examRelativeScore() ?: return@mapNotNull null
+        relativeScore to rank
+    }
+    if (points.size < 3) return null
+    val adjustedRelativeScore = currentReport.examRelativeScore(adjustedScores) ?: return null
+    val relativeMean = points.map { it.first }.average()
+    val rankMean = points.map { it.second }.average()
+    val denominator = points.sumOf { (relativeScore, _) ->
+        val delta = relativeScore - relativeMean
+        delta * delta
+    }
+    if (denominator <= 0.0001) return null
+    val slope = points.sumOf { (relativeScore, rank) ->
+        (relativeScore - relativeMean) * (rank - rankMean)
+    } / denominator
+    val intercept = rankMean - slope * relativeMean
+    return (slope * adjustedRelativeScore + intercept)
+        .roundToInt()
+        .coerceIn(1, classCount)
+}
+
+private fun GradeReport.examRelativeScore(
+    adjustedScores: Map<String, Double> = emptyMap(),
+): Double? {
+    var weightedTotal = 0.0
+    var totalWeight = 0
+    subjects.forEachIndexed { index, subject ->
+        val standard = standardFor(subject, index) ?: return@forEachIndexed
+        val classAverage = subject.classAverageOrNull() ?: return@forEachIndexed
+        val spread = standard.relativeSpread() ?: return@forEachIndexed
+        val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
+        val weight = subjectWeight(subject.subjectName)
+        weightedTotal += ((score.coerceIn(0.0, 100.0) - classAverage) / spread) * weight
+        totalWeight += weight
+    }
+    if (totalWeight <= 0) return null
+    return weightedTotal / totalWeight
+}
+
+private fun SubjectScore.classAverageOrNull(): Double? =
+    classAverageDisplay.toDoubleOrNull() ?: classAverage
+
+private fun GradeStandard.relativeSpread(): Double? {
+    val topBottom = top?.let { topValue ->
+        bottom?.let { bottomValue -> topValue - bottomValue }
+    }
+    if (topBottom != null && topBottom > 0.0) return topBottom
+    val frontBack = front?.let { frontValue ->
+        back?.let { backValue -> frontValue - backValue }
+    }
+    return frontBack?.takeIf { it > 0.0 }
 }
 
 private fun GradeReport.toTrendPoint(examName: String): GradeTrendPoint = GradeTrendPoint(

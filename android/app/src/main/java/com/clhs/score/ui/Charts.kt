@@ -5,7 +5,6 @@ import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,13 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
@@ -47,14 +45,14 @@ import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.gradeLevel
 import com.clhs.score.data.scoreDistributions
 import com.clhs.score.data.shortenSubjectName
-import com.clhs.score.data.standardFor
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-private val MyScoreColor = Color(0xFF6366F1)
-private val AvgScoreColor = Color(0xFF10B981)
+private val MyScoreColor = Color(0xFF6750A4)
+private val AvgScoreColor = Color(0xFF8B8494)
 
 @Composable
 fun ChartsTab(report: GradeReport) {
@@ -74,44 +72,34 @@ fun AnalysisSection(report: GradeReport, analysis: GradeAnalysis) {
         )
         ChartCard(
             title = "雷達分析",
-            summary = overviewChartSummary(analysis),
         ) {
             RadarScoreChart(subjects = report.subjects)
         }
         ChartCard(
             title = "成績比較",
-            summary = barChartSummary(analysis),
         ) {
             BarScoreChart(subjects = report.subjects)
         }
         StandardsTable(analysis = analysis)
-        DistributionSection(analysis = analysis)
     }
 }
 
 @Composable
 private fun ChartCard(
     title: String,
-    summary: String,
     content: @Composable () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = summary,
-                modifier = Modifier.padding(top = 6.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(12.dp))
             content()
@@ -152,16 +140,16 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
         return
     }
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
-    val labels = remember(subjects) { subjects.map { shortenSubjectName(it.subjectName) } }
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)
+    val labels = remember(subjects) { subjects.map { chartSubjectLabel(it.subjectName) } }
 
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp),
+            .height(360.dp),
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = min(size.width, size.height) * 0.34f
+        val radius = min(size.width, size.height) * 0.28f
         val count = subjects.size
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = labelColor.toArgb()
@@ -170,8 +158,8 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
 
-        for (ring in 1..5) {
-            val ringRadius = radius * ring / 5f
+        for (ring in 1..3) {
+            val ringRadius = radius * ring / 3f
             drawPath(
                 path = radarPath(center, ringRadius, count) { 1f },
                 color = gridColor,
@@ -181,17 +169,22 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
         for (i in 0 until count) {
             val point = radarPoint(center, radius, i, count, 1f)
             drawLine(gridColor, center, point, strokeWidth = 1.dp.toPx())
-            val labelPoint = radarPoint(center, radius + 22.dp.toPx(), i, count, 1f)
+            val labelPoint = radarPoint(center, radius + 42.dp.toPx(), i, count, 1f)
             drawContext.canvas.nativeCanvas.drawText(labels[i], labelPoint.x, labelPoint.y + 4.dp.toPx(), textPaint)
         }
 
         val avgPath = radarPath(center, radius, count) { index -> (subjects[index].classAverageValue / 100.0).toFloat() }
-        drawPath(avgPath, AvgScoreColor.copy(alpha = 0.22f))
-        drawPath(avgPath, AvgScoreColor, style = Stroke(width = 2.dp.toPx()))
+        drawPath(avgPath, AvgScoreColor.copy(alpha = 0.08f))
+        drawPath(avgPath, AvgScoreColor.copy(alpha = 0.60f), style = Stroke(width = 1.5.dp.toPx()))
 
         val myPath = radarPath(center, radius, count) { index -> (subjects[index].scoreValue / 100.0).toFloat() }
-        drawPath(myPath, MyScoreColor.copy(alpha = 0.24f))
-        drawPath(myPath, MyScoreColor, style = Stroke(width = 2.dp.toPx()))
+        drawPath(myPath, MyScoreColor.copy(alpha = 0.28f))
+        drawPath(myPath, MyScoreColor, style = Stroke(width = 3.5.dp.toPx()))
+        subjects.forEachIndexed { index, subject ->
+            val point = radarPoint(center, radius, index, count, (subject.scoreValue / 100.0).toFloat())
+            drawCircle(MyScoreColor, radius = 4.dp.toPx(), center = point)
+            drawCircle(Color.White, radius = 2.dp.toPx(), center = point)
+        }
     }
 }
 
@@ -201,68 +194,70 @@ fun BarScoreChart(subjects: List<SubjectScore>) {
         EmptyChartMessage("沒有可繪製的科目成績")
         return
     }
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
-    val labels = remember(subjects) { subjects.map { shortenSubjectName(it.subjectName) } }
+    val focusSubject = remember(subjects) { subjects.maxByOrNull { abs(it.diffValue) }?.subjectName }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        subjects.forEach { subject ->
+            HorizontalSubjectBar(
+                subject = subject,
+                focused = subject.subjectName == focusSubject,
+            )
+        }
+    }
+}
 
-    Canvas(
+@Composable
+private fun HorizontalSubjectBar(subject: SubjectScore, focused: Boolean) {
+    val container = if (focused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    val labelColor = if (focused) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp),
+            .background(container, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val left = 34.dp.toPx()
-        val right = 8.dp.toPx()
-        val top = 12.dp.toPx()
-        val bottom = 46.dp.toPx()
-        val plotWidth = size.width - left - right
-        val plotHeight = size.height - top - bottom
-        val origin = Offset(left, top + plotHeight)
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = labelColor.toArgb()
-            textAlign = Paint.Align.CENTER
-            textSize = 11.dp.toPx()
-        }
-        val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = labelColor.toArgb()
-            textAlign = Paint.Align.RIGHT
-            textSize = 10.dp.toPx()
-        }
-
-        for (step in 0..5) {
-            val score = step * 20
-            val y = origin.y - plotHeight * step / 5f
-            drawLine(gridColor, Offset(left, y), Offset(size.width - right, y), strokeWidth = 1.dp.toPx())
-            drawContext.canvas.nativeCanvas.drawText(score.toString(), left - 6.dp.toPx(), y + 4.dp.toPx(), axisPaint)
-        }
-
-        val groupWidth = plotWidth / subjects.size
-        val barWidth = min(groupWidth * 0.28f, 20.dp.toPx())
-        subjects.forEachIndexed { index, subject ->
-            val groupCenter = left + groupWidth * index + groupWidth / 2f
-            drawScoreBar(
-                centerX = groupCenter - barWidth * 0.6f,
-                baseY = origin.y,
-                plotHeight = plotHeight,
-                barWidth = barWidth,
-                score = subject.scoreValue,
-                color = MyScoreColor,
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = chartSubjectLabel(subject.subjectName, maxChars = 8),
+                style = MaterialTheme.typography.titleMedium,
+                color = labelColor,
+                fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            drawScoreBar(
-                centerX = groupCenter + barWidth * 0.6f,
-                baseY = origin.y,
-                plotHeight = plotHeight,
-                barWidth = barWidth,
-                score = subject.classAverageValue,
-                color = AvgScoreColor,
+            Text(
+                text = "${"%.0f".format(subject.scoreValue)} / 均 ${"%.0f".format(subject.classAverageValue)}",
+                style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (subjects.size <= 8 || index % 2 == 0) {
-                drawContext.canvas.nativeCanvas.drawText(
-                    labels[index],
-                    groupCenter,
-                    size.height - 18.dp.toPx(),
-                    textPaint,
-                )
-            }
+        }
+        ScoreBarLine(label = "我", score = subject.scoreValue, color = MyScoreColor, trackAlpha = 0.18f)
+        ScoreBarLine(label = "均", score = subject.classAverageValue, color = AvgScoreColor, trackAlpha = 0.10f)
+    }
+}
+
+@Composable
+private fun ScoreBarLine(label: String, score: Double, color: Color, trackAlpha: Float) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            modifier = Modifier.width(22.dp),
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(10.dp)
+                .background(color.copy(alpha = trackAlpha), RoundedCornerShape(999.dp)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth((score / 100.0).toFloat().coerceIn(0f, 1f))
+                    .height(10.dp)
+                    .background(color, RoundedCornerShape(999.dp)),
+            )
         }
     }
 }
@@ -272,63 +267,49 @@ private fun StandardsTable(analysis: GradeAnalysis) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = "五標分析",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                StandardRow(
-                    values = listOf("科目", "頂標", "前標", "均標", "後標", "底標", "我的", "落點", "距離"),
-                    header = true,
-                )
-                analysis.subjects.forEach { subjectAnalysis ->
-                    val subject = subjectAnalysis.subject
-                    val standard = subjectAnalysis.standard ?: return@forEach
-                    StandardRow(
-                        values = listOf(
-                            shortenSubjectName(subject.subjectName),
-                            standard.top.formatScore(),
-                            standard.front.formatScore(),
-                            standard.average.formatScore(),
-                            standard.back.formatScore(),
-                            standard.bottom.formatScore(),
-                            subject.scoreValue.formatScore(),
-                            gradeLevel(subject.scoreValue, standard),
-                            subjectAnalysis.standardDistance ?: "--",
-                        ),
-                        header = false,
+            analysis.subjects.forEach { subjectAnalysis ->
+                val subject = subjectAnalysis.subject
+                val standard = subjectAnalysis.standard ?: return@forEach
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(shortenSubjectName(subject.subjectName), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                subjectAnalysis.standardDistance ?: gradeLevel(subject.scoreValue, standard),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = subject.scoreValue.formatScore(),
+                            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    StandardPositionBar(score = subject.scoreValue, standard = standard)
+                    Text(
+                        text = "${subjectPercentLabel(subject.classRank, subject.classRankCount)} ・ 班排 ${formatRank(subject.classRank, subject.classRankCount)}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun StandardRow(values: List<String>, header: Boolean) {
-    Row(
-        modifier = Modifier
-            .background(
-                if (header) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                RoundedCornerShape(6.dp),
-            )
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        values.forEachIndexed { index, value ->
-            Text(
-                modifier = Modifier.width(if (index == 0) 96.dp else 72.dp),
-                text = value,
-                style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
-                fontWeight = if (header) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (header) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -473,23 +454,16 @@ private fun radarPoint(center: Offset, radius: Float, index: Int, count: Int, sc
     )
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScoreBar(
-    centerX: Float,
-    baseY: Float,
-    plotHeight: Float,
-    barWidth: Float,
-    score: Double,
-    color: Color,
-) {
-    val barHeight = plotHeight * (score / 100.0).coerceIn(0.0, 1.2).toFloat()
-    drawRect(
-        color = color,
-        topLeft = Offset(centerX - barWidth / 2f, baseY - barHeight),
-        size = Size(barWidth, barHeight),
-    )
+private fun Double?.formatScore(): String = this?.let { "%.2f".format(it) } ?: "--"
+
+private fun subjectPercentLabel(rank: Int?, count: Int?): String {
+    if (rank == null || count == null || count <= 0) return "無百分位"
+    val percent = ((rank.toDouble() / count) * 100.0).toInt().coerceIn(1, 100)
+    return "前 $percent%"
 }
 
-private fun Double?.formatScore(): String = this?.let { "%.2f".format(it) } ?: "--"
+private fun formatRank(rank: Int?, count: Int?): String =
+    if (rank != null && count != null && count > 0) "$rank/$count" else "--"
 
 private fun distributionColor(label: String): Color = when (label) {
     "90-100", "80-89" -> Color(0xFF10B981)
@@ -499,24 +473,12 @@ private fun distributionColor(label: String): Color = when (label) {
     else -> Color(0xFFEF4444)
 }
 
-private fun overviewChartSummary(analysis: GradeAnalysis): String {
-    val strengths = analysis.strengths.take(2).joinToString("、") { shortenSubjectName(it.subjectName) }
-    val weaknesses = analysis.weaknesses.take(2).joinToString("、") { shortenSubjectName(it.subjectName) }
-    return when {
-        strengths.isNotBlank() && weaknesses.isNotBlank() -> "$strengths 高於平均；$weaknesses 需要留意。"
-        strengths.isNotBlank() -> "$strengths 高於班平均，是本次主要優勢。"
-        weaknesses.isNotBlank() -> "$weaknesses 低於班平均，建議優先檢視。"
-        else -> "各科與班平均差距接近，整體表現均衡。"
-    }
-}
-
-private fun barChartSummary(analysis: GradeAnalysis): String {
-    val strongest = analysis.strengths.firstOrNull()
-    val weakest = analysis.weaknesses.firstOrNull()
-    return when {
-        strongest != null && weakest != null -> "與班平均相比，${shortenSubjectName(strongest.subjectName)} 優勢較明顯，${shortenSubjectName(weakest.subjectName)} 差距最大。"
-        strongest != null -> "${shortenSubjectName(strongest.subjectName)} 與班平均差距最有利。"
-        weakest != null -> "${shortenSubjectName(weakest.subjectName)} 與班平均差距較不利。"
-        else -> "各科分數與班平均落差不大。"
-    }
+private fun chartSubjectLabel(subjectName: String, maxChars: Int = 5): String {
+    val cleaned = shortenSubjectName(subjectName)
+        .replace("普通型", "")
+        .replace("進階", "")
+        .replace("（", "(")
+        .substringBefore("(")
+        .trim()
+    return if (cleaned.length <= maxChars) cleaned else cleaned.take(maxChars)
 }

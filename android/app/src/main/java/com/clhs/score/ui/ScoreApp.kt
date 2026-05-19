@@ -5,8 +5,14 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
+
+private const val GradesRoute = "grades"
+private const val ScoreSimulatorRoute = "score-simulator"
 
 @Composable
 fun ScoreApp(
@@ -39,15 +45,28 @@ fun ScoreApp(
     }
 
     if (gradesState.isLoggedIn) {
-        GradesScreen(
-            state = gradesState,
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-            onSelectYear = onSelectYear,
-            onSelectExam = onSelectExam,
-            onReload = onReload,
-            onLogout = onLogout,
-            onToggleSubject = onToggleSubject,
-        )
+        val navController = rememberNavController()
+        NavHost(navController = navController, startDestination = GradesRoute) {
+            composable(GradesRoute) {
+                GradesScreen(
+                    state = gradesState,
+                    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                    onSelectYear = onSelectYear,
+                    onSelectExam = onSelectExam,
+                    onReload = onReload,
+                    onLogout = onLogout,
+                    onToggleSubject = onToggleSubject,
+                    onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
+                )
+            }
+            composable(ScoreSimulatorRoute) {
+                ScoreSimulatorScreen(
+                    state = gradesState,
+                    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
     } else {
         LoginScreen(
             state = loginState,

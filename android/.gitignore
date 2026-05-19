@@ -7,6 +7,7 @@ build/
 local.properties
 
 # Android generated artifacts
+app/release/
 *.apk
 *.ap_
 *.aab
