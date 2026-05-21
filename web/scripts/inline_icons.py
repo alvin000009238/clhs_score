@@ -1,7 +1,8 @@
 import re
 import urllib.request
+from pathlib import Path
 
-HTML_PATH = 'public/index.html'
+HTML_PATH = Path(__file__).resolve().parents[1] / 'public' / 'index.html'
 
 def get_svg(icon_name):
     # Try different sources or a known fallback if it changes. The MD icons github is very stable.

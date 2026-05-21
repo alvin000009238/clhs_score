@@ -9,7 +9,7 @@
 
 本專案實作了自動化的成績查詢流程，全程透過原生的 HTTP 請求（使用 Python `requests` 模組）與學校系統的 API 介接，免去開啟實際瀏覽器的負擔。由於摒棄了複雜的網站前端渲染，它能提供非常快速且輕量化的連線體驗，並支援取得成績後建立分享連結的功能。
 
-本 repo 也包含 Android 原生版 App，位於 [`android/`](android/)。Android 版使用 Kotlin、Jetpack Compose、Material 3 與 OkHttp，手機端直接連線學校系統，不依賴 Flask server。詳細建置、測試與安裝方式請見 [`android/README.md`](android/README.md)。
+Web 端位於 [`web/`](web/)，包含 Flask 後端、Vite 前端、靜態資源、web 測試與 Dockerfile。本 repo 也包含 Android 原生版 App，位於 [`android/`](android/)。Android 版使用 Kotlin、Jetpack Compose、Material 3 與 OkHttp，手機端直接連線學校系統，不依賴 Flask server。詳細建置、測試與安裝方式請見 [`android/README.md`](android/README.md)。
 
 ## Table of Contents
 
@@ -71,7 +71,7 @@ source venv/bin/activate
 
 ```bash
 # 安裝所有相依套件
-pip install -r requirements.txt
+pip install -r web/requirements.txt
 ```
 
 ## Usage
@@ -81,6 +81,7 @@ pip install -r requirements.txt
 啟動 Flask 開發伺服器：
 
 ```bash
+cd web
 python server.py
 ```
 

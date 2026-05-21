@@ -28,9 +28,10 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: web/requirements.txt
 
       - name: Syntax Check & Smoke Test
+        working-directory: web
         env:
           APP_ENV: testing
         run: |
@@ -70,7 +71,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./web
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

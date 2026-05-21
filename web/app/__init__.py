@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import redis
 import tempfile
 import uuid
@@ -12,7 +13,11 @@ from app.extensions import configure_logger, cors
 from app.routes import auth_bp, grades_bp, share_bp, system_bp
 from fetcher import GradeFetcher
 
-load_dotenv()
+WEB_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = WEB_ROOT.parent
+
+load_dotenv(WEB_ROOT / '.env')
+load_dotenv(REPO_ROOT / '.env', override=False)
 
 SECRETS_DIR = '/run/secrets'
 

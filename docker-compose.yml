@@ -1,6 +1,8 @@
 services:
   app:
-    build: .
+    build:
+      context: ./web
+      dockerfile: Dockerfile
     image: ghcr.io/${GHCR_IMAGE:-alvin000009238/clhs_score}:latest
     env_file:
       - .env
