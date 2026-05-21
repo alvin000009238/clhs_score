@@ -1,18 +1,46 @@
 package com.clhs.score.data
 
-class GradeRepository(
+interface GradeRepository {
+    fun restoreSession(): AuthenticatedSession?
+
+    suspend fun refreshCaptcha(): CaptchaChallenge
+
+    suspend fun login(
+        username: String,
+        password: String,
+        captchaCode: String,
+        challenge: CaptchaChallenge,
+    ): AuthenticatedSession
+
+    suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption>
+
+    suspend fun fetchGrades(
+        session: AuthenticatedSession,
+        yearValue: String,
+        examValue: String,
+    ): GradeReport
+
+    fun logout()
+
+    suspend fun loginWithCookies(
+        studentNo: String,
+        cookies: Map<String, String>,
+    ): AuthenticatedSession
+}
+
+class SchoolGradeRepository(
     private val client: SchoolGradeClient,
     private val sessionStore: SessionStore,
-) {
-    fun restoreSession(): AuthenticatedSession? {
+) : GradeRepository {
+    override fun restoreSession(): AuthenticatedSession? {
         val session = sessionStore.loadSession() ?: return null
         client.restoreSession(session)
         return session
     }
 
-    suspend fun refreshCaptcha(): CaptchaChallenge = client.prepareLoginCaptcha()
+    override suspend fun refreshCaptcha(): CaptchaChallenge = client.prepareLoginCaptcha()
 
-    suspend fun login(
+    override suspend fun login(
         username: String,
         password: String,
         captchaCode: String,
@@ -23,21 +51,21 @@ class GradeRepository(
         return session
     }
 
-    suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption> =
+    override suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption> =
         client.loadStructure(session)
 
-    suspend fun fetchGrades(
+    override suspend fun fetchGrades(
         session: AuthenticatedSession,
         yearValue: String,
         examValue: String,
     ): GradeReport = client.fetchGrades(session, yearValue, examValue)
 
-    fun logout() {
+    override fun logout() {
         sessionStore.clear()
         client.clearSession()
     }
 
-    suspend fun loginWithCookies(
+    override suspend fun loginWithCookies(
         studentNo: String,
         cookies: Map<String, String>,
     ): AuthenticatedSession {

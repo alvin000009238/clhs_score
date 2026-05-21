@@ -13,6 +13,7 @@ import com.clhs.score.data.GradeTrend
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.SchoolException
 import com.clhs.score.data.SchoolGradeClient
+import com.clhs.score.data.SchoolGradeRepository
 import com.clhs.score.data.ScoreInsightProvider
 import com.clhs.score.data.ScoreInsightSet
 import com.clhs.score.data.SessionStore
@@ -466,12 +467,16 @@ class ScoreViewModel(
     }
 
     companion object {
-        fun factory(context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(context: Context, useFakeData: Boolean = false): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val cookieJar = com.clhs.score.data.SchoolCookieJar()
-                val client = SchoolGradeClient(cookieJar = cookieJar)
-                val repository = GradeRepository(client, SessionStore(context))
+                val repository = if (useFakeData) {
+                    com.clhs.score.data.FakeGradeRepository()
+                } else {
+                    val cookieJar = com.clhs.score.data.SchoolCookieJar()
+                    val client = SchoolGradeClient(cookieJar = cookieJar)
+                    SchoolGradeRepository(client, SessionStore(context))
+                }
                 return ScoreViewModel(repository) as T
             }
         }

@@ -70,14 +70,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { once: true });
     }
 
-    // ── Lazy init: 教學引導（idle 時才載入，不阻塞首屏） ──
-    const initOnboarding = async () => {
-        const { setupOnboardingBootstrap } = await import('./onboarding-bootstrap.js');
-        setupOnboardingBootstrap();
-    };
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(initOnboarding, { timeout: 3000 });
-    } else {
-        setTimeout(initOnboarding, 1500);
-    }
 });

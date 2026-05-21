@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -30,7 +31,6 @@ import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
-import com.clhs.score.viewmodel.LoginUiState
 import kotlinx.serialization.json.JsonObject
 import org.junit.Rule
 import org.junit.Test
@@ -40,28 +40,19 @@ class ScoreUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun loginScreenShowsRequiredFields() {
+    fun introScreenExposesLoginEntryPoint() {
+        var clicked = false
         composeRule.setContent {
             ScoreTheme {
-                LoginScreen(
-                    state = LoginUiState(errorMessage = "驗證失敗，請重新輸入"),
-                    snackbarHost = {},
-                    onUsernameChange = {},
-                    onPasswordChange = {},
-                    onCaptchaChange = {},
-                    onRefreshCaptcha = {},
-                    onLogin = {},
-                )
+                IntroScreen(onLoginClick = { clicked = true })
             }
         }
 
-        composeRule.onNodeWithText("帳號").assertIsDisplayed()
-        composeRule.onNodeWithText("密碼").assertIsDisplayed()
-        composeRule.onNodeWithText("驗證碼").assertIsDisplayed()
-        composeRule.onNodeWithText("驗證碼圖片").assertIsDisplayed()
-        composeRule.onNodeWithText("刷新").assertIsDisplayed()
-        composeRule.onNodeWithText("登入").assertIsDisplayed()
-        composeRule.onNodeWithText("驗證失敗，請重新輸入").assertIsDisplayed()
+        composeRule.onNodeWithText("成績", substring = true).assertIsDisplayed()
+        composeRule.onNode(hasClickAction()).performClick()
+        composeRule.runOnIdle {
+            assert(clicked)
+        }
     }
 
     @Test

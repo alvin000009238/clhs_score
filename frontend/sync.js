@@ -5,9 +5,7 @@
 import { requestTurnstileVerification } from './turnstile.js';
 import { validateGradesData, storeGradesData } from './storage.js';
 import { initDashboard } from './dashboard.js';
-import { getDemoCredentials, getDemoResultData, getDemoStructure, isDemoModeEnabled } from './demo-mode.js';
 import { updateActiveShare } from './share.js';
-import { emitOnboardingEvent, ONBOARDING_EVENTS } from './onboarding-events.js';
 import { showConfirm, showAlert } from './dialog.js';
 
 export function setupSyncFeature() {
@@ -24,7 +22,6 @@ export function setupSyncFeature() {
     const confirmLogin = document.getElementById('confirmLogin');
     const usernameInput = document.getElementById('usernameInput');
     const passwordInput = document.getElementById('passwordInput');
-    const demoFillLoginBtn = document.getElementById('demoFillLoginBtn');
     const loginStatus = document.getElementById('loginStatus');
     const captchaInput = document.getElementById('captchaInput');
     const schoolCaptchaImage = document.getElementById('schoolCaptchaImage');
@@ -53,14 +50,6 @@ export function setupSyncFeature() {
     const showStatus = (el, msg, type = 'normal') => {
         el.textContent = msg;
         el.className = `status-msg ${type}`;
-    };
-
-    const fillDemoCredentials = () => {
-        const credentials = getDemoCredentials();
-        usernameInput.value = credentials.username;
-        passwordInput.value = credentials.password;
-        showStatus(loginStatus, '已填入教學帳密，可直接登入。', 'normal');
-        emitOnboardingEvent(ONBOARDING_EVENTS.DEMO_CREDENTIALS_FILLED);
     };
 
     const loadSchoolCaptcha = async () => {
@@ -107,17 +96,9 @@ export function setupSyncFeature() {
 
     const openLoginModal = () => {
         toggleModal(loginModal, true);
-        if (demoFillLoginBtn) {
-            demoFillLoginBtn.style.display = isDemoModeEnabled() ? 'inline-flex' : 'none';
-        }
-        if (isDemoModeEnabled()) {
-            showStatus(loginStatus, '教學模式已啟用，先點「一鍵填入教學帳密」。', 'normal');
-        } else {
-            captchaInput.value = '';
-            loadSchoolCaptcha();
-        }
+        captchaInput.value = '';
+        loadSchoolCaptcha();
         usernameInput.focus();
-        emitOnboardingEvent(ONBOARDING_EVENTS.LOGIN_MODAL_OPEN);
     };
 
     const populateExamSelect = (year, preferredExam = '') => {
@@ -169,10 +150,6 @@ export function setupSyncFeature() {
 
     // 1. Click Sync Button (Optimistic UI)
     syncBtn.addEventListener('click', async () => {
-        if (isDemoModeEnabled()) {
-            openLoginModal();
-            return;
-        }
         openSelectExamModal();
     });
 
@@ -187,24 +164,8 @@ export function setupSyncFeature() {
             return;
         }
 
-        if (!isDemoModeEnabled() && !captchaCode) {
+        if (!captchaCode) {
             showStatus(loginStatus, '請輸入驗證碼', 'error');
-            return;
-        }
-
-        if (isDemoModeEnabled()) {
-            showStatus(loginStatus, '登入中...', 'normal');
-            confirmLogin.disabled = true;
-            setTimeout(() => {
-                showStatus(loginStatus, '教學帳號登入成功', 'success');
-                emitOnboardingEvent(ONBOARDING_EVENTS.LOGIN_SUCCESS);
-                setTimeout(() => {
-                    toggleModal(loginModal, false);
-                    openSelectExamModal();
-                    loginStatus.textContent = '';
-                    confirmLogin.disabled = false;
-                }, 250);
-            }, 350);
             return;
         }
 
@@ -232,7 +193,6 @@ export function setupSyncFeature() {
 
             if (data.success) {
                 showStatus(loginStatus, '登入成功', 'success');
-                emitOnboardingEvent(ONBOARDING_EVENTS.LOGIN_SUCCESS);
                 setTimeout(() => {
                     closeLogin();
                     openSelectExamModal();
@@ -266,10 +226,6 @@ export function setupSyncFeature() {
         confirmLogin.addEventListener('click', handleLogin);
     }
 
-    if (demoFillLoginBtn) {
-        demoFillLoginBtn.addEventListener('click', fillDemoCredentials);
-    }
-
     if (refreshSchoolCaptcha) {
         refreshSchoolCaptcha.addEventListener('click', async () => {
             captchaInput.value = '';
@@ -298,21 +254,6 @@ export function setupSyncFeature() {
         confirmFetch.disabled = true;
         fetchStatus.textContent = '';
         availableStructure = {}; // Reset
-
-        if (isDemoModeEnabled()) {
-            availableStructure = getDemoStructure();
-            yearSelect.innerHTML = '<option value="">請選擇學年度</option>';
-            Object.keys(availableStructure).forEach(year => {
-                const opt = document.createElement('option');
-                opt.value = year;
-                opt.textContent = year;
-                yearSelect.appendChild(opt);
-            });
-            examSelect.innerHTML = '<option value="">請選擇考試</option>';
-            showStatus(fetchStatus, '請先選擇學年度與考試，再按查詢。', 'normal');
-            emitOnboardingEvent(ONBOARDING_EVENTS.SELECT_MODAL_OPEN);
-            return;
-        }
 
         try {
             // Fetch ALL structure at once
@@ -344,7 +285,6 @@ export function setupSyncFeature() {
                 yearSelect.innerHTML = '<option>無資料</option>';
             }
 
-            emitOnboardingEvent(ONBOARDING_EVENTS.SELECT_MODAL_OPEN);
         } catch (error) {
             yearSelect.innerHTML = '<option>連線錯誤</option>';
         }
@@ -371,25 +311,6 @@ export function setupSyncFeature() {
         showStatus(fetchStatus, '正在載入成績，請稍候...', 'normal');
         confirmFetch.disabled = true;
 
-        if (isDemoModeEnabled()) {
-            try {
-                const demoData = getDemoResultData();
-                validateGradesData(demoData);
-                storeGradesData(demoData);
-                initDashboard(demoData);
-                showStatus(fetchStatus, '教學資料載入完成。', 'success');
-                setTimeout(() => {
-                    toggleModal(selectExamModal, false);
-                    emitOnboardingEvent(ONBOARDING_EVENTS.FETCH_SUCCESS);
-                    confirmFetch.disabled = false;
-                }, 700);
-            } catch (error) {
-                showStatus(fetchStatus, '教學資料載入失敗: ' + error.message, 'error');
-                confirmFetch.disabled = false;
-            }
-            return;
-        }
-
         try {
             const yearData = availableStructure[year];
             const res = await fetch(`${API_BASE}/fetch`, {
@@ -415,7 +336,6 @@ export function setupSyncFeature() {
 
                 setTimeout(() => {
                     toggleModal(selectExamModal, false);
-                    emitOnboardingEvent(ONBOARDING_EVENTS.FETCH_SUCCESS);
                 }, 1000);
             } else {
                 showStatus(fetchStatus, data.error || '載入失敗', 'error');
