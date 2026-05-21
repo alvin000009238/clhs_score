@@ -23,7 +23,9 @@ import com.clhs.score.data.ExamSummary
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeStandard
 import com.clhs.score.data.LocalScoreInsightProvider
+import com.clhs.score.data.MockGradeSystem
 import com.clhs.score.data.StudentInfo
+import com.clhs.score.data.StudentScenario
 import com.clhs.score.data.SubjectScore
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.buildGradeAnalysis
@@ -71,11 +73,11 @@ class ScoreUiTest {
         composeRule.onNodeWithContentDescription("進階").assertIsDisplayed()
         composeRule.onAllNodesWithText("全部科目").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表").assertCountEquals(0)
-        composeRule.onNodeWithText("測試學生", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("展示學生", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("加權平均").assertIsDisplayed()
-        composeRule.onNodeWithText("班排 13/37（前 35%）").assertIsDisplayed()
-        composeRule.onNodeWithText("類排 60/219（前 27%）").assertIsDisplayed()
-        composeRule.onNodeWithText("科目數 3 ｜ 最高分 84").assertIsDisplayed()
+        composeRule.onNodeWithText("班排 15/38（前 39%）").assertIsDisplayed()
+        composeRule.onNodeWithText("類排 88/226（前 38%）").assertIsDisplayed()
+        composeRule.onNodeWithText("科目數 7 ｜ 最高分 80").assertIsDisplayed()
         composeRule.onNodeWithText("重點解讀").assertIsDisplayed()
         composeRule.onNodeWithText("最值得補強").assertIsDisplayed()
         composeRule.onNodeWithText("最具優勢").assertIsDisplayed()
@@ -149,7 +151,8 @@ class ScoreUiTest {
         composeRule.setContent {
             ScoreTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    AnalysisSection(report = sampleReport(), analysis = buildGradeAnalysis(sampleReport()))
+                    val report = MockGradeSystem.generateReport()
+                    AnalysisSection(report = report, analysis = buildGradeAnalysis(report))
                 }
             }
         }
@@ -168,18 +171,21 @@ class ScoreUiTest {
         showTrend: Boolean = true,
         trendError: String? = null,
     ) {
-        val report = sampleReport()
+        val report = MockGradeSystem.generateReport(StudentScenario.NORMAL)
         val analysis = buildGradeAnalysis(report)
         val trend = if (showTrend) buildGradeTrend(
             currentExamName = "期末考",
             currentReport = report,
-            previousReports = listOf("期中考" to sampleReport(mathScore = 78.0, englishScore = 80.0, chineseScore = 61.0)),
+            previousReports = listOf("期中考" to MockGradeSystem.generateReport(
+                StudentScenario.NORMAL,
+                customScores = listOf(78.0, 80.0, 61.0, 70.0, 60.0, 60.0, 60.0)
+            )),
         ) else null
         var expanded by remember { mutableStateOf(emptySet<String>()) }
         GradesScreen(
             state = GradesUiState(
                 isLoggedIn = true,
-                studentNo = "310471",
+                studentNo = "110000",
                 structure = listOf(
                     YearTermOption(
                         text = "114學年度 上學期",
@@ -209,46 +215,4 @@ class ScoreUiTest {
             onOpenScoreSimulator = {},
         )
     }
-
-    private fun sampleReport(
-        mathScore: Double = 84.0,
-        englishScore: Double = 82.0,
-        chineseScore: Double = 58.0,
-    ): GradeReport = GradeReport(
-        message = "",
-        studentInfo = StudentInfo(
-            studentNo = "310471",
-            studentName = "測試學生",
-            className = "二年 11 班",
-            seatNo = "20",
-            updatedAt = "",
-            showClassRank = true,
-            showClassRankCount = true,
-            showCategoryRank = true,
-            showCategoryRankCount = true,
-        ),
-        examSummary = ExamSummary(
-            year = 114,
-            termText = "上",
-            examName = "期末考",
-            totalScoreDisplay = "300.00",
-            averageScoreDisplay = "75.00",
-            classRank = 13.0,
-            classCount = 37,
-            categoryRank = 60.0,
-            categoryRankCount = 219,
-            flunkCount = 0,
-        ),
-        subjects = listOf(
-            SubjectScore("國語文", "%.2f".format(chineseScore), chineseScore, "70.00", 70.0, 25, 37, null, null, "114學年度 上學期", false, false, false),
-            SubjectScore("英語文", "%.2f".format(englishScore), englishScore, "76.00", 76.0, 8, 37, null, null, "114學年度 上學期", false, false, false),
-            SubjectScore("數學", "%.2f".format(mathScore), mathScore, "68.00", 68.0, 5, 37, null, null, "114學年度 上學期", false, false, false),
-        ),
-        standards = listOf(
-            GradeStandard("國語文", 88.0, 80.0, 70.0, 60.0, 50.0, 12.0, 2, 6, 12, 10, 5, 2, 1, 1, 1, 0),
-            GradeStandard("英語文", 90.0, 82.0, 70.0, 60.0, 50.0, 13.0, 3, 8, 10, 9, 5, 2, 1, 1, 1, 0),
-            GradeStandard("數學", 85.0, 78.0, 68.0, 58.0, 48.0, 15.0, 1, 5, 11, 12, 6, 2, 1, 1, 1, 0),
-        ),
-        rawResult = JsonObject(emptyMap()),
-    )
 }

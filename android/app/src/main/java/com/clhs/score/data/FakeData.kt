@@ -120,7 +120,7 @@ object MockGradeSystem {
         return GradeReport(
             message = "fake mock data",
             studentInfo = StudentInfo(
-                studentNo = "demo-student",
+                studentNo = "110000",
                 studentName = "展示學生",
                 className = "高二 3 班",
                 seatNo = "18",
