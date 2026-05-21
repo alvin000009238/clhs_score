@@ -5,6 +5,7 @@
 import { requestTurnstileVerification } from './turnstile.js';
 import { getStoredGrades } from './storage.js';
 import { initDashboard } from './dashboard.js';
+import { emitOnboardingEvent, ONBOARDING_EVENTS } from './onboarding-events.js';
 import { showAlert } from './dialog.js';
 
 const ACTIVE_SHARE_ID_KEY = 'activeShareId';
@@ -133,6 +134,7 @@ export function setupShareFeature() {
                     createLinkBtn.style.display = 'none';
                     shareStatus.textContent = '連結建立成功！';
                     shareStatus.className = 'status-msg success';
+                    emitOnboardingEvent(ONBOARDING_EVENTS.SHARE_LINK_CREATED, { link });
                 } else {
                     throw new Error(data.error || '建立失敗');
                 }
@@ -161,6 +163,7 @@ export function setupShareFeature() {
     shareBtn.addEventListener('click', () => {
         shareModal.classList.add('active');
         setupModalContent();
+        emitOnboardingEvent(ONBOARDING_EVENTS.SHARE_MODAL_OPEN);
     });
 
     // Close Modal
