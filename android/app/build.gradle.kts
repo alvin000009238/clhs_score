@@ -10,6 +10,9 @@ val releaseKeystore = providers.environmentVariable("ANDROID_RELEASE_KEYSTORE")
 val releaseKeystorePassword = providers.environmentVariable("ANDROID_RELEASE_KEYSTORE_PASSWORD")
 val releaseKeyAlias = providers.environmentVariable("ANDROID_RELEASE_KEY_ALIAS")
 val releaseKeyPassword = providers.environmentVariable("ANDROID_RELEASE_KEY_PASSWORD")
+val useFakeData = providers.gradleProperty("useFakeData")
+    .map { it.toBoolean() }
+    .orElse(false)
 val hasReleaseSigning = listOf(
     releaseKeystore,
     releaseKeystorePassword,
@@ -38,10 +41,12 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "USE_FAKE_DATA", useFakeData.get().toString())
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

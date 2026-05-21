@@ -17,7 +17,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ScoreTheme {
-                val viewModel: ScoreViewModel = viewModel(factory = ScoreViewModel.factory(applicationContext))
+                val viewModel: ScoreViewModel = viewModel(
+                    factory = ScoreViewModel.factory(
+                        context = applicationContext,
+                        useFakeData = BuildConfig.USE_FAKE_DATA,
+                    ),
+                )
                 val loginState by viewModel.loginState.collectAsState()
                 val gradesState by viewModel.gradesState.collectAsState()
                 ScoreApp(

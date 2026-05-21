@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -42,7 +41,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -60,10 +58,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.clhs.score.data.ExamSummary
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeTrend
-import com.clhs.score.data.ExamSummary
 import com.clhs.score.data.ScoreInsightSet
 import com.clhs.score.data.StudentInfo
 import com.clhs.score.data.SubjectAnalysis
