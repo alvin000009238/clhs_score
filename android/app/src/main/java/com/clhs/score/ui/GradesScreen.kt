@@ -18,7 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
@@ -92,7 +92,7 @@ fun GradesScreen(
     onSelectYear: (String) -> Unit,
     onSelectExam: (String) -> Unit,
     onReload: () -> Unit,
-    onLogout: () -> Unit,
+    onOpenSettings: () -> Unit,
     onToggleSubject: (String) -> Unit,
     onOpenScoreSimulator: () -> Unit,
 ) {
@@ -139,11 +139,11 @@ fun GradesScreen(
                                     }
                                 )
                             }
-                            IconButton(onClick = onLogout) {
+                            IconButton(onClick = onOpenSettings) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                                    contentDescription = "登出",
-                                    tint = MaterialTheme.colorScheme.error
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = "設定",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         },

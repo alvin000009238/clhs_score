@@ -51,8 +51,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-private val MyScoreColor = Color(0xFF6750A4)
-private val AvgScoreColor = Color(0xFF8B8494)
 
 @Composable
 fun ChartsTab(report: GradeReport) {
@@ -115,8 +113,8 @@ private fun Legend() {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LegendItem(color = MyScoreColor, label = "我的成績")
-        LegendItem(color = AvgScoreColor, label = "班級平均")
+        LegendItem(color = MaterialTheme.colorScheme.primary, label = "我的成績")
+        LegendItem(color = MaterialTheme.colorScheme.outline, label = "班級平均")
     }
 }
 
@@ -141,6 +139,9 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
     }
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)
+    val myScoreColor = MaterialTheme.colorScheme.primary
+    val avgScoreColor = MaterialTheme.colorScheme.outline
+    val dotInnerColor = MaterialTheme.colorScheme.surface
     val labels = remember(subjects) { subjects.map { chartSubjectLabel(it.subjectName) } }
 
     Canvas(
@@ -174,16 +175,16 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
         }
 
         val avgPath = radarPath(center, radius, count) { index -> (subjects[index].classAverageValue / 100.0).toFloat() }
-        drawPath(avgPath, AvgScoreColor.copy(alpha = 0.08f))
-        drawPath(avgPath, AvgScoreColor.copy(alpha = 0.60f), style = Stroke(width = 1.5.dp.toPx()))
+        drawPath(avgPath, avgScoreColor.copy(alpha = 0.08f))
+        drawPath(avgPath, avgScoreColor.copy(alpha = 0.60f), style = Stroke(width = 1.5.dp.toPx()))
 
         val myPath = radarPath(center, radius, count) { index -> (subjects[index].scoreValue / 100.0).toFloat() }
-        drawPath(myPath, MyScoreColor.copy(alpha = 0.28f))
-        drawPath(myPath, MyScoreColor, style = Stroke(width = 3.5.dp.toPx()))
+        drawPath(myPath, myScoreColor.copy(alpha = 0.28f))
+        drawPath(myPath, myScoreColor, style = Stroke(width = 3.5.dp.toPx()))
         subjects.forEachIndexed { index, subject ->
             val point = radarPoint(center, radius, index, count, (subject.scoreValue / 100.0).toFloat())
-            drawCircle(MyScoreColor, radius = 4.dp.toPx(), center = point)
-            drawCircle(Color.White, radius = 2.dp.toPx(), center = point)
+            drawCircle(myScoreColor, radius = 4.dp.toPx(), center = point)
+            drawCircle(dotInnerColor, radius = 2.dp.toPx(), center = point)
         }
     }
 }
@@ -232,8 +233,8 @@ private fun HorizontalSubjectBar(subject: SubjectScore, focused: Boolean) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        ScoreBarLine(label = "我", score = subject.scoreValue, color = MyScoreColor, trackAlpha = 0.18f)
-        ScoreBarLine(label = "均", score = subject.classAverageValue, color = AvgScoreColor, trackAlpha = 0.10f)
+        ScoreBarLine(label = "我", score = subject.scoreValue, color = MaterialTheme.colorScheme.primary, trackAlpha = 0.18f)
+        ScoreBarLine(label = "均", score = subject.classAverageValue, color = MaterialTheme.colorScheme.outline, trackAlpha = 0.10f)
     }
 }
 
@@ -384,7 +385,7 @@ private fun DistributionCard(analysis: SubjectAnalysis, standard: GradeStandard)
                     modifier = Modifier
                         .weight(1f)
                         .height(18.dp)
-                        .background(Color(0xFFE2E8F0), RoundedCornerShape(6.dp)),
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
                 ) {
                     Box(
                         modifier = Modifier
@@ -397,7 +398,7 @@ private fun DistributionCard(analysis: SubjectAnalysis, standard: GradeStandard)
                             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp),
                             text = "我",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF0F172A),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                         )
                     }

@@ -17,9 +17,11 @@ import com.clhs.score.data.StudentScenario
 import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
+import com.clhs.score.data.AppSettings
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
+import com.clhs.score.viewmodel.SettingsUiState
 
 class ScenarioProvider : PreviewParameterProvider<StudentScenario> {
     override val values = sequenceOf(
@@ -39,6 +41,8 @@ private fun ScoreAppFakePreview(
         ScoreApp(
             loginState = LoginUiState(),
             gradesState = fakeGradesState(scenario = scenario),
+            settings = AppSettings(),
+            settingsUiState = SettingsUiState(),
             onWebViewLoginSuccess = { _, _ -> },
             onSelectYear = {},
             onSelectExam = {},
@@ -47,6 +51,13 @@ private fun ScoreAppFakePreview(
             onToggleSubject = {},
             onDismissLoginError = {},
             onDismissGradesError = {},
+            onSetThemeMode = {},
+            onSetDynamicColor = {},
+            onSetAmoledBlack = {},
+            onCheckUpdate = {},
+            onDismissUpdateResult = {},
+            onVersionTap = {},
+            onDismissDeveloperToast = {},
         )
     }
 }
@@ -69,7 +80,7 @@ private fun GradesScreenFakePreview(
             onSelectYear = {},
             onSelectExam = {},
             onReload = {},
-            onLogout = {},
+            onOpenSettings = {},
             onToggleSubject = {},
             onOpenScoreSimulator = {},
         )

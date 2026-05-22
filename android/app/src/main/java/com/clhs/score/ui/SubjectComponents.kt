@@ -232,12 +232,12 @@ internal fun DistributionBar(score: Double, standard: GradeStandard) {
                         Text(
                             modifier = Modifier
                                 .background(
-                                    color = Color(0xFFF8FAFC),
+                                    color = MaterialTheme.colorScheme.surface,
                                     shape = RoundedCornerShape(999.dp)
                                 )
                                 .border(
                                     width = 1.dp,
-                                    color = Color(0xFFCBD5E1),
+                                    color = MaterialTheme.colorScheme.outlineVariant,
                                     shape = RoundedCornerShape(999.dp)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -246,7 +246,7 @@ internal fun DistributionBar(score: Double, standard: GradeStandard) {
                                 fontWeight = FontWeight.SemiBold,
                                 letterSpacing = 0.2.sp
                             ),
-                            color = Color(0xFF334155)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -269,7 +269,7 @@ private fun DistributionRow(item: com.clhs.score.data.ScoreDistribution, total: 
             modifier = Modifier.width(58.dp),
             text = item.label,
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF3F3A46),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(
             modifier = Modifier
@@ -290,7 +290,7 @@ private fun DistributionRow(item: com.clhs.score.data.ScoreDistribution, total: 
                     .padding(end = 10.dp),
                 text = "${"%.0f".format(percent)}%",
                 style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                color = Color(0xFF3F3A46),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -298,7 +298,7 @@ private fun DistributionRow(item: com.clhs.score.data.ScoreDistribution, total: 
             modifier = Modifier.width(48.dp),
             text = "${item.count}人",
             style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-            color = Color(0xFF3F3A46),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (item.isMine) FontWeight.SemiBold else FontWeight.Medium,
         )
     }

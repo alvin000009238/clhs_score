@@ -207,7 +207,7 @@ class ScoreUiTest {
             onSelectYear = {},
             onSelectExam = {},
             onReload = {},
-            onLogout = {},
+            onOpenSettings = {},
             onToggleSubject = { subjectName ->
                 val key = cleanSubjectName(subjectName)
                 expanded = if (key in expanded) expanded - key else expanded + key

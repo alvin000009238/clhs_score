@@ -17,16 +17,22 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.clhs.score.data.AppSettings
+import com.clhs.score.data.ThemeMode
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
+import com.clhs.score.viewmodel.SettingsUiState
 
 private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
+private const val SettingsRoute = "settings"
 
 @Composable
 fun ScoreApp(
     loginState: LoginUiState,
     gradesState: GradesUiState,
+    settings: AppSettings,
+    settingsUiState: SettingsUiState,
     onWebViewLoginSuccess: (studentNo: String, cookieString: String) -> Unit,
     onSelectYear: (String) -> Unit,
     onSelectExam: (String) -> Unit,
@@ -35,6 +41,13 @@ fun ScoreApp(
     onToggleSubject: (String) -> Unit,
     onDismissLoginError: () -> Unit,
     onDismissGradesError: () -> Unit,
+    onSetThemeMode: (ThemeMode) -> Unit,
+    onSetDynamicColor: (Boolean) -> Unit,
+    onSetAmoledBlack: (Boolean) -> Unit,
+    onCheckUpdate: () -> Unit,
+    onDismissUpdateResult: () -> Unit,
+    onVersionTap: () -> Unit,
+    onDismissDeveloperToast: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showWebView by remember { mutableStateOf(false) }
@@ -70,9 +83,9 @@ fun ScoreApp(
                         onSelectYear = onSelectYear,
                         onSelectExam = onSelectExam,
                         onReload = onReload,
-                        onLogout = onLogout,
                         onToggleSubject = onToggleSubject,
                         onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
+                        onOpenSettings = { navController.navigate(SettingsRoute) },
                     )
                 }
                 composable(ScoreSimulatorRoute) {
@@ -80,6 +93,21 @@ fun ScoreApp(
                         state = gradesState,
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                         onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(SettingsRoute) {
+                    SettingsScreen(
+                        settings = settings,
+                        uiState = settingsUiState,
+                        onBack = { navController.popBackStack() },
+                        onSetThemeMode = onSetThemeMode,
+                        onSetDynamicColor = onSetDynamicColor,
+                        onSetAmoledBlack = onSetAmoledBlack,
+                        onCheckUpdate = onCheckUpdate,
+                        onDismissUpdateResult = onDismissUpdateResult,
+                        onVersionTap = onVersionTap,
+                        onDismissDeveloperToast = onDismissDeveloperToast,
+                        onLogout = onLogout,
                     )
                 }
             }
