@@ -272,8 +272,8 @@ class GradeAnalysisTest {
             currentReport = current,
             historyReports = history,
             adjustedScores = mapOf(
-                "國語文" to 68.0,
-                "英語文" to 82.0,
+                "國文" to 68.0,
+                "英文" to 82.0,
                 "數學" to 84.0,
             ),
         )
@@ -295,7 +295,7 @@ class GradeAnalysisTest {
         val simulation = simulateScores(
             currentReport = current,
             historyReports = history,
-            adjustedScores = mapOf("國語文" to 68.0),
+            adjustedScores = mapOf("國文" to 68.0),
         )
 
         assertNull(simulation.estimatedClassRank)
@@ -314,8 +314,8 @@ class GradeAnalysisTest {
             currentReport = current,
             historyReports = history,
             adjustedScores = mapOf(
-                "國語文" to 100.0,
-                "英語文" to 100.0,
+                "國文" to 100.0,
+                "英文" to 100.0,
                 "數學" to 100.0,
             ),
         )
@@ -336,8 +336,8 @@ class GradeAnalysisTest {
             currentReport = current,
             historyReports = history,
             adjustedScores = mapOf(
-                "國語文" to 68.0,
-                "英語文" to 82.0,
+                "國文" to 68.0,
+                "英文" to 82.0,
                 "數學" to 84.0,
             ),
         )
@@ -358,7 +358,7 @@ class GradeAnalysisTest {
         val simulation = simulateScores(
             currentReport = current,
             historyReports = history,
-            adjustedScores = mapOf("國語文" to 68.0),
+            adjustedScores = mapOf("國文" to 68.0),
         )
 
         assertTrue(simulation.projectedAverage > simulation.adjustedAverage)
