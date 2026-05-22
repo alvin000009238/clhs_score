@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.clhs.score.data.GradeStandard
 import com.clhs.score.data.SubjectAnalysis
-import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.deltaText
 import com.clhs.score.data.scoreDistributions
 import com.clhs.score.data.shortenSubjectName

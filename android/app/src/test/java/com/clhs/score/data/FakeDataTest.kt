@@ -18,17 +18,11 @@ class FakeDataTest {
             currentReport = report,
             previousReports = FakeData.trendReports(),
         )
-        val simulation = simulateScores(
-            currentReport = report,
-            historyReports = FakeData.simulatorHistoryReports(),
-            adjustedScores = emptyMap(),
-        )
 
         assertEquals(7, report.subjects.size)
         assertNotNull(report.examSummary?.classRank)
         assertFalse(analysis.subjects.isEmpty())
         assertTrue(trend.points.size >= 4)
-        assertEquals(report.weightedAverage(), simulation.adjustedAverage, 0.001)
     }
 
     @Test

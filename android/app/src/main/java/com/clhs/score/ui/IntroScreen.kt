@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -60,12 +58,7 @@ fun IntroScreen(
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            Icon(
-                imageVector = Icons.Filled.Person,
-                contentDescription = null,
-                modifier = Modifier.size(100.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            OutlinedRoundedSymbol(icon = "person", size = 100.dp, tint = MaterialTheme.colorScheme.primary)
             
             Spacer(modifier = Modifier.height(32.dp))
             

@@ -94,7 +94,7 @@ fun ScoreApp(
                 composable(ScoreSimulatorRoute) {
                     ScoreSimulatorScreen(
                         state = gradesState,
-                        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                        snackbarHostState = snackbarHostState,
                         onBack = { navController.popBackStack() },
                     )
                 }

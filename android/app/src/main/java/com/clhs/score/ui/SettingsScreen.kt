@@ -21,14 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.outlined.BrightnessMedium
-import androidx.compose.material.icons.outlined.ColorLens
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.SystemUpdate
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,7 +29,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,7 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -130,10 +122,7 @@ fun SettingsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                        )
+                        OutlinedRoundedSymbol(icon = "arrow_back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -164,7 +153,7 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             ClickableSettingsItem(
-                icon = Icons.Outlined.SystemUpdate,
+                icon = "system_update",
                 title = "檢查更新",
                 subtitle = if (uiState.isCheckingUpdate) "檢查中…" else "從 GitHub 取得最新版本",
                 onClick = onCheckUpdate,
@@ -179,7 +168,7 @@ fun SettingsScreen(
             )
 
             ClickableSettingsItem(
-                icon = Icons.Filled.Info,
+                icon = "info",
                 title = "版本",
                 subtitle = BuildConfig.VERSION_NAME,
                 onClick = onVersionTap,
@@ -204,7 +193,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     SectionHeader("開發者選項")
                     ClickableSettingsItem(
-                        icon = Icons.Outlined.Science,
+                        icon = "science",
                         title = "開發者選項",
                         subtitle = "演示模式與其他進階設定",
                         onClick = onOpenDeveloperSettings,
@@ -268,11 +257,10 @@ private fun AppearanceCard(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.BrightnessMedium,
-                    contentDescription = null,
+                OutlinedRoundedSymbol(
+                    icon = "brightness_medium",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    size = 22.dp,
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -301,7 +289,7 @@ private fun AppearanceCard(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 SwitchSettingsRow(
-                    icon = Icons.Outlined.ColorLens,
+                    icon = "palette",
                     title = "動態色彩",
                     subtitle = "依照桌布色彩調整",
                     checked = settings.dynamicColor,
@@ -311,7 +299,7 @@ private fun AppearanceCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SwitchSettingsRow(
-                icon = Icons.Outlined.DarkMode,
+                icon = "dark_mode",
                 title = "純黑背景",
                 subtitle = "在深色模式使用純黑背景（AMOLED）",
                 checked = settings.amoledBlack,
@@ -324,7 +312,7 @@ private fun AppearanceCard(
 
 @Composable
 private fun SwitchSettingsRow(
-    icon: ImageVector,
+    icon: String,
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -339,11 +327,10 @@ private fun SwitchSettingsRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
+        OutlinedRoundedSymbol(
+            icon = icon,
             tint = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
-            modifier = Modifier.size(22.dp),
+            size = 22.dp,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -369,7 +356,7 @@ private fun SwitchSettingsRow(
 
 @Composable
 private fun ClickableSettingsItem(
-    icon: ImageVector,
+    icon: String,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -389,11 +376,10 @@ private fun ClickableSettingsItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
+            OutlinedRoundedSymbol(
+                icon = icon,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp),
+                size = 22.dp,
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

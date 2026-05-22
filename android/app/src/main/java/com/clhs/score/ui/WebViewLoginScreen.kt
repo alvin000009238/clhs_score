@@ -25,9 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -96,10 +93,7 @@ fun WebViewLoginScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "返回",
-            )
+            OutlinedRoundedSymbol(icon = "arrow_back")
         }
 
         // Floating Refresh Button
@@ -113,10 +107,7 @@ fun WebViewLoginScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
-            Icon(
-                imageVector = Icons.Filled.Refresh,
-                contentDescription = "重新載入",
-            )
+            OutlinedRoundedSymbol(icon = "refresh")
         }
 
         AnimatedVisibility(

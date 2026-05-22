@@ -17,12 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,7 +25,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,11 +71,11 @@ private val NeutralColor = Color(0xFF64748B)
 
 private enum class GradesDestination(
     val label: String,
-    val icon: ImageVector,
+    val icon: String,
 ) {
-    Overview("總覽", Icons.Filled.Home),
-    Subjects("科目", Icons.AutoMirrored.Filled.List),
-    Advanced("進階", Icons.Filled.Star),
+    Overview("總覽", "home"),
+    Subjects("科目", "newsstand"),
+    Advanced("進階", "antigravity"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,20 +123,18 @@ fun GradesScreen(
                                 enabled = !state.isLoadingStructure && !state.isLoadingGrades,
                                 onClick = onReload,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Refresh,
-                                    contentDescription = "重新整理",
+                                OutlinedRoundedSymbol(
+                                    icon = "refresh",
                                     tint = if (!state.isLoadingStructure && !state.isLoadingGrades) {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
-                                    }
+                                    },
                                 )
                             }
                             IconButton(onClick = onOpenSettings) {
-                                Icon(
-                                    imageVector = Icons.Filled.Settings,
-                                    contentDescription = "設定",
+                                OutlinedRoundedSymbol(
+                                    icon = "settings",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -258,10 +250,11 @@ private fun GradesBottomNavigation(
                 selected = selected,
                 onClick = { onSelect(destination) },
                 icon = {
-                    Icon(
-                        imageVector = destination.icon,
-                        contentDescription = destination.label,
-                    )
+                    if (selected) {
+                        FilledRoundedSymbol(icon = destination.icon)
+                    } else {
+                        OutlinedRoundedSymbol(icon = destination.icon)
+                    }
                 },
                 label = {
                     Text(

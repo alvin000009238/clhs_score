@@ -72,15 +72,7 @@ data class SimulationHistorySource(
     }
 }
 
-data class ScoreSimulationResult(
-    val adjustedAverage: Double,
-    val projectedAverage: Double,
-    val trendDelta: Double,
-    val estimatedClassRank: Int?,
-    val classCount: Int?,
-    val historyCount: Int,
-    val hasRankProjection: Boolean,
-)
+// Deleted ScoreSimulationResult
 
 data class RankProjection(
     val subjectName: String,
@@ -352,45 +344,7 @@ fun buildGradeTrend(
     return GradeTrend(points = previousPoints + currentReport.toTrendPoint(currentExamName))
 }
 
-fun simulateScores(
-    currentReport: GradeReport,
-    historyReports: List<GradeReport>,
-    adjustedScores: Map<String, Double>,
-): ScoreSimulationResult {
-    val adjustedAverage = weightedAverageFor(currentReport.subjects, adjustedScores)
-    val historyPoints = historyReports + currentReport
-    val trendDelta = historyPoints
-        .zipWithNext { previous, next -> next.weightedAverage() - previous.weightedAverage() }
-        .takeIf { it.isNotEmpty() }
-        ?.average()
-        ?: 0.0
-    val projectedAverage = (adjustedAverage + trendDelta).coerceIn(0.0, 100.0)
-    val currentRank = currentReport.examSummary?.classRank?.toInt()
-    val classCount = currentReport.examSummary?.classCount
-    val estimatedRank = if (!hasAdjustedScores(currentReport, adjustedScores)) {
-        currentRank?.let { rank ->
-            if (classCount != null && classCount > 0) rank.coerceIn(1, classCount) else rank
-        }
-    } else if (classCount != null && classCount > 0) {
-        relativeRegressionRank(
-            historyReports = historyReports,
-            currentReport = currentReport,
-            adjustedScores = adjustedScores,
-            classCount = classCount,
-        )
-    } else {
-        null
-    }
-    return ScoreSimulationResult(
-        adjustedAverage = adjustedAverage,
-        projectedAverage = projectedAverage,
-        trendDelta = trendDelta,
-        estimatedClassRank = estimatedRank,
-        classCount = classCount,
-        historyCount = historyReports.size,
-        hasRankProjection = estimatedRank != null,
-    )
-}
+// Deleted simulateScores
 
 fun deltaText(label: String, delta: Double, unit: String = ""): String {
     val direction = when {
@@ -417,73 +371,26 @@ private fun YearTermOption.sortKey(): Pair<Int, Int> {
     return (year.toIntOrNull() ?: 0) to (term.toIntOrNull() ?: 0)
 }
 
-private fun weightedAverageFor(
+fun weightedAverageFor(
     subjects: List<SubjectScore>,
-    adjustedScores: Map<String, Double>,
+    adjustedScores: Map<String, Double> = emptyMap(),
+    includedSubjects: Set<String>? = null,
 ): Double {
-    val totalWeight = subjects.sumOf { subjectWeight(it.subjectName) }
+    val activeSubjects = if (includedSubjects != null) {
+        subjects.filter { cleanSubjectName(it.subjectName) in includedSubjects }
+    } else {
+        subjects
+    }
+    val totalWeight = activeSubjects.sumOf { subjectWeight(it.subjectName) }
     if (totalWeight <= 0) return 0.0
-    val weightedTotal = subjects.sumOf { subject ->
+    val weightedTotal = activeSubjects.sumOf { subject ->
         val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
         score.coerceIn(0.0, 100.0) * subjectWeight(subject.subjectName)
     }
     return weightedTotal / totalWeight
 }
 
-private fun hasAdjustedScores(
-    report: GradeReport,
-    adjustedScores: Map<String, Double>,
-): Boolean = report.subjects.any { subject ->
-    val adjusted = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
-    abs(adjusted - subject.scoreValue) > 0.05
-}
-
-private fun relativeRegressionRank(
-    historyReports: List<GradeReport>,
-    currentReport: GradeReport,
-    adjustedScores: Map<String, Double>,
-    classCount: Int,
-): Int? {
-    val points = historyReports.mapNotNull { report ->
-        val rank = report.examSummary?.classRank ?: return@mapNotNull null
-        val relativeScore = report.examRelativeScore() ?: return@mapNotNull null
-        relativeScore to rank
-    }
-    if (points.size < 3) return null
-    val adjustedRelativeScore = currentReport.examRelativeScore(adjustedScores) ?: return null
-    val relativeMean = points.map { it.first }.average()
-    val rankMean = points.map { it.second }.average()
-    val denominator = points.sumOf { (relativeScore, _) ->
-        val delta = relativeScore - relativeMean
-        delta * delta
-    }
-    if (denominator <= 0.0001) return null
-    val slope = points.sumOf { (relativeScore, rank) ->
-        (relativeScore - relativeMean) * (rank - rankMean)
-    } / denominator
-    val intercept = rankMean - slope * relativeMean
-    return (slope * adjustedRelativeScore + intercept)
-        .roundToInt()
-        .coerceIn(1, classCount)
-}
-
-private fun GradeReport.examRelativeScore(
-    adjustedScores: Map<String, Double> = emptyMap(),
-): Double? {
-    var weightedTotal = 0.0
-    var totalWeight = 0
-    subjects.forEachIndexed { index, subject ->
-        val standard = standardFor(subject, index) ?: return@forEachIndexed
-        val classAverage = subject.classAverageOrNull() ?: return@forEachIndexed
-        val spread = standard.relativeSpread() ?: return@forEachIndexed
-        val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
-        val weight = subjectWeight(subject.subjectName)
-        weightedTotal += ((score.coerceIn(0.0, 100.0) - classAverage) / spread) * weight
-        totalWeight += weight
-    }
-    if (totalWeight <= 0) return null
-    return weightedTotal / totalWeight
-}
+// Deleted regression logic
 
 private fun SubjectScore.classAverageOrNull(): Double? =
     classAverageDisplay.toDoubleOrNull() ?: classAverage

@@ -2,14 +2,13 @@ package com.clhs.score.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.ui.unit.dp
+import com.clhs.score.data.AppSettings
 import com.clhs.score.data.FakeData
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
@@ -17,7 +16,6 @@ import com.clhs.score.data.StudentScenario
 import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
-import com.clhs.score.data.AppSettings
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
@@ -97,7 +95,7 @@ private fun ScoreSimulatorFakePreview(
     ScoreTheme {
         ScoreSimulatorScreen(
             state = fakeGradesState(scenario = scenario),
-            snackbarHost = {},
+            snackbarHostState = androidx.compose.material3.SnackbarHostState(),
             onBack = {},
         )
     }
