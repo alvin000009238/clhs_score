@@ -167,7 +167,10 @@ internal fun ScoreSimulatorScreen(
                 title = { Text("成績模擬器") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        OutlinedRoundedSymbol(icon = "arrow_back")
+                        OutlinedRoundedSymbol(
+                            icon = "arrow_back",
+                            contentDescription = "返回",
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -414,6 +417,7 @@ private fun SimulatorSummaryCard(
                 OutlinedRoundedSymbol(
                     icon = "arrow_forward",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentDescription = null,
                 )
             }
 
@@ -451,11 +455,19 @@ private fun SubjectScoreSlider(
     val hapticFeedback = LocalHapticFeedback.current
     val diff = value - subject.scoreValue
     val isAboveMax = historyMax != null && value > historyMax
+    var lastDispatchedScore by remember(subject.subjectName, value.roundToInt()) {
+        mutableStateOf(value.roundToInt())
+    }
     fun updateScore(score: Double, haptic: Boolean = false) {
+        val roundedScore = score.coerceIn(0.0, 100.0).roundToInt()
+        if (roundedScore == lastDispatchedScore) {
+            return
+        }
         if (haptic) {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         }
-        onValueChange(score.coerceIn(0.0, 100.0))
+        lastDispatchedScore = roundedScore
+        onValueChange(roundedScore.toDouble())
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -472,12 +484,16 @@ private fun SubjectScoreSlider(
             if (showLock) {
                 IconToggleButton(
                     checked = isLocked,
-                    onCheckedChange = onLockedChange,
+                    onCheckedChange = {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLockedChange(it)
+                    },
                     modifier = Modifier.size(32.dp),
                 ) {
                     OutlinedRoundedSymbol(
                         icon = if (isLocked) "lock" else "lock_open",
                         size = 20.dp,
+                        contentDescription = if (isLocked) "解除鎖定" else "鎖定",
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))

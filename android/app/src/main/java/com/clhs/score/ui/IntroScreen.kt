@@ -58,7 +58,12 @@ fun IntroScreen(
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            OutlinedRoundedSymbol(icon = "person", size = 100.dp, tint = MaterialTheme.colorScheme.primary)
+            OutlinedRoundedSymbol(
+                icon = "person",
+                size = 100.dp,
+                tint = MaterialTheme.colorScheme.primary,
+                contentDescription = null,
+            )
             
             Spacer(modifier = Modifier.height(32.dp))
             

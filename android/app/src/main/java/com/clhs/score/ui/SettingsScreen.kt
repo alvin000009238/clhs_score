@@ -122,7 +122,10 @@ fun SettingsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        OutlinedRoundedSymbol(icon = "arrow_back")
+                        OutlinedRoundedSymbol(
+                            icon = "arrow_back",
+                            contentDescription = "返回",
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -261,6 +264,7 @@ private fun AppearanceCard(
                     icon = "brightness_medium",
                     tint = MaterialTheme.colorScheme.primary,
                     size = 22.dp,
+                    contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
@@ -331,6 +335,7 @@ private fun SwitchSettingsRow(
             icon = icon,
             tint = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
             size = 22.dp,
+            contentDescription = null,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -380,6 +385,7 @@ private fun ClickableSettingsItem(
                 icon = icon,
                 tint = MaterialTheme.colorScheme.primary,
                 size = 22.dp,
+                contentDescription = null,
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

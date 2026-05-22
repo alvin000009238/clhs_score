@@ -93,7 +93,10 @@ fun WebViewLoginScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
-            OutlinedRoundedSymbol(icon = "arrow_back")
+            OutlinedRoundedSymbol(
+                icon = "arrow_back",
+                contentDescription = "返回",
+            )
         }
 
         // Floating Refresh Button
@@ -107,7 +110,10 @@ fun WebViewLoginScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
-            OutlinedRoundedSymbol(icon = "refresh")
+            OutlinedRoundedSymbol(
+                icon = "refresh",
+                contentDescription = "重新載入",
+            )
         }
 
         AnimatedVisibility(

@@ -70,7 +70,10 @@ fun DeveloperSettingsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        OutlinedRoundedSymbol(icon = "arrow_back")
+                        OutlinedRoundedSymbol(
+                            icon = "arrow_back",
+                            contentDescription = "返回",
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -98,6 +101,7 @@ fun DeveloperSettingsScreen(
                     icon = "science",
                     tint = MaterialTheme.colorScheme.primary,
                     size = 24.dp,
+                    contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {

@@ -130,12 +130,14 @@ fun GradesScreen(
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
                                     },
+                                    contentDescription = "重新整理",
                                 )
                             }
                             IconButton(onClick = onOpenSettings) {
                                 OutlinedRoundedSymbol(
                                     icon = "settings",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    contentDescription = "設定",
                                 )
                             }
                         },
@@ -251,9 +253,15 @@ private fun GradesBottomNavigation(
                 onClick = { onSelect(destination) },
                 icon = {
                     if (selected) {
-                        FilledRoundedSymbol(icon = destination.icon)
+                        FilledRoundedSymbol(
+                            icon = destination.icon,
+                            contentDescription = destination.label,
+                        )
                     } else {
-                        OutlinedRoundedSymbol(icon = destination.icon)
+                        OutlinedRoundedSymbol(
+                            icon = destination.icon,
+                            contentDescription = destination.label,
+                        )
                     }
                 },
                 label = {
