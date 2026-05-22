@@ -33,10 +33,11 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = appSettings.dynamicColor,
                 amoledBlack = appSettings.amoledBlack,
             ) {
+                val useFakeData = BuildConfig.USE_FAKE_DATA || appSettings.demoMode
                 val viewModel: ScoreViewModel = viewModel(
                     factory = ScoreViewModel.factory(
                         context = applicationContext,
-                        useFakeData = BuildConfig.USE_FAKE_DATA || appSettings.demoMode,
+                        useFakeData = useFakeData,
                     ),
                 )
                 val loginState by viewModel.loginState.collectAsState()

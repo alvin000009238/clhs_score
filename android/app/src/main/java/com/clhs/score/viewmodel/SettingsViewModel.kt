@@ -32,8 +32,8 @@ class SettingsViewModel(
     private val updateChecker: UpdateChecker,
 ) : ViewModel() {
 
-    val settings: StateFlow<AppSettings> = repository.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+    private val _settings = MutableStateFlow(AppSettings())
+    val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -43,8 +43,12 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            repository.settings.first()
-            _isReady.value = true
+            repository.settings.collect { newSettings ->
+                _settings.value = newSettings
+                if (!_isReady.value) {
+                    _isReady.value = true
+                }
+            }
         }
     }
 

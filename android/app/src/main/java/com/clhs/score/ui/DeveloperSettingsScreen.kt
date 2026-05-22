@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.clhs.score.data.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,9 +45,10 @@ fun DeveloperSettingsScreen(
 ) {
     if (showRestartDialog) {
         AlertDialog(
-            onDismissRequest = onDismissRestartDialog,
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             title = { Text("需要重新啟動") },
-            text = { Text("套用演示模式需要重新啟動應用程式。請手動關閉並重新開啟 App。") },
+            text = { Text("套用演示模式需要重新啟動應用程式。") },
             confirmButton = {
                 val context = androidx.compose.ui.platform.LocalContext.current
                 TextButton(onClick = {
