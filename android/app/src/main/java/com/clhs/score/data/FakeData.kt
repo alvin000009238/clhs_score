@@ -263,12 +263,13 @@ class FakeGradeRepository : GradeRepository {
         challenge: CaptchaChallenge,
     ): AuthenticatedSession = FakeData.session.also { activeSession = it }
 
-    override suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption> = FakeData.structure
+    override suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean): List<YearTermOption> = FakeData.structure
 
     override suspend fun fetchGrades(
         session: AuthenticatedSession,
         yearValue: String,
         examValue: String,
+        forceRefresh: Boolean,
     ): GradeReport = FakeData.reportFor(yearValue, examValue)
 
     override fun logout() {

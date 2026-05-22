@@ -1,7 +1,9 @@
 package com.clhs.score.data
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
+@Serializable
 data class CaptchaChallenge(
     val loginToken: String,
     val shCaptchaGenCode: String,
@@ -32,23 +34,27 @@ data class CaptchaChallenge(
     }
 }
 
+@Serializable
 data class AuthenticatedSession(
     val studentNo: String,
     val apiToken: String,
     val cookies: Map<String, String>,
 )
 
+@Serializable
 data class YearTermOption(
     val text: String,
     val value: String,
     val exams: List<ExamOption> = emptyList(),
 )
 
+@Serializable
 data class ExamOption(
     val text: String,
     val value: String,
 )
 
+@Serializable
 data class GradeReport(
     val message: String,
     val studentInfo: StudentInfo,
@@ -58,6 +64,7 @@ data class GradeReport(
     val rawResult: JsonObject,
 )
 
+@Serializable
 data class StudentInfo(
     val studentNo: String,
     val studentName: String,
@@ -70,6 +77,7 @@ data class StudentInfo(
     val showCategoryRankCount: Boolean,
 )
 
+@Serializable
 data class ExamSummary(
     val year: Int?,
     val termText: String,
@@ -83,6 +91,7 @@ data class ExamSummary(
     val flunkCount: Int?,
 )
 
+@Serializable
 data class SubjectScore(
     val subjectName: String,
     val scoreDisplay: String,
@@ -108,6 +117,7 @@ data class SubjectScore(
         get() = scoreValue - classAverageValue
 }
 
+@Serializable
 data class GradeStandard(
     val subjectName: String,
     val top: Double?,
@@ -128,6 +138,7 @@ data class GradeStandard(
     val above0Count: Int,
 )
 
+@Serializable
 data class ScoreDistribution(
     val label: String,
     val count: Int,

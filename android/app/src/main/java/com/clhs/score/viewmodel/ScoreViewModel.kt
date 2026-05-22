@@ -156,7 +156,7 @@ class ScoreViewModel(
     }
 
     fun reloadStructure() {
-        loadStructure()
+        loadStructure(forceRefresh = true)
     }
 
     fun logout() {
@@ -230,11 +230,11 @@ class ScoreViewModel(
         loadStructure()
     }
 
-    private fun loadStructure() {
+    private fun loadStructure(forceRefresh: Boolean = false) {
         val currentSession = session ?: return
         viewModelScope.launch {
             _gradesState.update { it.copy(isLoadingStructure = true, errorMessage = null) }
-            runCatching { repository.loadStructure(currentSession) }
+            runCatching { repository.loadStructure(currentSession, forceRefresh) }
                 .onSuccess { structure ->
                     val selectedYear = structure.latestYearTerm()
                     val selectedExam = selectedYear?.latestExam()
@@ -248,7 +248,7 @@ class ScoreViewModel(
                         )
                     }
                     if (selectedYear != null && selectedExam != null) {
-                        fetchGrades(selectedYear.value, selectedExam.value)
+                        fetchGrades(selectedYear.value, selectedExam.value, forceRefresh)
                     }
                 }
                 .onFailure { error ->
@@ -262,7 +262,7 @@ class ScoreViewModel(
         }
     }
 
-    private fun fetchGrades(yearValue: String, examValue: String) {
+    private fun fetchGrades(yearValue: String, examValue: String, forceRefresh: Boolean = false) {
         val currentSession = session ?: return
         val requestId = ++gradeRequestId
         viewModelScope.launch {
@@ -285,7 +285,7 @@ class ScoreViewModel(
                     errorMessage = null,
                 )
             }
-            runCatching { repository.fetchGrades(currentSession, yearValue, examValue) }
+            runCatching { repository.fetchGrades(currentSession, yearValue, examValue, forceRefresh) }
                 .onSuccess { report ->
                     if (requestId != gradeRequestId) return@onSuccess
                     val analysis = buildGradeAnalysis(report)
@@ -313,6 +313,7 @@ class ScoreViewModel(
                         yearValue = yearValue,
                         examValue = examValue,
                         report = report,
+                        forceRefresh = forceRefresh,
                     )
                 }
                 .onFailure { error ->
@@ -336,6 +337,7 @@ class ScoreViewModel(
         yearValue: String,
         examValue: String,
         report: GradeReport,
+        forceRefresh: Boolean = false,
     ) {
         val structure = _gradesState.value.structure
         val year = structure.firstOrNull { it.value == yearValue }
@@ -380,7 +382,7 @@ class ScoreViewModel(
                 coroutineScope {
                     requests.map { request ->
                         async {
-                            request to repository.fetchGrades(session, request.yearValue, request.examValue)
+                            request to repository.fetchGrades(session, request.yearValue, request.examValue, forceRefresh)
                         }
                     }.awaitAll().toMap()
                 }
@@ -475,7 +477,7 @@ class ScoreViewModel(
                 } else {
                     val cookieJar = com.clhs.score.data.SchoolCookieJar()
                     val client = SchoolGradeClient(cookieJar = cookieJar)
-                    SchoolGradeRepository(client, SessionStore(context))
+                    SchoolGradeRepository(client, SessionStore(context), com.clhs.score.data.GradeCacheStore(context))
                 }
                 return ScoreViewModel(repository) as T
             }
