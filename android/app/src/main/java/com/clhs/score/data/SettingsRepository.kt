@@ -25,6 +25,7 @@ class SettingsRepository(context: Context) {
             dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: false,
             amoledBlack = prefs[KEY_AMOLED_BLACK] ?: false,
             developerEnabled = prefs[KEY_DEVELOPER_ENABLED] ?: false,
+            demoMode = prefs[KEY_DEMO_MODE] ?: false,
         )
     }
 
@@ -44,10 +45,15 @@ class SettingsRepository(context: Context) {
         dataStore.edit { it[KEY_DEVELOPER_ENABLED] = enabled }
     }
 
+    suspend fun setDemoMode(enabled: Boolean) {
+        dataStore.edit { it[KEY_DEMO_MODE] = enabled }
+    }
+
     private companion object {
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_AMOLED_BLACK = booleanPreferencesKey("amoled_black")
         val KEY_DEVELOPER_ENABLED = booleanPreferencesKey("developer_enabled")
+        val KEY_DEMO_MODE = booleanPreferencesKey("demo_mode")
     }
 }

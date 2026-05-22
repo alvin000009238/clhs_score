@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun IntroScreen(
+    showSkipButton: Boolean = false,
+    onSkipClick: () -> Unit = {},
     onLoginClick: () -> Unit,
 ) {
     Surface(
@@ -41,6 +43,23 @@ fun IntroScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (showSkipButton) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    androidx.compose.material3.TextButton(onClick = onSkipClick) {
+                        Text(
+                            text = "跳過",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
             Icon(
                 imageVector = Icons.Filled.Person,
                 contentDescription = null,
@@ -82,6 +101,9 @@ fun IntroScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+            }
+            if (showSkipButton) {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

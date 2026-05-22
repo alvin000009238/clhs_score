@@ -26,6 +26,7 @@ import com.clhs.score.viewmodel.SettingsUiState
 private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
 private const val SettingsRoute = "settings"
+private const val DeveloperSettingsRoute = "developer-settings"
 
 @Composable
 fun ScoreApp(
@@ -48,6 +49,8 @@ fun ScoreApp(
     onDismissUpdateResult: () -> Unit,
     onVersionTap: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
+    onSetDemoMode: (Boolean) -> Unit,
+    onDismissRestartDialog: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showWebView by remember { mutableStateOf(false) }
@@ -107,7 +110,17 @@ fun ScoreApp(
                         onDismissUpdateResult = onDismissUpdateResult,
                         onVersionTap = onVersionTap,
                         onDismissDeveloperToast = onDismissDeveloperToast,
+                        onOpenDeveloperSettings = { navController.navigate(DeveloperSettingsRoute) },
                         onLogout = onLogout,
+                    )
+                }
+                composable(DeveloperSettingsRoute) {
+                    DeveloperSettingsScreen(
+                        settings = settings,
+                        showRestartDialog = settingsUiState.showRestartDialog,
+                        onBack = { navController.popBackStack() },
+                        onSetDemoMode = onSetDemoMode,
+                        onDismissRestartDialog = onDismissRestartDialog,
                     )
                 }
             }
@@ -129,6 +142,8 @@ fun ScoreApp(
                     )
                 } else {
                     IntroScreen(
+                        showSkipButton = settings.demoMode,
+                        onSkipClick = { onWebViewLoginSuccess("demo-student", "fake=cookie") },
                         onLoginClick = { showWebView = true }
                     )
                 }

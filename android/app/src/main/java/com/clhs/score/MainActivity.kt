@@ -22,6 +22,11 @@ class MainActivity : ComponentActivity() {
             )
             val appSettings by settingsVm.settings.collectAsState()
             val settingsUi by settingsVm.uiState.collectAsState()
+            val isReady by settingsVm.isReady.collectAsState()
+
+            if (!isReady) {
+                return@setContent
+            }
 
             ScoreTheme(
                 themeMode = appSettings.themeMode,
@@ -31,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel: ScoreViewModel = viewModel(
                     factory = ScoreViewModel.factory(
                         context = applicationContext,
-                        useFakeData = BuildConfig.USE_FAKE_DATA,
+                        useFakeData = BuildConfig.USE_FAKE_DATA || appSettings.demoMode,
                     ),
                 )
                 val loginState by viewModel.loginState.collectAsState()
@@ -60,6 +65,8 @@ class MainActivity : ComponentActivity() {
                     onDismissUpdateResult = settingsVm::dismissUpdateResult,
                     onVersionTap = settingsVm::onVersionTap,
                     onDismissDeveloperToast = settingsVm::dismissDeveloperToast,
+                    onSetDemoMode = settingsVm::setDemoMode,
+                    onDismissRestartDialog = settingsVm::dismissRestartDialog,
                 )
             }
         }

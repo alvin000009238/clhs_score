@@ -243,7 +243,7 @@ object FakeData {
 }
 
 class FakeGradeRepository : GradeRepository {
-    private var activeSession: AuthenticatedSession? = FakeData.session
+    private var activeSession: AuthenticatedSession? = null
 
     override fun restoreSession(): AuthenticatedSession? = activeSession
 

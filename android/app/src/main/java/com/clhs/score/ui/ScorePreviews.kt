@@ -58,6 +58,8 @@ private fun ScoreAppFakePreview(
             onDismissUpdateResult = {},
             onVersionTap = {},
             onDismissDeveloperToast = {},
+            onSetDemoMode = {},
+            onDismissRestartDialog = {},
         )
     }
 }

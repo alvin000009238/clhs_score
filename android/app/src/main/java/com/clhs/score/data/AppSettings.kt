@@ -11,4 +11,5 @@ data class AppSettings(
     val dynamicColor: Boolean = false,
     val amoledBlack: Boolean = false,
     val developerEnabled: Boolean = false,
+    val demoMode: Boolean = false,
 )

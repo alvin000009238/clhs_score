@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -78,6 +79,7 @@ fun SettingsScreen(
     onDismissUpdateResult: () -> Unit,
     onVersionTap: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
+    onOpenDeveloperSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -201,21 +203,12 @@ fun SettingsScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(16.dp))
                     SectionHeader("開發者選項")
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "尚無開發者功能",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    ClickableSettingsItem(
+                        icon = Icons.Outlined.Science,
+                        title = "開發者選項",
+                        subtitle = "演示模式與其他進階設定",
+                        onClick = onOpenDeveloperSettings,
+                    )
                 }
             }
 
