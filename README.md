@@ -1,123 +1,59 @@
-# 成績分析平台 - 中大壢中
-
+# 成績分析平台 — 中大壢中
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 
 > [!IMPORTANT]
 > 本專案為非官方開發之第三方服務，我們與壢中及欣河智慧校園平台無任何直接關聯。
 
-本專案實作了自動化的成績查詢流程，全程透過原生的 HTTP 請求（使用 Python `requests` 模組）與學校系統的 API 介接，免去開啟實際瀏覽器的負擔。由於摒棄了複雜的網站前端渲染，它能提供非常快速且輕量化的連線體驗，並支援取得成績後建立分享連結的功能。
+自動化的成績查詢與分析系統，全程透過原生 HTTP 請求與學校系統 API 介接，免去開啟瀏覽器的負擔。提供快速、輕量的查詢體驗，並支援成績分享連結。
 
-Web 端位於 [`web/`](web/)，包含 Flask 後端、Vite 前端、靜態資源、web 測試與 Dockerfile。本 repo 也包含 Android 原生版 App，位於 [`android/`](android/)。Android 版使用 Kotlin、Jetpack Compose、Material 3 與 OkHttp，手機端直接連線學校系統，不依賴 Flask server。詳細建置、測試與安裝方式請見 [`android/README.md`](android/README.md)。
+## 功能亮點
 
-## Table of Contents
+- 🔐 **一鍵登入** — 自動處理驗證流程，輸入帳密即可查詢
+- 📊 **成績視覺化** — 雷達圖、長條圖、五標落點、分數分布，一眼掌握表現
+- 📱 **Android 原生版** — Kotlin + Jetpack Compose + Material 3，手機直連學校系統，不依賴 Web 伺服器
+- 🌙 **深色模式 & 動態色彩** — Android 版支援淺色 / 深色 / AMOLED 純黑 / Material You 動態色彩
+- 🎯 **成績模擬器** — 調整各科分數與採計科目，快速試算調整後的平均
+- 📈 **歷次趨勢比較** — 自動對比前次考試，追蹤進退步軌跡
 
-- [Background](#background)
-- [Install](#install)
-- [Usage](#usage)
-- [Android App](#android-app)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Maintainers](#maintainers)
-- [License](#license)
+## 架構總覽
 
-## Background
+```mermaid
+flowchart TB
+    subgraph Client["使用者端"]
+        Web["Web 瀏覽器"]
+        App["Android App"]
+    end
 
-此專案開發初衷是為了解決複雜的成績查詢手續。應用程式負責打理自動登入驗證與建立 session，並藉由輕量型 API 接口處理後續的網路請求。這使得使用者能夠透過更為友善直觀的介面，快速查詢個人成績並與他人分享。
+    subgraph Server["Web 伺服器"]
+        Flask["Flask + Gunicorn"]
+        Redis["Redis"]
+    end
 
-## Install
+    School["學校系統 API"]
 
-本專案**僅提供本地開發及部署環境教學**。你需要 Python 3.11+ 版本環境才能執行此專案。
-
-### 1. 取得專案原始碼
-
-```bash
-git clone https://github.com/alvin000009238/clhs_score.git
-cd clhs_score
+    Web --> Flask
+    Flask --> Redis
+    Flask --> School
+    App --> School
 ```
 
-### 2. 環境變數設定
+## 專案結構
 
-此專案需要設定特定的環境變數，請參考 `.env.example` 建立你自己的 `.env` 檔案。
+| 目錄 | 說明 | 文件 |
+|------|------|------|
+| [`web/`](web/) | Flask 後端 + Vite 前端 + Docker 部署 | [web/README.md](web/README.md) |
+| [`android/`](android/) | Kotlin / Jetpack Compose 原生 App | [android/README.md](android/README.md) |
+| [`docs/`](docs/) | 架構文件 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
-Linux / macOS:
-```bash
-cp .env.example .env
-```
+## 快速開始
 
-Windows (PowerShell):
-```powershell
-Copy-Item .env.example .env
-```
+請依照各子專案的 README 進行設定：
 
-編輯 `.env`，設定例如 `SECRET_KEY` 的必要變數。
+- **Web 端**：參見 [`web/README.md`](web/README.md)，使用 Docker Compose 一鍵啟動
+- **Android**：參見 [`android/README.md`](android/README.md)，使用 Gradle 建置
 
-### 3. 設定 Python 虛擬環境並安裝依賴
-
-強烈建議使用 [venv](https://docs.python.org/3/library/venv.html) 將本專案的依賴隔離於你的全域 Python 環境中：
-
-```bash
-# 建立虛擬環境
-python -m venv venv
-
-# 啟動虛擬環境 (Linux/macOS)
-source venv/bin/activate
-
-# 啟動虛擬環境 (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
-```
-
-接著安裝必要的 Python 套件：
-
-```bash
-# 安裝所有相依套件
-pip install -r web/requirements.txt
-```
-
-## Usage
-
-確保已經處於虛擬環境中（終端機介面前有 `(venv)` 標示）並且所有依賴都已正確安裝。
-
-啟動 Flask 開發伺服器：
-
-```bash
-cd web
-python server.py
-```
-
-在你的瀏覽器中開啟 `http://127.0.0.1:5000` 來使用此應用程式。
-
-> [!WARNING]
-> 本應用預設以 `debug=True` 運行於 Flask 的內建伺服器（Development Server），這並不適合直接暴露於公共網路環境，也不適用於生產模式部署。
-
-## Android App
-
-Android 原生版位於 `android/`，目前設定如下：
-
-- `applicationId`: `com.clhs.score`
-- minSdk: 29
-- targetSdk: 36
-- compileSdk: 36
-- Android Gradle Plugin: 9.0.0
-- Gradle wrapper: 9.3.1
-
-常用指令：
-
-```powershell
-cd android
-.\gradlew.bat test
-.\gradlew.bat compileDebugAndroidTestKotlin
-.\gradlew.bat assembleDebug
-```
-
-debug APK 會輸出到：
-
-```text
-android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-
-## Maintainers
+## 貢獻者
 
 [@alvin000009238](https://github.com/alvin000009238)
 

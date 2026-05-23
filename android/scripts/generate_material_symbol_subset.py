@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
+import fontTools.subset
+import fontTools.varLib.instancer
 
 ICONS = (
     "arrow_back",
@@ -141,9 +142,6 @@ def collect_ligature_glyphs(font_path: Path, icons: tuple[str, ...]) -> list[str
         font.close()
 
 
-def run(command: list[str]) -> None:
-    subprocess.run(command, check=True)
-
 
 def generate_subset(source_font: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -153,11 +151,8 @@ def generate_subset(source_font: Path, output_dir: Path) -> None:
         variable_subset = temp_dir / "material_symbols_rounded_variable_subset.ttf"
         glyphs_file.write_text("\n".join(collect_ligature_glyphs(source_font, ICONS)), encoding="utf-8")
 
-        run(
+        fontTools.subset.main(
             [
-                sys.executable,
-                "-m",
-                "fontTools.subset",
                 str(source_font),
                 f"--glyphs-file={glyphs_file}",
                 "--layout-features=*",
@@ -180,11 +175,8 @@ def generate_subset(source_font: Path, output_dir: Path) -> None:
             ),
         )
         for output_file, axes in outputs:
-            run(
+            fontTools.varLib.instancer.main(
                 [
-                    sys.executable,
-                    "-m",
-                    "fontTools.varLib.instancer",
                     str(variable_subset),
                     *axes,
                     "--output",

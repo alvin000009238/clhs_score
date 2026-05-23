@@ -49,6 +49,7 @@ shared_grades/
 !manifest.json
 *.md
 !README.md
+!web/README.md
 !AGENTS.md
 !CHANGELOG.md
 0_build_and_deploy.txt
