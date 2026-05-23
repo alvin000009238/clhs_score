@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>壢中成績 — Android App</title>
+  <meta name="description" content="壢中成績查詢與分析 Android App，自動化成績查詢、深度科目分析、成績模擬器與歷次趨勢追蹤。">
+  <meta property="og:title" content="壢中成績 — Android App">
+  <meta property="og:description" content="更聰明的方式，查看你的成績。">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="./assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-brand">
+      <img src="./assets/icon.png" alt="App Icon" class="nav-icon">
+      <span data-i18n="nav.brand">壢中成績</span>
+    </div>
+    <button class="lang-toggle" id="lang-toggle" aria-label="Switch language">EN</button>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="hero-bg-glow"></div>
+    <div class="container hero-grid">
+      <div class="hero-content fade-in">
+        <h1 class="hero-title" data-i18n="hero.title">壢中成績 app</h1>
+        <p class="hero-subtitle" data-i18n="hero.subtitle">更聰明的方式，查看你的成績</p>
+        <p class="hero-desc" data-i18n="hero.desc">自動化成績查詢與深度分析，一鍵掌握班排、科目表現與進退步趨勢，為中大壢中學生量身設計。</p>
+        <div class="hero-actions">
+          <a href="https://github.com/alvin000009238/clhs_score/releases/latest" class="cta-btn" target="_blank"
+            rel="noopener">
+            <svg class="cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span data-i18n="hero.cta">下載最新版本</span>
+          </a>
+          <p class="cta-sub" data-i18n="hero.cta.sub">適用於 Android 10+</p>
+        </div>
+      </div>
+      <div class="hero-visual fade-in">
+        <div class="phone-mockup phone-hero">
+          <div class="phone-screen">
+            <img src="./assets/icon.png" alt="壢中成績 App 總覽頁面" loading="eager">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="container">
+      <h2 class="section-title fade-in" data-i18n="features.title">功能亮點</h2>
+
+      <!-- Feature 1: Login (reversed) -->
+      <!-- Feature 1: Login (reversed) -->
+      <div class="feature-row feature-row--reversed">
+        <div class="feature-text reveal-right">
+          <span class="feature-tag" data-i18n="feature.login.tag">快速登入</span>
+          <h3 class="feature-title" data-i18n="feature.login.title">使用欣河智慧校園平台直接登入</h3>
+          <p class="feature-desc" data-i18n="feature.login.desc">內嵌學校系統登入頁面，支援密碼自動填入，安全快速地驗證你的身份。</p>
+        </div>
+        <div class="feature-visual reveal-left">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/login.jpg" alt="登入頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2: Overview -->
+      <div class="feature-row">
+        <div class="feature-text reveal-left">
+          <span class="feature-tag" data-i18n="feature.overview.tag">總覽</span>
+          <h3 class="feature-title" data-i18n="feature.overview.title">一眼掌握全局</h3>
+          <p class="feature-desc" data-i18n="feature.overview.desc">加權平均、班排、類排、百分比，搭配優勢與待加強科目摘要。</p>
+        </div>
+        <div class="feature-visual reveal-right">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/home_page.jpg" alt="成績總覽頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: Analysis (reversed) -->
+      <div class="feature-row feature-row--reversed">
+        <div class="feature-text reveal-right">
+          <span class="feature-tag" data-i18n="feature.analysis.tag">智慧分析</span>
+          <h3 class="feature-title" data-i18n="feature.analysis.title">深度洞察與建議</h3>
+          <p class="feature-desc" data-i18n="feature.analysis.desc">基於成績走勢提供個人化的學習建議，幫助你精準掌握強弱項，規劃未來的讀書方向。</p>
+        </div>
+        <div class="feature-visual reveal-left">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/analysis.jpg" alt="智慧分析頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 4: Subjects -->
+      <div class="feature-row">
+        <div class="feature-text reveal-left">
+          <span class="feature-tag" data-i18n="feature.subjects.tag">科目分析</span>
+          <h3 class="feature-title" data-i18n="feature.subjects.title">每科都看得透徹</h3>
+          <p class="feature-desc" data-i18n="feature.subjects.desc">各科成績與班平均的差距、五標落點、分數分布，還有與上次考試的比較。</p>
+        </div>
+        <div class="feature-visual reveal-right">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/subject_page_detail.jpg" alt="科目分析詳情頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 5: Trend (reversed) -->
+      <div class="feature-row feature-row--reversed">
+        <div class="feature-text reveal-right">
+          <span class="feature-tag" data-i18n="feature.trend.tag">歷次趨勢</span>
+          <h3 class="feature-title" data-i18n="feature.trend.title">追蹤你的進步軌跡</h3>
+          <p class="feature-desc" data-i18n="feature.trend.desc">自動比對同學期歷次考試，清楚看到平均與排名的變化趨勢。</p>
+        </div>
+        <div class="feature-visual reveal-left">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/advanved_page.jpg" alt="歷次趨勢頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 6: Simulator -->
+      <div class="feature-row">
+        <div class="feature-text reveal-left">
+          <span class="feature-tag" data-i18n="feature.simulator.tag">成績模擬器</span>
+          <h3 class="feature-title" data-i18n="feature.simulator.title">試算你的目標成績</h3>
+          <p class="feature-desc" data-i18n="feature.simulator.desc">拖動滑桿調整各科分數，即時計算調整後的加權平均，規劃你的讀書策略。</p>
+        </div>
+        <div class="feature-visual reveal-right">
+          <div class="phone-mockup">
+            <div class="phone-screen">
+              <img src="./assets/simulator_page.jpg" alt="成績模擬器頁面" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Privacy & Security -->
+  <section class="privacy" id="privacy">
+    <div class="container">
+      <h2 class="section-title fade-in" data-i18n="privacy.title">隱私與安全</h2>
+      <div class="privacy-grid fade-in">
+
+        <div class="privacy-card">
+          <div class="privacy-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+              <circle cx="12" cy="16" r="1" />
+            </svg>
+          </div>
+          <h3 data-i18n="privacy.nopassword.title">不保存密碼</h3>
+          <p data-i18n="privacy.nopassword.desc">你的密碼只在登入時使用，不會被儲存在任何地方。</p>
+        </div>
+
+        <div class="privacy-card">
+          <div class="privacy-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M5 12h14M12 5l7 7-7 7" /> <!-- changed to a direct connection arrow -->
+            </svg>
+          </div>
+          <h3 data-i18n="privacy.nobackend.title">無後端伺服器</h3>
+          <p data-i18n="privacy.nobackend.desc">App 不會連線到任何我們維護的伺服器，只會直接與欣河系統連線抓取資料。</p>
+        </div>
+
+        <div class="privacy-card">
+          <div class="privacy-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" /> <!-- changed to a mobile phone icon -->
+            </svg>
+          </div>
+          <h3 data-i18n="privacy.localonly.title">本機端處理</h3>
+          <p data-i18n="privacy.localonly.desc">所有的成績資料與分析都在你的手機本機端直接處理，絕不備份或上傳至雲端。</p>
+        </div>
+
+        <div class="privacy-card">
+          <div class="privacy-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </div>
+          <h3 data-i18n="privacy.logout.title">登出即清除</h3>
+          <p data-i18n="privacy.logout.desc">登出時自動清除本機 session 資料，不留痕跡。</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Disclaimer -->
+  <section class="disclaimer" id="disclaimer">
+    <div class="container">
+      <div class="disclaimer-box fade-in">
+        <svg class="disclaimer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <h2 data-i18n="disclaimer.title">免責聲明</h2>
+        <p data-i18n="disclaimer.text">本專案為非官方開發之第三方服務，與壢中及欣河智慧校園平台無任何直接關聯。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="bottom-cta-section" id="download">
+    <div class="container">
+      <div class="bottom-cta-box fade-in">
+        <h2 class="bottom-cta-title" data-i18n="bottom.cta.title">準備好開始了嗎？</h2>
+        <p class="bottom-cta-desc" data-i18n="bottom.cta.desc">立即下載，體驗最流暢的成績查詢方式。</p>
+        <a href="https://github.com/alvin000009238/clhs_score/releases/latest" class="cta-btn cta-btn--large"
+          target="_blank" rel="noopener">
+          <svg class="cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span data-i18n="hero.cta">下載最新版本</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" id="footer">
+    <div class="container">
+      <a href="https://github.com/alvin000009238/clhs_score" class="footer-link" target="_blank" rel="noopener">
+        <svg class="footer-gh-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+        <span data-i18n="footer.github">在 GitHub 上查看原始碼</span>
+      </a>
+      <p class="footer-license" data-i18n="footer.license">MIT License © 2026</p>
+      <p class="footer-contributor" data-i18n="footer.contributor">由 alvin000009238 開發維護</p>
+    </div>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

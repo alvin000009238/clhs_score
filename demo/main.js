@@ -1,0 +1,182 @@
+// ===== i18n Translations =====
+const translations = {
+  zh: {
+    'nav.brand': '壢中成績',
+    'hero.title': '壢中成績 app',
+    'hero.subtitle': '更聰明的方式，查看你的成績',
+    'hero.desc': '自動化成績查詢與深度分析，一鍵掌握班排、科目表現與進退步趨勢，為中大壢中學生量身設計。',
+    'hero.cta': '下載最新版本',
+    'hero.cta.sub': '適用於 Android 10+',
+    'features.title': '功能亮點',
+    'feature.login.tag': '快速登入',
+    'feature.login.title': '使用欣河智慧校園平台直接登入',
+    'feature.login.desc': '內嵌學校系統登入頁面，登入快速且便利。',
+    'feature.overview.tag': '總覽',
+    'feature.overview.title': '一眼掌握全局',
+    'feature.overview.desc': '加權平均、班排、類排、百分比，搭配優勢與待加強科目摘要。',
+    'feature.analysis.tag': '智慧分析',
+    'feature.analysis.title': '深度洞察與建議',
+    'feature.analysis.desc': '基於成績走勢提供個人化的學習建議，幫助你精準掌握強弱項，規劃未來的讀書方向。',
+    'feature.subjects.tag': '科目分析',
+    'feature.subjects.title': '每科都看得透徹',
+    'feature.subjects.desc': '各科成績與班平均的差距、五標落點、分數分布，還有與上次考試的比較。',
+    'feature.simulator.tag': '成績模擬器',
+    'feature.simulator.title': '試算你的目標成績',
+    'feature.simulator.desc': '拖動滑桿調整各科分數，即時計算調整後的加權平均，規劃你的讀書策略。',
+    'feature.trend.tag': '歷次趨勢',
+    'feature.trend.title': '追蹤你的進步軌跡',
+    'feature.trend.desc': '自動比對同學期歷次考試，清楚看到平均與排名的變化趨勢。',
+    'privacy.title': '隱私與安全',
+    'privacy.nopassword.title': '不保存密碼',
+    'privacy.nopassword.desc': '你的密碼只在登入時使用，不會被儲存在任何地方。',
+    'privacy.nobackend.title': '無後端伺服器',
+    'privacy.nobackend.desc': 'App 不會連線到任何我們維護的伺服器，只會直接與欣河系統連線抓取資料。',
+    'privacy.localonly.title': '本機端處理',
+    'privacy.localonly.desc': '所有的成績資料與分析都在你的手機本機端直接處理，絕不備份或上傳至雲端。',
+    'privacy.logout.title': '登出即清除',
+    'privacy.logout.desc': '登出時自動清除本機 session 資料，不留痕跡。',
+    'disclaimer.title': '免責聲明',
+    'disclaimer.text': '本專案為非官方開發之第三方服務，與壢中及欣河智慧校園平台無任何直接關聯。',
+    'footer.github': '在 GitHub 上查看原始碼',
+    'footer.license': 'MIT License © 2026',
+    'footer.contributor': '由 alvin000009238 開發維護',
+    'bottom.cta.title': '準備好開始了嗎？',
+    'bottom.cta.desc': '立即下載，體驗最流暢的成績查詢方式。'
+  },
+  en: {
+    'nav.brand': 'CLHS Score',
+    'hero.title': 'CLHS Score app',
+    'hero.subtitle': 'A smarter way to check your grades',
+    'hero.desc': 'Automated grade checking with in-depth analysis. Instantly view class rank, subject performance, and progress trends. Tailored for CLHS students.',
+    'hero.cta': 'Download Latest',
+    'hero.cta.sub': 'Requires Android 10+',
+    'features.title': 'Features',
+    'feature.login.tag': 'Quick Login',
+    'feature.login.title': 'Login with ShinHer Smart Campus',
+    'feature.login.desc': 'Embedded school login page for fast and convenient login experience.',
+    'feature.overview.tag': 'Overview',
+    'feature.overview.title': 'Everything at a glance',
+    'feature.overview.desc': 'Weighted average, class & stream rankings, percentile, strength & weakness summary.',
+    'feature.analysis.tag': 'Smart Analysis',
+    'feature.analysis.title': 'Deep Insights & Suggestions',
+    'feature.analysis.desc': 'Personalized learning suggestions based on your grade trends, helping you identify strengths and weaknesses to plan your future study direction.',
+    'feature.subjects.tag': 'Subject Analysis',
+    'feature.subjects.title': 'Deep dive into every subject',
+    'feature.subjects.desc': 'Score gaps vs. class average, five-point benchmarks, distribution charts, and comparison with previous exams.',
+    'feature.simulator.tag': 'Grade Simulator',
+    'feature.simulator.title': 'Simulate your target grades',
+    'feature.simulator.desc': 'Drag sliders to adjust scores per subject and instantly calculate the new weighted average.',
+    'feature.trend.tag': 'Trend Tracking',
+    'feature.trend.title': 'Track your progress',
+    'feature.trend.desc': 'Automatically compares exams across the semester to visualize average and rank trends.',
+    'privacy.title': 'Privacy & Security',
+    'privacy.nopassword.title': 'No password storage',
+    'privacy.nopassword.desc': 'Your password is only used during login and is never stored anywhere.',
+    'privacy.nobackend.title': 'No Backend Server',
+    'privacy.nobackend.desc': 'The app does not connect to any servers maintained by us. It connects directly and exclusively to the ShinHer system.',
+    'privacy.localonly.title': '100% Local Processing',
+    'privacy.localonly.desc': 'All grade data and analytics are processed directly on your device and are never uploaded to any cloud database.',
+    'privacy.logout.title': 'Clean logout',
+    'privacy.logout.desc': 'All local session data is wiped on logout, leaving no trace.',
+    'disclaimer.title': 'Disclaimer',
+    'disclaimer.text': 'This is an unofficial third-party project and is not directly affiliated with CLHS or Xinhe Smart Campus.',
+    'footer.github': 'View source on GitHub',
+    'footer.license': 'MIT License © 2026',
+    'footer.contributor': 'Developed by alvin000009238',
+    'bottom.cta.title': 'Ready to get started?',
+    'bottom.cta.desc': 'Download now for the smoothest grade checking experience.'
+  },
+};
+
+// ===== Language Toggle =====
+let currentLang = localStorage.getItem('demo-lang') || 'zh';
+
+function setLanguage(lang) {
+  const safeLang = lang === 'en' ? 'en' : 'zh';
+  currentLang = safeLang;
+  localStorage.setItem('demo-lang', safeLang);
+  document.documentElement.lang = safeLang === 'zh' ? 'zh-Hant' : 'en';
+
+  const langStrings = safeLang === 'zh' ? translations.zh : translations.en;
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (Object.prototype.hasOwnProperty.call(langStrings, key)) {
+      el.textContent = langStrings[key];
+    }
+  });
+
+  const toggle = document.getElementById('lang-toggle');
+  if (toggle) {
+    toggle.textContent = lang === 'zh' ? 'EN' : '中文';
+  }
+}
+
+// ===== Intersection Observer (Fade-in) =====
+function initScrollAnimations() {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+  );
+
+  document.querySelectorAll('.fade-in, .reveal-left, .reveal-right').forEach((el) => observer.observe(el));
+}
+
+// ===== Nav Scroll Effect =====
+function initNavScroll() {
+  const nav = document.getElementById('nav');
+  let lastScrollY = window.scrollY;
+
+  window.addEventListener('scroll', () => {
+    const currentScrollY = window.scrollY;
+
+    // Background blur effect
+    if (currentScrollY > 50) {
+      nav.classList.add('scrolled');
+    } else {
+      nav.classList.remove('scrolled');
+    }
+
+    // Smart Hide on mobile/desktop
+    if (currentScrollY > lastScrollY && currentScrollY > 100) {
+      // Scrolling down
+      nav.classList.add('nav--hidden');
+    } else {
+      // Scrolling up or at top
+      nav.classList.remove('nav--hidden');
+    }
+
+    lastScrollY = currentScrollY;
+  });
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+  setLanguage(currentLang);
+  initScrollAnimations();
+  initNavScroll();
+
+  const toggle = document.getElementById('lang-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      setLanguage(currentLang === 'zh' ? 'en' : 'zh');
+    });
+  }
+
+  // Scroll to top when clicking nav brand
+  const navBrand = document.querySelector('.nav-brand');
+  if (navBrand) {
+    navBrand.addEventListener('click', () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
+  }
+});
