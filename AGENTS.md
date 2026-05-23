@@ -31,6 +31,7 @@
 
 - 推送 `v*` tag 會觸發 `.github/workflows/android-release.yml`，建立 signed `arm64-v8a` release APK 並發布 GitHub Release。
 - Release notes 來自 `CHANGELOG.md` 內與 tag 對應的 `## [x.y.z]` 區塊；新增版本時要先補 changelog。
+- `CHANGELOG.md` 的新版本內容必須和上一個版本比較，並比照既有 `v1.1.0` 的分類寫法（Features、Bug Fixes、Performance Improvements），不要混入更早版本已經發布的內容。
 - **重要規則**：將更新發布推送至 GitHub 前，必須先將 `CHANGELOG.md` 寫完並請使用者檢查和修改，確認無誤後才能推送。
 - GitHub Secrets 需設定 `ANDROID_RELEASE_KEYSTORE_BASE64`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、`ANDROID_RELEASE_KEY_ALIAS`、`ANDROID_RELEASE_KEY_PASSWORD`。不要提交 keystore 或密碼。
 

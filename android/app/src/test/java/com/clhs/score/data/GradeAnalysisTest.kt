@@ -244,7 +244,65 @@ class GradeAnalysisTest {
         assertTrue((insights.projection?.estimatedClassRank ?: 99) >= 1)
     }
 
+    @Test
+    fun weightedAverageDefaultsToCurrentReportAverage() {
+        val report = MockGradeSystem.generateReport(StudentScenario.NORMAL)
 
+        assertEquals(report.weightedAverage(), weightedAverageFor(report.subjects), 0.001)
+    }
+
+    @Test
+    fun weightedAverageUsesAdjustedScoresAndIncludedSubjects() {
+        val report = MockGradeSystem.generateReport(StudentScenario.NORMAL)
+        val includedSubjects = setOf("國文", "數學", "社會")
+        val adjustedScores = mapOf(
+            "國文" to 88.0,
+            "數學" to 84.0,
+            "社會" to 75.0,
+        )
+
+        val activeSubjects = report.subjects.filter { cleanSubjectName(it.subjectName) in includedSubjects }
+        val expected = activeSubjects.sumOf { subject ->
+            adjustedScores[cleanSubjectName(subject.subjectName)]!! * subjectWeight(subject.subjectName)
+        } / activeSubjects.sumOf { subjectWeight(it.subjectName) }.toDouble()
+
+        assertEquals(
+            expected,
+            weightedAverageFor(
+                subjects = report.subjects,
+                adjustedScores = adjustedScores,
+                includedSubjects = includedSubjects,
+            ),
+            0.001,
+        )
+    }
+
+    @Test
+    fun weightedAverageClampsAdjustedScoresAndHandlesEmptyIncludedGroup() {
+        val report = MockGradeSystem.generateReport(StudentScenario.NORMAL)
+        val includedSubjects = setOf("國文", "英文")
+        val adjustedScores = mapOf(
+            "國文" to 150.0,
+            "英文" to -10.0,
+        )
+
+        val activeSubjects = report.subjects.filter { cleanSubjectName(it.subjectName) in includedSubjects }
+        val expected = activeSubjects.sumOf { subject ->
+            val score = adjustedScores[cleanSubjectName(subject.subjectName)]!!.coerceIn(0.0, 100.0)
+            score * subjectWeight(subject.subjectName)
+        } / activeSubjects.sumOf { subjectWeight(it.subjectName) }.toDouble()
+
+        assertEquals(
+            expected,
+            weightedAverageFor(report.subjects, adjustedScores, includedSubjects),
+            0.001,
+        )
+        assertEquals(
+            0.0,
+            weightedAverageFor(report.subjects, includedSubjects = setOf("不存在的科目")),
+            0.001,
+        )
+    }
 
     @Test
     fun localInsightsDoNotEstimateRankWhenRankDataMissing() {

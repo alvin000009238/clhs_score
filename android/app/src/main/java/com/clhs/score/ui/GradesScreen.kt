@@ -650,12 +650,25 @@ private fun SubjectsTab(
     expandedSubjectKeys: Set<String>,
     onToggleSubject: (String) -> Unit,
 ) {
+    var pendingBringIntoViewKey by remember { mutableStateOf<String?>(null) }
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         analyses.forEach { analysis ->
+            val subjectKey = cleanSubjectName(analysis.subject.subjectName)
+            val expanded = subjectKey in expandedSubjectKeys
             SubjectCard(
                 analysis = analysis,
-                expanded = cleanSubjectName(analysis.subject.subjectName) in expandedSubjectKeys,
-                onToggle = { onToggleSubject(analysis.subject.subjectName) },
+                expanded = expanded,
+                bringIntoViewOnExpand = pendingBringIntoViewKey == subjectKey,
+                onBringIntoViewHandled = {
+                    if (pendingBringIntoViewKey == subjectKey) {
+                        pendingBringIntoViewKey = null
+                    }
+                },
+                onToggle = {
+                    pendingBringIntoViewKey = if (expanded) null else subjectKey
+                    onToggleSubject(analysis.subject.subjectName)
+                },
             )
         }
     }

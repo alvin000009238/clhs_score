@@ -57,18 +57,21 @@ private val SubjectNeutral = Color(0xFF625B71)
 internal fun SubjectCard(
     analysis: SubjectAnalysis,
     expanded: Boolean,
+    bringIntoViewOnExpand: Boolean = false,
+    onBringIntoViewHandled: () -> Unit = {},
     onToggle: () -> Unit,
 ) {
     val subject = analysis.subject
     val diffColor = diffColor(subject.diffValue)
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
-    LaunchedEffect(expanded) {
-        if (expanded) {
+    LaunchedEffect(expanded, bringIntoViewOnExpand) {
+        if (expanded && bringIntoViewOnExpand) {
             withFrameNanos { }
             bringIntoViewRequester.bringIntoView()
             delay(320)
             bringIntoViewRequester.bringIntoView()
+            onBringIntoViewHandled()
         }
     }
 
@@ -174,18 +177,25 @@ internal fun SubjectCard(
 }
 
 @Composable
-internal fun InfoChip(modifier: Modifier, label: String, value: String) {
+internal fun InfoChip(
+    modifier: Modifier,
+    label: String,
+    value: String,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
     Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+            .background(containerColor, RoundedCornerShape(14.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = labelColor)
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = valueColor,
             fontWeight = FontWeight.SemiBold,
         )
     }

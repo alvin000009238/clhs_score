@@ -72,8 +72,6 @@ data class SimulationHistorySource(
     }
 }
 
-// Deleted ScoreSimulationResult
-
 data class RankProjection(
     val subjectName: String,
     val suggestedIncrease: Double,
@@ -344,8 +342,6 @@ fun buildGradeTrend(
     return GradeTrend(points = previousPoints + currentReport.toTrendPoint(currentExamName))
 }
 
-// Deleted simulateScores
-
 fun deltaText(label: String, delta: Double, unit: String = ""): String {
     val direction = when {
         delta > 0.05 -> "+"
@@ -389,8 +385,6 @@ fun weightedAverageFor(
     }
     return weightedTotal / totalWeight
 }
-
-// Deleted regression logic
 
 private fun SubjectScore.classAverageOrNull(): Double? =
     classAverageDisplay.toDoubleOrNull() ?: classAverage

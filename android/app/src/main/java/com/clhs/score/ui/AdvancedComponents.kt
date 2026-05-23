@@ -130,6 +130,10 @@ internal fun ScoreSimulatorEntryCard(
     historyCount: Int = 0,
     onOpen: () -> Unit,
 ) {
+    val chipContainerColor = MaterialTheme.colorScheme.secondary
+    val chipValueColor = MaterialTheme.colorScheme.onSecondary
+    val chipLabelColor = chipValueColor.copy(alpha = 0.82f)
+
     Card(
         onClick = onOpen,
         modifier = Modifier
@@ -146,8 +150,22 @@ internal fun ScoreSimulatorEntryCard(
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoChip(modifier = Modifier.weight(1f), label = "目前平均", value = "%.2f".format(analysis.weightedAverage))
-                InfoChip(modifier = Modifier.weight(1f), label = "科目", value = "${report.subjects.size} 科")
+                InfoChip(
+                    modifier = Modifier.weight(1f),
+                    label = "目前平均",
+                    value = "%.2f".format(analysis.weightedAverage),
+                    containerColor = chipContainerColor,
+                    labelColor = chipLabelColor,
+                    valueColor = chipValueColor,
+                )
+                InfoChip(
+                    modifier = Modifier.weight(1f),
+                    label = "科目",
+                    value = "${report.subjects.size} 科",
+                    containerColor = chipContainerColor,
+                    labelColor = chipLabelColor,
+                    valueColor = chipValueColor,
+                )
             }
         }
     }
