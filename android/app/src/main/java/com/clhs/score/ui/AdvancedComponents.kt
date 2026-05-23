@@ -382,11 +382,18 @@ private fun SimulatorSummaryCard(
     adjustedAverage: Double,
     modifier: Modifier = Modifier,
 ) {
+    val containerColor = MaterialTheme.colorScheme.primaryContainer
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val labelColor = contentColor.copy(alpha = 0.78f)
+    val changedValueColor = MaterialTheme.colorScheme.tertiary
+    val arrowContainerColor = contentColor.copy(alpha = 0.12f)
+
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = containerColor,
+            contentColor = contentColor,
         ),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
     ) {
@@ -398,34 +405,34 @@ private fun SimulatorSummaryCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("原始平均", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("原始平均", style = MaterialTheme.typography.bodyMedium, color = labelColor)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "%.2f".format(currentAverage),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = contentColor,
                 )
             }
 
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                    .background(arrowContainerColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 OutlinedRoundedSymbol(
                     icon = "arrow_forward",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = contentColor,
                     contentDescription = null,
                 )
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("調整後平均", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("調整後平均", style = MaterialTheme.typography.bodyMedium, color = labelColor)
                 Spacer(modifier = Modifier.height(8.dp))
                 val isAdjusted = kotlin.math.abs(adjustedAverage - currentAverage) > 0.01
-                val color = if (isAdjusted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                val color = if (isAdjusted) changedValueColor else contentColor
                 Text(
                     text = "%.2f".format(adjustedAverage),
                     style = MaterialTheme.typography.headlineMedium,
