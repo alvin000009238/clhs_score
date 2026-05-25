@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.3] - 2026-05-25
+
+### Features
+- 新增登入後的暫存資料整理，大幅降低 app 的儲存空間。
+
+### Performance Improvements
+- 優化了成績暫存的資料，降低本機資料用量。
+- 減少登入頁留下的表單與網頁快取資料，降低 App Data / Cache 成長速度。
+
 ## [1.1.2] - 2026-05-23
 
 ### Features

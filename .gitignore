@@ -51,6 +51,7 @@ shared_grades/
 !README.md
 !web/README.md
 !AGENTS.md
+!DESIGN.md
 !CHANGELOG.md
 0_build_and_deploy.txt
 # Exclude specific JSONs but allow config templates if any

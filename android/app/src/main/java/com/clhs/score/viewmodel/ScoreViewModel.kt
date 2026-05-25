@@ -161,7 +161,9 @@ class ScoreViewModel(
 
     fun logout() {
         gradeRequestId++
-        repository.logout()
+        viewModelScope.launch {
+            repository.logout()
+        }
         session = null
         _gradesState.value = GradesUiState()
         _loginState.value = LoginUiState()

@@ -7,6 +7,8 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +35,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +60,14 @@ fun WebViewLoginScreen(
     var isPageLoading by remember { mutableStateOf(true) }
     var pageProgress by remember { mutableFloatStateOf(0f) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.clearLoginWebData(clearCookies = true)
+            webViewRef?.destroy()
+            webViewRef = null
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -201,10 +212,11 @@ private fun WebViewContent(
                     builtInZoomControls = true
                     displayZoomControls = false
                     textZoom = 100
+                    cacheMode = WebSettings.LOAD_NO_CACHE
                     loadWithOverviewMode = true
                     useWideViewPort = true
                     userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
-                    saveFormData = true
+                    saveFormData = false
                 }
 
                 val cookieManager = CookieManager.getInstance()
@@ -247,6 +259,18 @@ private fun WebViewContent(
             }
         },
     )
+}
+
+private fun WebView.clearLoginWebData(clearCookies: Boolean) {
+    stopLoading()
+    clearHistory()
+    clearFormData()
+    clearCache(true)
+    WebStorage.getInstance().deleteAllData()
+    if (clearCookies) {
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+    }
 }
 
 private class LoginJsInterface(

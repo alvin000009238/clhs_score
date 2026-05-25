@@ -40,7 +40,7 @@ class GradeCacheStore(private val context: Context) {
 
     suspend fun saveGradeReport(studentNo: String, yearValue: String, examValue: String, report: GradeReport) {
         val key = stringPreferencesKey("grade_${studentNo}_${yearValue}_${examValue}")
-        val serialized = json.encodeToString(report)
+        val serialized = json.encodeToString(report.toCachedGradeReport())
         context.gradeDataStore.edit { prefs ->
             prefs[key] = serialized
         }
@@ -49,11 +49,31 @@ class GradeCacheStore(private val context: Context) {
     suspend fun loadGradeReport(studentNo: String, yearValue: String, examValue: String): GradeReport? {
         val key = stringPreferencesKey("grade_${studentNo}_${yearValue}_${examValue}")
         val serialized = context.gradeDataStore.data.map { prefs -> prefs[key] }.firstOrNull() ?: return null
-        return try {
-            json.decodeFromString<GradeReport>(serialized)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+        decodeCachedGradeReport(serialized)?.let { return it }
+        return decodeLegacyGradeReport(serialized)?.also { migratedReport ->
+            context.gradeDataStore.edit { prefs ->
+                prefs[key] = json.encodeToString(migratedReport.toCachedGradeReport())
+            }
         }
     }
+
+    suspend fun clearStudent(studentNo: String) {
+        val structureKey = "structure_$studentNo"
+        val gradePrefix = "grade_${studentNo}_"
+        context.gradeDataStore.edit { prefs ->
+            prefs.asMap().keys
+                .filter { key -> key.name == structureKey || key.name.startsWith(gradePrefix) }
+                .forEach { key -> prefs.remove(key) }
+        }
+    }
+
+    private fun decodeCachedGradeReport(serialized: String): GradeReport? =
+        runCatching {
+            json.decodeFromString<CachedGradeReport>(serialized).toGradeReport()
+        }.getOrNull()
+
+    private fun decodeLegacyGradeReport(serialized: String): GradeReport? =
+        runCatching {
+            json.decodeFromString<GradeReport>(serialized).withoutRawResult()
+        }.getOrNull()
 }

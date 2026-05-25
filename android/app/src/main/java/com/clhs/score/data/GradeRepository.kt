@@ -21,7 +21,7 @@ interface GradeRepository {
         forceRefresh: Boolean = false,
     ): GradeReport
 
-    fun logout()
+    suspend fun logout()
 
     suspend fun loginWithCookies(
         studentNo: String,
@@ -78,9 +78,13 @@ class SchoolGradeRepository(
         return report
     }
 
-    override fun logout() {
+    override suspend fun logout() {
+        val studentNo = sessionStore.loadSession()?.studentNo
         sessionStore.clear()
         client.clearSession()
+        if (studentNo != null) {
+            cacheStore.clearStudent(studentNo)
+        }
     }
 
     override suspend fun loginWithCookies(

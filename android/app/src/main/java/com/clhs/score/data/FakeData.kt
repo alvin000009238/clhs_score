@@ -272,7 +272,7 @@ class FakeGradeRepository : GradeRepository {
         forceRefresh: Boolean,
     ): GradeReport = FakeData.reportFor(yearValue, examValue)
 
-    override fun logout() {
+    override suspend fun logout() {
         activeSession = null
     }
 
