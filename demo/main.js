@@ -1,3 +1,5 @@
+import anime from 'animejs';
+
 // ===== i18n Translations =====
 const translations = {
   zh: {
@@ -98,10 +100,11 @@ function setLanguage(lang) {
   document.documentElement.lang = safeLang === 'zh' ? 'zh-Hant' : 'en';
 
   const langStrings = safeLang === 'zh' ? translations.zh : translations.en;
+  const langMap = new Map(Object.entries(langStrings));
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
-    if (Object.prototype.hasOwnProperty.call(langStrings, key)) {
-      el.textContent = langStrings[key];
+    if (langMap.has(key)) {
+      el.textContent = langMap.get(key);
     }
   });
 
@@ -111,21 +114,114 @@ function setLanguage(lang) {
   }
 }
 
-// ===== Intersection Observer (Fade-in) =====
+// ===== Anime.js: Hero Icon 3D =====
+function initHeroIcon() {
+  const icon = document.querySelector('.hero-icon-3d');
+  if (!icon) return;
+  
+  // Continuous breathing / floating (No sudden jumps, no mouse parallax)
+  anime({
+    targets: icon,
+    translateY: [-15, 15],
+    duration: 3500,
+    direction: 'alternate',
+    loop: true,
+    easing: 'easeInOutSine'
+  });
+}
+
+// ===== Anime.js: Hero Content =====
+function initHeroContent() {
+  const heroContent = document.querySelector('.hero-content');
+  if (heroContent) {
+    heroContent.style.opacity = 1;
+    anime({
+      targets: '.hero-content > *',
+      opacity: [0, 1],
+      translateY: [30, 0],
+      duration: 1000,
+      delay: anime.stagger(200, {start: 200}),
+      easing: 'easeOutCubic'
+    });
+  }
+}
+
+// ===== Intersection Observer & Anime.js (Scroll Animations) =====
 function initScrollAnimations() {
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
+          const row = entry.target;
+          const isReversed = row.classList.contains('feature-row--reversed');
+          
+          const texts = row.querySelectorAll('.feature-tag, .feature-title, .feature-desc');
+          const phone = row.querySelector('.phone-mockup');
+          
+          // Animate texts (Gliding Elegance - Bottom up)
+          if (texts.length > 0) {
+            anime({
+              targets: texts,
+              opacity: [0, 1],
+              translateY: [60, 0],
+              duration: 1600,
+              delay: anime.stagger(150),
+              easing: 'easeOutExpo'
+            });
+          }
+          
+          // Animate phone (Gliding Elegance - Bottom up)
+          if (phone) {
+            anime({
+              targets: phone,
+              opacity: [0, 1],
+              translateY: [100, 0],
+              duration: 1800,
+              delay: 300,
+              easing: 'easeOutExpo'
+            });
+          }
+          
+          observer.unobserve(row);
         }
       });
     },
-    { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+    { threshold: 0.2 }
   );
 
-  document.querySelectorAll('.fade-in, .reveal-left, .reveal-right').forEach((el) => observer.observe(el));
+  document.querySelectorAll('.feature-row').forEach((row) => {
+    // Hide initially to prevent flash before animation
+    const texts = row.querySelectorAll('.feature-tag, .feature-title, .feature-desc');
+    const phone = row.querySelector('.phone-mockup');
+    texts.forEach(t => t.style.opacity = 0);
+    if(phone) phone.style.opacity = 0;
+    
+    observer.observe(row);
+  });
+  
+  // Handle other simple fade-in elements
+  const simpleObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          anime({
+            targets: entry.target,
+            opacity: [0, 1],
+            translateY: [20, 0],
+            duration: 1000,
+            easing: 'easeInOutSine'
+          });
+          simpleObserver.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15 }
+  );
+  
+  document.querySelectorAll('.fade-in:not(.hero-content)').forEach((el) => {
+    el.style.opacity = 0;
+    simpleObserver.observe(el);
+  });
 }
 
 // ===== Nav Scroll Effect =====
@@ -159,6 +255,8 @@ function initNavScroll() {
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   setLanguage(currentLang);
+  initHeroIcon();
+  initHeroContent();
   initScrollAnimations();
   initNavScroll();
 

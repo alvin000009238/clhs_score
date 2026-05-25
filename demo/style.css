@@ -295,8 +295,20 @@ a {
   display: block;
 }
 
-.phone-hero {
-  width: 300px;
+.hero-icon-3d {
+  width: 320px;
+  height: 320px;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  box-shadow: 0 30px 80px rgba(74, 158, 255, 0.4), inset 0 0 40px rgba(255,255,255,0.1);
+  animation: morph 8s ease-in-out infinite;
+  will-change: transform, border-radius;
+  background: var(--bg-surface);
+}
+
+@keyframes morph { 
+  0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; } 
+  34% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; } 
+  67% { border-radius: 100% 60% 60% 100% / 100% 100% 60% 60%; } 
 }
 
 /* ===== Features Section ===== */
@@ -520,50 +532,7 @@ a {
   color: var(--text-tertiary);
 }
 
-/* ===== Animations ===== */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeLeft {
-  from { opacity: 0; transform: translateX(-40px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes fadeRight {
-  from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.fade-in {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.fade-in.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.reveal-left, .reveal-right {
-  opacity: 0;
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal-left {
-  transform: translateX(-40px);
-}
-
-.reveal-right {
-  transform: translateX(40px);
-}
-
-.reveal-left.visible, .reveal-right.visible {
-  opacity: 1;
-  transform: translateX(0);
-}
+/* ===== Animations handled by Anime.js ===== */
 
 /* ===== Responsive ===== */
 @media (max-width: 960px) {
@@ -589,8 +558,9 @@ a {
     order: -1;
   }
 
-  .phone-hero {
+  .hero-icon-3d {
     width: 240px;
+    height: 240px;
   }
 
   .feature-row,
@@ -602,14 +572,7 @@ a {
     margin-bottom: 60px;
   }
 
-  /* Reset reveal directions for mobile (slide up instead of side-to-side) */
-  .reveal-left, .reveal-right {
-    transform: translateY(30px);
-  }
-
-  .reveal-left.visible, .reveal-right.visible {
-    transform: translateY(0);
-  }
+  /* Adjustments for mobile view */
 
   .feature-visual {
     order: -1;
@@ -656,8 +619,9 @@ a {
     top: 30%;
   }
 
-  .phone-hero {
+  .hero-icon-3d {
     width: 200px;
+    height: 200px;
   }
 
   .phone-mockup {
