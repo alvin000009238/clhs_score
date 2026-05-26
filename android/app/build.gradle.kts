@@ -28,12 +28,12 @@ plugins {
 
 android {
     namespace = "com.clhs.score"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.clhs.score"
         minSdk = 29
-        targetSdk = 36
+        targetSdk = 37
         versionCode = releaseVersionCode.get()
         versionName = releaseVersionName.get()
 
@@ -116,12 +116,12 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
-    implementation("androidx.navigation:navigation-compose:2.9.7")
+    implementation("androidx.navigation:navigation-compose:2.9.8")
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    implementation("org.jsoup:jsoup:1.22.1")
+    implementation("org.jsoup:jsoup:1.22.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -129,7 +129,7 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.2.1")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")

@@ -46,10 +46,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -149,21 +153,17 @@ fun DeveloperSettingsScreen(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
-    ) {
+    SubpageLayout(onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = 64.dp),
+                .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(modifier = Modifier.height(56.dp))
 
             DeveloperSwitchItem(
                 icon = "science",
@@ -231,22 +231,6 @@ fun DeveloperSettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            OutlinedRoundedSymbol(
-                icon = "arrow_back",
-                contentDescription = "返回",
-            )
         }
     }
 }

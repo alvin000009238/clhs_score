@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -47,10 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -114,21 +119,17 @@ fun SettingsScreen(
         onDismiss = onDismissUpdateResult,
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
-    ) {
+    SubpageLayout(onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(top = 64.dp),
+                .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(modifier = Modifier.height(56.dp))
 
             SectionHeader("一般")
             AppearanceCard(
@@ -207,22 +208,6 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            OutlinedRoundedSymbol(
-                icon = "arrow_back",
-                contentDescription = "返回",
-            )
         }
     }
 }
@@ -445,7 +430,7 @@ private fun UpdateResultDialog(
                 confirmButton = {
                     TextButton(onClick = {
                         val url = result.apkDownloadUrl ?: result.htmlUrl
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                         context.startActivity(intent)
                         onDismiss()
                     }) {

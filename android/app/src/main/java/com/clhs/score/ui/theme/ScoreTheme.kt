@@ -112,6 +112,15 @@ fun ScoreTheme(
         else -> LightColors
     }
 
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as android.app.Activity).window
+            androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDark
+            androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !useDark
+        }
+    }
+
     MaterialTheme(
         colorScheme = colorScheme,
         content = content,

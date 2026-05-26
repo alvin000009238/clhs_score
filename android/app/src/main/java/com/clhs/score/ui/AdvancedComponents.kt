@@ -43,7 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,9 +73,19 @@ import com.clhs.score.viewmodel.GradesUiState
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.Spacer
 
 @Composable
 internal fun TrendChart(
@@ -185,18 +197,20 @@ internal fun ScoreSimulatorScreen(
     onBack: () -> Unit,
 ) {
     val report = state.report
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) { padding ->
-        if (report == null) {
-            Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+    if (report == null) {
+        SubpageLayout(
+            onBack = onBack,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 EmptyAnalysisState("尚未載入成績資料。")
             }
-            return@Scaffold
         }
+        return
+    }
 
-        val coroutineScope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
 
         val initialScores = remember(report) {
             report.subjects.associate { cleanSubjectName(it.subjectName) to it.scoreValue }
@@ -226,38 +240,83 @@ internal fun ScoreSimulatorScreen(
         val allHistory = remember(state.trendReports, state.simulatorHistoryReports) {
             state.trendReports + state.simulatorHistoryReports
         }
-        val historyMaxMin = remember(allHistory, report) {
-            val map = mutableMapOf<String, Pair<Double, Double>>()
-            report.subjects.forEach { subject ->
-                val key = cleanSubjectName(subject.subjectName)
-                val scores = allHistory.mapNotNull { r -> r.subjects.find { cleanSubjectName(it.subjectName) == key }?.scoreValue }
-                if (scores.isNotEmpty()) {
-                    map[key] = scores.min() to scores.max()
-                }
-            }
-            map
-        }
-        val density = LocalDensity.current
-        var summaryCardHeightPx by remember { mutableStateOf(0) }
-        val summaryContentTopPadding = if (summaryCardHeightPx > 0) {
-            with(density) { summaryCardHeightPx.toDp() } + 16.dp
-        } else {
-            156.dp
-        }
 
-        Box(
+    val historyMaxMin = remember(allHistory, report) {
+        val map = mutableMapOf<String, Pair<Double, Double>>()
+        report.subjects.forEach { subject ->
+            val key = cleanSubjectName(subject.subjectName)
+            val scores = allHistory.mapNotNull { r -> r.subjects.find { cleanSubjectName(it.subjectName) == key }?.scoreValue }
+            if (scores.isNotEmpty()) {
+                map[key] = scores.min() to scores.max()
+            }
+        }
+        map
+    }
+
+    val density = LocalDensity.current
+    val statusBars = WindowInsets.statusBars
+    val statusBarHeightPx = remember(density, statusBars) { statusBars.getTop(density) }
+    val topSpacerHeightPx = remember(density, statusBarHeightPx) { statusBarHeightPx + with(density) { 56.dp.toPx() }.roundToInt() }
+    
+    val listState = rememberLazyListState()
+    var cardHeightPx by remember { mutableIntStateOf(0) }
+    
+    val cardYOffsetPx by remember(listState) {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex == 0) {
+                val offset = listState.firstVisibleItemScrollOffset
+                maxOf(statusBarHeightPx, topSpacerHeightPx - offset)
+            } else {
+                statusBarHeightPx
+            }
+        }
+    }
+    
+    val isStuck by remember(listState) {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex == 0) {
+                (topSpacerHeightPx - listState.firstVisibleItemScrollOffset) <= statusBarHeightPx
+            } else {
+                true
+            }
+        }
+    }
+
+    SubpageLayout(
+        onBack = onBack,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surface,
+        summaryContent = {
+            SimulatorSummaryCard(
+                currentAverage = currentAverage,
+                currentTotal = currentTotal,
+                adjustedAverage = adjustedAverage,
+                adjustedTotal = adjustedTotal,
+                modifier = Modifier
+                    .offset { IntOffset(0, cardYOffsetPx) }
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        cardHeightPx = coordinates.size.height
+                    }
+            )
+        }
+    ) {
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            state = listState,
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(top = summaryContentTopPadding, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
+            item {
+                Spacer(modifier = Modifier.height(
+                    with(density) { (topSpacerHeightPx + cardHeightPx).toDp() }
+                ))
+            }
+
+            item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -336,7 +395,9 @@ internal fun ScoreSimulatorScreen(
                         }
                     }
                 }
+            }
 
+            item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -389,33 +450,8 @@ internal fun ScoreSimulatorScreen(
                     }
                 }
             }
-
-            SimulatorSummaryCard(
-                currentAverage = currentAverage,
-                currentTotal = currentTotal,
-                adjustedAverage = adjustedAverage,
-                adjustedTotal = adjustedTotal,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .onGloballyPositioned { coordinates ->
-                        summaryCardHeightPx = coordinates.size.height
-                    },
-            )
-
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            ) {
-                OutlinedRoundedSymbol(
-                    icon = "arrow_back",
-                    contentDescription = "返回",
-                )
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -552,7 +588,7 @@ private fun SubjectScoreSlider(
     val diff = value - subject.scoreValue
     val isAboveMax = historyMax != null && value > historyMax
     var lastDispatchedScore by remember(subject.subjectName, value.roundToInt()) {
-        mutableStateOf(value.roundToInt())
+        mutableIntStateOf(value.roundToInt())
     }
     fun updateScore(score: Double, haptic: Boolean = false) {
         val roundedScore = score.coerceIn(0.0, 100.0).roundToInt()

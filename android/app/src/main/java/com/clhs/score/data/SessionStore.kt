@@ -1,6 +1,7 @@
 package com.clhs.score.data
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.serialization.json.JsonObject
@@ -26,11 +27,11 @@ class SessionStore(context: Context) {
         val cookiesJson = buildJsonObject {
             session.cookies.forEach { (name, value) -> put(name, value) }
         }.toString()
-        prefs.edit()
-            .putString(KEY_STUDENT_NO, session.studentNo)
-            .putString(KEY_API_TOKEN, session.apiToken)
-            .putString(KEY_COOKIES, cookiesJson)
-            .apply()
+        prefs.edit {
+            putString(KEY_STUDENT_NO, session.studentNo)
+            putString(KEY_API_TOKEN, session.apiToken)
+            putString(KEY_COOKIES, cookiesJson)
+        }
     }
 
     fun loadSession(): AuthenticatedSession? {
@@ -45,7 +46,7 @@ class SessionStore(context: Context) {
     }
 
     fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     private fun JsonObject.toStringMap(): Map<String, String> = entries.associate { (key, value) ->

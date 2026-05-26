@@ -201,9 +201,7 @@ private fun WebViewContent(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
-                }
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
 
                 settings.apply {
                     javaScriptEnabled = true

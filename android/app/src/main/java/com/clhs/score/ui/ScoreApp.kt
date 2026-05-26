@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -78,7 +80,14 @@ fun ScoreApp(
     ) { isLoggedIn ->
         if (isLoggedIn) {
             val navController = rememberNavController()
-            NavHost(navController = navController, startDestination = GradesRoute) {
+            NavHost(
+                navController = navController,
+                startDestination = GradesRoute,
+                enterTransition = { fadeIn(tween(150)) + slideInHorizontally(tween(150)) { it / 8 } },
+                exitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { -it / 8 } },
+                popEnterTransition = { fadeIn(tween(150)) + slideInHorizontally(tween(150)) { -it / 8 } },
+                popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { it / 8 } },
+            ) {
                 composable(GradesRoute) {
                     GradesScreen(
                         state = gradesState,
