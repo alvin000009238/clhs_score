@@ -41,8 +41,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +71,9 @@ import com.clhs.score.viewmodel.GradesUiState
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 @Composable
 internal fun TrendChart(
@@ -184,20 +186,6 @@ internal fun ScoreSimulatorScreen(
 ) {
     val report = state.report
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("成績模擬器") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        OutlinedRoundedSymbol(
-                            icon = "arrow_back",
-                            contentDescription = "返回",
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.surface,
     ) { padding ->
@@ -413,6 +401,22 @@ internal fun ScoreSimulatorScreen(
                         summaryCardHeightPx = coordinates.size.height
                     },
             )
+
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            ) {
+                OutlinedRoundedSymbol(
+                    icon = "arrow_back",
+                    contentDescription = "返回",
+                )
+            }
         }
     }
 }

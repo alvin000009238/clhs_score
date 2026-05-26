@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,7 +34,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -97,61 +97,63 @@ fun GradesScreen(
         scrollState.scrollTo(0)
     }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 0.dp) {
-                Column {
-                    TopAppBar(
-                        title = {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    text = "壢中成績",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    text = headerStudentText(state),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        },
-                        actions = {
-                            IconButton(
-                                enabled = !state.isLoadingStructure && !state.isLoadingGrades,
-                                onClick = onReload,
-                            ) {
-                                OutlinedRoundedSymbol(
-                                    icon = "refresh",
-                                    tint = if (!state.isLoadingStructure && !state.isLoadingGrades) {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
-                                    },
-                                    contentDescription = "重新整理",
-                                )
-                            }
-                            IconButton(onClick = onOpenSettings) {
-                                OutlinedRoundedSymbol(
-                                    icon = "settings",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    contentDescription = "設定",
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                    )
-                    GradeSelectors(
-                        state = state,
-                        onSelectYear = onSelectYear,
-                        onSelectExam = onSelectExam,
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
+            Column {
+                TopAppBar(
+                    title = {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "壢中成績",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = headerStudentText(state),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            enabled = !state.isLoadingStructure && !state.isLoadingGrades,
+                            onClick = onReload,
+                        ) {
+                            OutlinedRoundedSymbol(
+                                icon = "refresh",
+                                tint = if (!state.isLoadingStructure && !state.isLoadingGrades) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f)
+                                },
+                                contentDescription = "重新整理",
+                            )
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            OutlinedRoundedSymbol(
+                                icon = "settings",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                contentDescription = "設定",
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    scrollBehavior = scrollBehavior,
+                )
+                GradeSelectors(
+                    state = state,
+                    onSelectYear = onSelectYear,
+                    onSelectExam = onSelectExam,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         },
         snackbarHost = snackbarHost,
