@@ -1,0 +1,177 @@
+package com.clhs.score.data
+
+import android.content.Context
+import android.os.Build
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import com.clhs.score.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.Instant
+
+enum class LocalDataCategory(
+    val key: String,
+    val label: String,
+    val isClearable: Boolean = true,
+) {
+    GradeCache("grade_cache", "成績快取"),
+    Settings("settings", "設定資料", isClearable = false),
+    Session("session", "登入資料"),
+    WebView("webview", "WebView 資料"),
+    Cache("cache", "Cache"),
+    NoBackupWebView("no_backup_webview", "No backup WebView 資料"),
+}
+
+data class StorageEntry(
+    val category: LocalDataCategory,
+    val bytes: Long,
+) {
+    val key: String = category.key
+    val label: String = category.label
+    val isClearable: Boolean = category.isClearable
+}
+
+data class StorageDiagnostics(
+    val generatedAt: String,
+    val entries: List<StorageEntry>,
+) {
+    val totalBytes: Long = entries.sumOf { it.bytes }
+}
+
+data class LocalDataCleanupResult(
+    val removedBytes: Long,
+    val storageAfterCleanup: StorageDiagnostics,
+)
+
+data class ErrorDiagnosticContext(
+    val isLoggedIn: Boolean,
+    val loginErrorMessage: String?,
+    val gradesErrorMessage: String?,
+)
+
+class DeveloperDiagnostics(private val context: Context) {
+    private val appContext = context.applicationContext
+
+    suspend fun collectStorageDiagnostics(): StorageDiagnostics = withContext(Dispatchers.IO) {
+        buildStorageDiagnostics()
+    }
+
+    suspend fun clearLocalData(
+        categories: Set<LocalDataCategory> = LocalDataCategory.entries.filter { it.isClearable }.toSet(),
+    ): LocalDataCleanupResult = withContext(Dispatchers.IO) {
+        val before = buildStorageDiagnostics().totalBytes
+        val clearableCategories = categories.filter { it.isClearable }.toSet()
+
+        if (LocalDataCategory.GradeCache in clearableCategories) {
+            GradeCacheStore(appContext).clearAll()
+        }
+        if (LocalDataCategory.Session in clearableCategories) {
+            SessionStore(appContext).clear()
+        }
+        if (LocalDataCategory.WebView in clearableCategories) {
+            clearWebViewData()
+            appContext.dataDir.resolve("app_webview").deleteRecursively()
+        }
+        if (LocalDataCategory.Cache in clearableCategories) {
+            appContext.cacheDir.deleteContents()
+        }
+        if (LocalDataCategory.NoBackupWebView in clearableCategories) {
+            appContext.noBackupFilesDir.resolve(".webview").deleteRecursively()
+        }
+
+        val after = buildStorageDiagnostics()
+        LocalDataCleanupResult(
+            removedBytes = (before - after.totalBytes).coerceAtLeast(0L),
+            storageAfterCleanup = after,
+        )
+    }
+
+    suspend fun buildErrorReport(context: ErrorDiagnosticContext): String = withContext(Dispatchers.IO) {
+        val storage = buildStorageDiagnostics()
+        buildString {
+            appendLine("CLHS Score 診斷包")
+            appendLine("產生時間: ${storage.generatedAt}")
+            appendLine("App ID: ${BuildConfig.APPLICATION_ID}")
+            appendLine("版本: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("Build type: ${BuildConfig.BUILD_TYPE}")
+            appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
+            appendLine("裝置: ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("登入狀態: ${if (context.isLoggedIn) "已登入" else "未登入"}")
+            appendLine("登入錯誤: ${context.loginErrorMessage?.takeIf { it.isNotBlank() } ?: "無"}")
+            appendLine("成績錯誤: ${context.gradesErrorMessage?.takeIf { it.isNotBlank() } ?: "無"}")
+            appendLine()
+            appendLine("儲存空間")
+            storage.entries.forEach { entry ->
+                appendLine("- ${entry.label}: ${entry.bytes.toReadableSize()}")
+            }
+            appendLine("- 合計: ${storage.totalBytes.toReadableSize()}")
+            appendLine()
+            appendLine("隱私: 此診斷包不包含帳密、cookie、token、學生姓名或成績內容。")
+        }
+    }
+
+    private fun buildStorageDiagnostics(): StorageDiagnostics {
+        val dataDir = appContext.dataDir
+        val entries = listOf(
+            StorageEntry(
+                LocalDataCategory.GradeCache,
+                dataDir.resolve("files/datastore/grade_cache.preferences_pb").safeSize(),
+            ),
+            StorageEntry(
+                LocalDataCategory.Settings,
+                dataDir.resolve("files/datastore/app_settings.preferences_pb").safeSize(),
+            ),
+            StorageEntry(
+                LocalDataCategory.Session,
+                dataDir.resolve("shared_prefs/score_session.xml").safeSize(),
+            ),
+            StorageEntry(LocalDataCategory.WebView, dataDir.resolve("app_webview").safeSize()),
+            StorageEntry(LocalDataCategory.Cache, appContext.cacheDir.safeSize()),
+            StorageEntry(
+                LocalDataCategory.NoBackupWebView,
+                appContext.noBackupFilesDir.resolve(".webview").safeSize(),
+            ),
+        )
+        return StorageDiagnostics(
+            generatedAt = Instant.now().toString(),
+            entries = entries,
+        )
+    }
+
+    private fun clearWebViewData() {
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+    }
+
+    private fun File.deleteContents() {
+        listFiles()?.forEach { child -> child.deleteRecursively() }
+    }
+
+    private fun File.safeSize(): Long {
+        if (!exists()) return 0L
+        if (isFile) return length()
+        return walkTopDown()
+            .filter { it.isFile }
+            .sumOf { file -> runCatching { file.length() }.getOrDefault(0L) }
+    }
+}
+
+fun defaultClearableLocalDataCategories(): Set<LocalDataCategory> =
+    LocalDataCategory.entries.filter { it.isClearable }.toSet()
+
+fun Long.toReadableSize(): String {
+    val units = listOf("B", "KB", "MB", "GB")
+    var value = toDouble()
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    return if (unitIndex == 0) {
+        "${value.toLong()} ${units[unitIndex]}"
+    } else {
+        "%.2f %s".format(value, units[unitIndex])
+    }
+}

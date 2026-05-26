@@ -53,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -65,8 +67,10 @@ import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.shortenSubjectName
 import com.clhs.score.data.subjectWeight
 import com.clhs.score.data.weightedAverageFor
+import com.clhs.score.data.weightedTotalFor
 import com.clhs.score.viewmodel.GradesUiState
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -224,6 +228,12 @@ internal fun ScoreSimulatorScreen(
         val adjustedAverage = remember(report, adjustedScores, activeSubjects) {
             weightedAverageFor(report.subjects, adjustedScores, activeSubjects)
         }
+        val currentTotal = remember(report, activeSubjects) {
+            weightedTotalFor(report.subjects, emptyMap(), activeSubjects)
+        }
+        val adjustedTotal = remember(report, adjustedScores, activeSubjects) {
+            weightedTotalFor(report.subjects, adjustedScores, activeSubjects)
+        }
 
         val allHistory = remember(state.trendReports, state.simulatorHistoryReports) {
             state.trendReports + state.simulatorHistoryReports
@@ -239,6 +249,13 @@ internal fun ScoreSimulatorScreen(
             }
             map
         }
+        val density = LocalDensity.current
+        var summaryCardHeightPx by remember { mutableStateOf(0) }
+        val summaryContentTopPadding = if (summaryCardHeightPx > 0) {
+            with(density) { summaryCardHeightPx.toDp() } + 16.dp
+        } else {
+            156.dp
+        }
 
         Box(
             modifier = Modifier
@@ -250,7 +267,7 @@ internal fun ScoreSimulatorScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
-                    .padding(top = 110.dp, bottom = 8.dp),
+                    .padding(top = summaryContentTopPadding, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Card(
@@ -387,8 +404,14 @@ internal fun ScoreSimulatorScreen(
 
             SimulatorSummaryCard(
                 currentAverage = currentAverage,
+                currentTotal = currentTotal,
                 adjustedAverage = adjustedAverage,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                adjustedTotal = adjustedTotal,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .onGloballyPositioned { coordinates ->
+                        summaryCardHeightPx = coordinates.size.height
+                    },
             )
         }
     }
@@ -397,7 +420,9 @@ internal fun ScoreSimulatorScreen(
 @Composable
 private fun SimulatorSummaryCard(
     currentAverage: Double,
+    currentTotal: Double,
     adjustedAverage: Double,
+    adjustedTotal: Double,
     modifier: Modifier = Modifier,
 ) {
     val containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -405,6 +430,8 @@ private fun SimulatorSummaryCard(
     val labelColor = contentColor.copy(alpha = 0.78f)
     val changedValueColor = MaterialTheme.colorScheme.tertiary
     val arrowContainerColor = contentColor.copy(alpha = 0.12f)
+    val isAdjusted = abs(adjustedAverage - currentAverage) > 0.01 ||
+        abs(adjustedTotal - currentTotal) > 0.01
 
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
@@ -418,20 +445,20 @@ private fun SimulatorSummaryCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("原始平均", style = MaterialTheme.typography.bodyMedium, color = labelColor)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "%.2f".format(currentAverage),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor,
-                )
-            }
+            SummaryMetricColumn(
+                modifier = Modifier.weight(1f),
+                label = "原始平均",
+                average = currentAverage,
+                total = currentTotal,
+                labelColor = labelColor,
+                valueColor = contentColor,
+                pillContainerColor = contentColor.copy(alpha = 0.10f),
+                pillContentColor = contentColor.copy(alpha = 0.82f),
+            )
 
             Box(
                 modifier = Modifier
@@ -446,19 +473,59 @@ private fun SimulatorSummaryCard(
                 )
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("調整後平均", style = MaterialTheme.typography.bodyMedium, color = labelColor)
-                Spacer(modifier = Modifier.height(8.dp))
-                val isAdjusted = kotlin.math.abs(adjustedAverage - currentAverage) > 0.01
-                val color = if (isAdjusted) changedValueColor else contentColor
-                Text(
-                    text = "%.2f".format(adjustedAverage),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = color,
-                )
-            }
+            SummaryMetricColumn(
+                modifier = Modifier.weight(1f),
+                label = "調整後平均",
+                average = adjustedAverage,
+                total = adjustedTotal,
+                labelColor = labelColor,
+                valueColor = if (isAdjusted) changedValueColor else contentColor,
+                pillContainerColor = if (isAdjusted) {
+                    changedValueColor.copy(alpha = 0.16f)
+                } else {
+                    contentColor.copy(alpha = 0.10f)
+                },
+                pillContentColor = if (isAdjusted) {
+                    changedValueColor
+                } else {
+                    contentColor.copy(alpha = 0.82f)
+                },
+            )
         }
+    }
+}
+
+@Composable
+private fun SummaryMetricColumn(
+    label: String,
+    average: Double,
+    total: Double,
+    labelColor: Color,
+    valueColor: Color,
+    pillContainerColor: Color,
+    pillContentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = labelColor)
+        Text(
+            text = "%.2f".format(average),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+        )
+        Text(
+            modifier = Modifier
+                .background(pillContainerColor, RoundedCornerShape(999.dp))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            text = "總分 ${formatWeightedTotal(total)}",
+            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+            color = pillContentColor,
+        )
     }
 }
 
@@ -643,4 +710,12 @@ private fun signedDelta(value: Double): String = when {
     value > 0.05 -> "+${"%.1f".format(value)}"
     value < -0.05 -> "%.1f".format(value)
     else -> "0.0"
+}
+
+private fun formatWeightedTotal(value: Double): String {
+    return if (abs(value - value.roundToInt()) < 0.005) {
+        "%.0f".format(value)
+    } else {
+        "%.1f".format(value)
+    }
 }

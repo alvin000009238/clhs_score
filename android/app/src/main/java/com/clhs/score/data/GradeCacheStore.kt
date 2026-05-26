@@ -67,6 +67,12 @@ class GradeCacheStore(private val context: Context) {
         }
     }
 
+    suspend fun clearAll() {
+        context.gradeDataStore.edit { prefs ->
+            prefs.clear()
+        }
+    }
+
     private fun decodeCachedGradeReport(serialized: String): GradeReport? =
         runCatching {
             json.decodeFromString<CachedGradeReport>(serialized).toGradeReport()

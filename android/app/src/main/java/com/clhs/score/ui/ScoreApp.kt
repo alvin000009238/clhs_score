@@ -118,6 +118,9 @@ fun ScoreApp(
                     DeveloperSettingsScreen(
                         settings = settings,
                         showRestartDialog = settingsUiState.showRestartDialog,
+                        isLoggedIn = gradesState.isLoggedIn,
+                        loginErrorMessage = loginState.errorMessage,
+                        gradesErrorMessage = gradesState.errorMessage,
                         onBack = { navController.popBackStack() },
                         onSetDemoMode = onSetDemoMode,
                         onDismissRestartDialog = onDismissRestartDialog,

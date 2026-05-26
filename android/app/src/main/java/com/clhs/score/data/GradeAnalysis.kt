@@ -372,18 +372,32 @@ fun weightedAverageFor(
     adjustedScores: Map<String, Double> = emptyMap(),
     includedSubjects: Set<String>? = null,
 ): Double {
-    val activeSubjects = if (includedSubjects != null) {
+    val activeSubjects = activeWeightedSubjects(subjects, includedSubjects)
+    val totalWeight = activeSubjects.sumOf { subjectWeight(it.subjectName) }
+    if (totalWeight <= 0) return 0.0
+    return weightedTotalFor(activeSubjects, adjustedScores) / totalWeight
+}
+
+fun weightedTotalFor(
+    subjects: List<SubjectScore>,
+    adjustedScores: Map<String, Double> = emptyMap(),
+    includedSubjects: Set<String>? = null,
+): Double {
+    return activeWeightedSubjects(subjects, includedSubjects).sumOf { subject ->
+        val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
+        score.coerceIn(0.0, 100.0) * subjectWeight(subject.subjectName)
+    }
+}
+
+private fun activeWeightedSubjects(
+    subjects: List<SubjectScore>,
+    includedSubjects: Set<String>?,
+): List<SubjectScore> {
+    return if (includedSubjects != null) {
         subjects.filter { cleanSubjectName(it.subjectName) in includedSubjects }
     } else {
         subjects
     }
-    val totalWeight = activeSubjects.sumOf { subjectWeight(it.subjectName) }
-    if (totalWeight <= 0) return 0.0
-    val weightedTotal = activeSubjects.sumOf { subject ->
-        val score = adjustedScores[cleanSubjectName(subject.subjectName)] ?: subject.scoreValue
-        score.coerceIn(0.0, 100.0) * subjectWeight(subject.subjectName)
-    }
-    return weightedTotal / totalWeight
 }
 
 private fun SubjectScore.classAverageOrNull(): Double? =
