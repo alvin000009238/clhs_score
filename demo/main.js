@@ -6,26 +6,21 @@ const translations = {
     'nav.brand': '壢中成績',
     'hero.title': '壢中成績 app',
     'hero.subtitle': '更聰明的方式，查看你的成績',
-    'hero.desc': '自動化成績查詢與深度分析，一鍵掌握班排、科目表現與進退步趨勢，為中大壢中學生量身設計。',
+    'hero.desc': '一鍵掌握班排與科目表現，為壢中學生量身設計。',
     'hero.cta': '下載最新版本',
     'hero.cta.sub': '適用於 Android 10+',
     'features.title': '功能亮點',
-    'feature.login.tag': '快速登入',
     'feature.login.title': '使用欣河智慧校園平台直接登入',
     'feature.login.desc': '內嵌學校系統登入頁面，登入快速且便利。',
-    'feature.overview.tag': '總覽',
     'feature.overview.title': '一眼掌握全局',
     'feature.overview.desc': '加權平均、班排、類排、百分比，搭配優勢與待加強科目摘要。',
     'feature.analysis.tag': '智慧分析',
     'feature.analysis.title': '深度洞察與建議',
     'feature.analysis.desc': '基於成績走勢提供個人化的學習建議，幫助你精準掌握強弱項，規劃未來的讀書方向。',
-    'feature.subjects.tag': '科目分析',
     'feature.subjects.title': '每科都看得透徹',
     'feature.subjects.desc': '各科成績與班平均的差距、五標落點、分數分布，還有與上次考試的比較。',
-    'feature.simulator.tag': '成績模擬器',
     'feature.simulator.title': '試算你的目標成績',
     'feature.simulator.desc': '拖動滑桿調整各科分數，即時計算調整後的加權平均，規劃你的讀書策略。',
-    'feature.trend.tag': '歷次趨勢',
     'feature.trend.title': '追蹤你的進步軌跡',
     'feature.trend.desc': '自動比對同學期歷次考試，清楚看到平均與排名的變化趨勢。',
     'privacy.title': '隱私與安全',
@@ -49,26 +44,21 @@ const translations = {
     'nav.brand': 'CLHS Score',
     'hero.title': 'CLHS Score app',
     'hero.subtitle': 'A smarter way to check your grades',
-    'hero.desc': 'Automated grade checking with in-depth analysis. Instantly view class rank, subject performance, and progress trends. Tailored for CLHS students.',
+    'hero.desc': 'Instantly view class rank and subject performance. Built for CLHS students.',
     'hero.cta': 'Download Latest',
     'hero.cta.sub': 'Requires Android 10+',
     'features.title': 'Features',
-    'feature.login.tag': 'Quick Login',
     'feature.login.title': 'Login with ShinHer Smart Campus',
     'feature.login.desc': 'Embedded school login page for fast and convenient login experience.',
-    'feature.overview.tag': 'Overview',
     'feature.overview.title': 'Everything at a glance',
     'feature.overview.desc': 'Weighted average, class & stream rankings, percentile, strength & weakness summary.',
     'feature.analysis.tag': 'Smart Analysis',
     'feature.analysis.title': 'Deep Insights & Suggestions',
     'feature.analysis.desc': 'Personalized learning suggestions based on your grade trends, helping you identify strengths and weaknesses to plan your future study direction.',
-    'feature.subjects.tag': 'Subject Analysis',
     'feature.subjects.title': 'Deep dive into every subject',
     'feature.subjects.desc': 'Score gaps vs. class average, five-point benchmarks, distribution charts, and comparison with previous exams.',
-    'feature.simulator.tag': 'Grade Simulator',
     'feature.simulator.title': 'Simulate your target grades',
     'feature.simulator.desc': 'Drag sliders to adjust scores per subject and instantly calculate the new weighted average.',
-    'feature.trend.tag': 'Trend Tracking',
     'feature.trend.title': 'Track your progress',
     'feature.trend.desc': 'Automatically compares exams across the semester to visualize average and rank trends.',
     'privacy.title': 'Privacy & Security',
@@ -114,151 +104,108 @@ function setLanguage(lang) {
   }
 }
 
-// ===== Anime.js: Hero Icon 3D =====
-function initHeroIcon() {
-  const icon = document.querySelector('.hero-icon-3d');
-  if (!icon) return;
-  
-  // Continuous breathing / floating (No sudden jumps, no mouse parallax)
+// ===== Reduced Motion Check =====
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ===== Anime.js: Hero Phone Float =====
+function initHeroPhone() {
+  if (prefersReducedMotion) return;
+
+  const phone = document.getElementById('hero-phone');
+  if (!phone) return;
+
   anime({
-    targets: icon,
-    translateY: [-15, 15],
-    duration: 3500,
+    targets: phone,
+    translateY: [-10, 10],
+    duration: 4000,
     direction: 'alternate',
     loop: true,
     easing: 'easeInOutSine'
   });
 }
 
-// ===== Anime.js: Hero Content =====
+// ===== Anime.js: Hero Content Entrance =====
 function initHeroContent() {
   const heroContent = document.querySelector('.hero-content');
-  if (heroContent) {
+  if (!heroContent) return;
+
+  if (prefersReducedMotion) {
     heroContent.style.opacity = 1;
-    anime({
-      targets: '.hero-content > *',
-      opacity: [0, 1],
-      translateY: [30, 0],
-      duration: 1000,
-      delay: anime.stagger(200, {start: 200}),
-      easing: 'easeOutCubic'
-    });
+    return;
   }
+
+  heroContent.style.opacity = 1;
+  anime({
+    targets: '.hero-content > *',
+    opacity: [0, 1],
+    translateY: [24, 0],
+    duration: 900,
+    delay: anime.stagger(150, { start: 200 }),
+    easing: 'easeOutCubic'
+  });
 }
 
-// ===== Intersection Observer & Anime.js (Scroll Animations) =====
+// ===== Scroll Reveal Animations (IntersectionObserver + Anime.js) =====
 function initScrollAnimations() {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const row = entry.target;
-          const isReversed = row.classList.contains('feature-row--reversed');
-          
-          const texts = row.querySelectorAll('.feature-tag, .feature-title, .feature-desc');
-          const phone = row.querySelector('.phone-mockup');
-          
-          // Animate texts (Gliding Elegance - Bottom up)
-          if (texts.length > 0) {
-            anime({
-              targets: texts,
-              opacity: [0, 1],
-              translateY: [60, 0],
-              duration: 1600,
-              delay: anime.stagger(150),
-              easing: 'easeOutExpo'
-            });
-          }
-          
-          // Animate phone (Gliding Elegance - Bottom up)
-          if (phone) {
-            anime({
-              targets: phone,
-              opacity: [0, 1],
-              translateY: [100, 0],
-              duration: 1800,
-              delay: 300,
-              easing: 'easeOutExpo'
-            });
-          }
-          
-          observer.unobserve(row);
-        }
-      });
-    },
-    { threshold: 0.2 }
-  );
+  if (prefersReducedMotion) {
+    // Make everything visible immediately
+    document.querySelectorAll('.fade-in').forEach((el) => {
+      el.style.opacity = 1;
+    });
+    return;
+  }
 
-  document.querySelectorAll('.feature-row').forEach((row) => {
-    // Hide initially to prevent flash before animation
-    const texts = row.querySelectorAll('.feature-tag, .feature-title, .feature-desc');
-    const phone = row.querySelector('.phone-mockup');
-    texts.forEach(t => t.style.opacity = 0);
-    if(phone) phone.style.opacity = 0;
-    
-    observer.observe(row);
-  });
-  
-  // Handle other simple fade-in elements
-  const simpleObserver = new IntersectionObserver(
+  const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           anime({
             targets: entry.target,
             opacity: [0, 1],
-            translateY: [20, 0],
-            duration: 1000,
-            easing: 'easeInOutSine'
+            translateY: [28, 0],
+            duration: 800,
+            easing: 'easeOutCubic'
           });
-          simpleObserver.unobserve(entry.target);
+          observer.unobserve(entry.target);
         }
       });
     },
     { threshold: 0.15 }
   );
-  
-  document.querySelectorAll('.fade-in:not(.hero-content)').forEach((el) => {
+
+  document.querySelectorAll('.fade-in').forEach((el) => {
     el.style.opacity = 0;
-    simpleObserver.observe(el);
+    observer.observe(el);
   });
 }
 
-// ===== Nav Scroll Effect =====
-function initNavScroll() {
+// ===== Nav Background Effect (IntersectionObserver, no scroll listener) =====
+function initNavObserver() {
   const nav = document.getElementById('nav');
-  let lastScrollY = window.scrollY;
+  const hero = document.getElementById('hero');
+  if (!nav || !hero) return;
 
-  window.addEventListener('scroll', () => {
-    const currentScrollY = window.scrollY;
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        nav.classList.remove('scrolled');
+      } else {
+        nav.classList.add('scrolled');
+      }
+    },
+    { threshold: 0, rootMargin: '-64px 0px 0px 0px' }
+  );
 
-    // Background blur effect
-    if (currentScrollY > 50) {
-      nav.classList.add('scrolled');
-    } else {
-      nav.classList.remove('scrolled');
-    }
-
-    // Smart Hide on mobile/desktop
-    if (currentScrollY > lastScrollY && currentScrollY > 100) {
-      // Scrolling down
-      nav.classList.add('nav--hidden');
-    } else {
-      // Scrolling up or at top
-      nav.classList.remove('nav--hidden');
-    }
-
-    lastScrollY = currentScrollY;
-  });
+  observer.observe(hero);
 }
 
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   setLanguage(currentLang);
-  initHeroIcon();
+  initHeroPhone();
   initHeroContent();
   initScrollAnimations();
-  initNavScroll();
+  initNavObserver();
 
   const toggle = document.getElementById('lang-toggle');
   if (toggle) {
