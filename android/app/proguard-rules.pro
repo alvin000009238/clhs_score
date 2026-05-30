@@ -8,9 +8,12 @@
 
 # Google Tink / security-crypto
 -dontwarn com.google.errorprone.annotations.**
+-keepclassmembers class * extends com.google.crypto.tink.shaded.protobuf.GeneratedMessageLite {
+  <fields>;
+}
 
 # kotlinx-serialization
--keepattributes *Annotation*, InnerClasses
+-keepattributes *Annotation*, InnerClasses, Signature
 -dontnote kotlinx.serialization.AnnotationsKt
 
 -keepclassmembers class kotlinx.serialization.json.** {
@@ -34,3 +37,15 @@
 
 # Keep data classes used for JSON parsing
 -keep class com.clhs.score.data.** { *; }
+
+# Glance and Widgets
+-keep class androidx.glance.** { *; }
+-keep class com.clhs.score.widget.** { *; }
+-keep class androidx.compose.runtime.** { *; }
+
+# WorkManager, Room, DataStore
+-keep class androidx.work.** { *; }
+-keep class androidx.room.** { *; }
+-keep class androidx.sqlite.** { *; }
+-keep class androidx.datastore.** { *; }
+-keep class kotlinx.coroutines.** { *; }
