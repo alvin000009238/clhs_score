@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.clhs.score.data.AuthenticatedSession
-import com.clhs.score.data.CaptchaChallenge
+
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeRepository
@@ -94,6 +94,7 @@ class ScoreViewModel(
     fun selectYear(value: String) {
         val year = _gradesState.value.structure.firstOrNull { it.value == value } ?: return
         val latestExam = year.latestExam()
+        gradeRequestId++
         _gradesState.update {
             it.copy(
                 selectedYearValue = value,
@@ -121,6 +122,7 @@ class ScoreViewModel(
 
     fun selectExam(value: String) {
         val yearValue = _gradesState.value.selectedYearValue ?: return
+        gradeRequestId++
         _gradesState.update {
             it.copy(
                 selectedExamValue = value,

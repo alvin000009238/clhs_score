@@ -83,6 +83,7 @@ private fun GradesScreenFakePreview(
             onOpenSettings = {},
             onToggleSubject = {},
             onOpenScoreSimulator = {},
+            onOpenSchedule = {},
         )
     }
 }

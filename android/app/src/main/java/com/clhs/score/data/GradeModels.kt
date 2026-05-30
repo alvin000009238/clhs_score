@@ -3,36 +3,7 @@ package com.clhs.score.data
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
-@Serializable
-data class CaptchaChallenge(
-    val loginToken: String,
-    val shCaptchaGenCode: String,
-    val deviceToken: String,
-    val cookies: Map<String, String>,
-    val imageBytes: ByteArray,
-    val contentType: String,
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is CaptchaChallenge) return false
-        return loginToken == other.loginToken &&
-            shCaptchaGenCode == other.shCaptchaGenCode &&
-            deviceToken == other.deviceToken &&
-            cookies == other.cookies &&
-            imageBytes.contentEquals(other.imageBytes) &&
-            contentType == other.contentType
-    }
 
-    override fun hashCode(): Int {
-        var result = loginToken.hashCode()
-        result = 31 * result + shCaptchaGenCode.hashCode()
-        result = 31 * result + deviceToken.hashCode()
-        result = 31 * result + cookies.hashCode()
-        result = 31 * result + imageBytes.contentHashCode()
-        result = 31 * result + contentType.hashCode()
-        return result
-    }
-}
 
 @Serializable
 data class AuthenticatedSession(

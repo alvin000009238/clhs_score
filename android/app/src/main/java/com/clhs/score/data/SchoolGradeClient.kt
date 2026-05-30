@@ -4,9 +4,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl
@@ -15,13 +16,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.Jsoup
-import java.nio.charset.StandardCharsets
-import java.util.Locale
-import kotlinx.serialization.json.jsonObject
 
 class SchoolException(
     message: String,
-    val refreshCaptcha: Boolean = false,
     cause: Throwable? = null,
 ) : Exception(message, cause)
 
@@ -31,120 +28,13 @@ class SchoolGradeClient(
     okHttpClient: OkHttpClient? = null,
 ) {
     private val baseUrl: HttpUrl = baseUrl.ensureTrailingSlash().toHttpUrl()
+    private val origin: String = "${this.baseUrl.scheme}://${this.baseUrl.host}"
     private val client: OkHttpClient = okHttpClient ?: OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
 
-    suspend fun prepareLoginCaptcha(): CaptchaChallenge = withContext(Dispatchers.IO) {
-        cookieJar.clear()
-        val loginPage = loginPageUrl()
-        val loginResponse = execute(
-            Request.Builder()
-                .url(loginPage)
-                .headers(defaultHeaders(referer = null))
-                .get()
-                .build(),
-        )
-        val html = loginResponse.body.string()
-        val loginToken = hiddenInput(html, "__RequestVerificationToken")
-            ?: throw SchoolException("找不到登入 token")
-        val shCaptchaGenCode = hiddenInput(html, "ShCaptchaGenCode").ifNullOrBlank("10")
-        val deviceToken = hiddenInput(html, "DeviceToken").orEmpty()
-        val captchaUrl = findCaptchaImageUrl(html) ?: buildCaptchaUrl()
-
-        val imageResponse = runCatching { requestCaptcha(captchaUrl, loginPage) }
-            .getOrElse { requestCaptcha(buildCaptchaUrl(), loginPage) }
-        val contentType = imageResponse.body.contentType()?.toString() ?: "image/png"
-        val imageBytes = imageResponse.body.bytes()
-        val normalizedBytes = if ("image" in contentType.lowercase(Locale.ROOT)) {
-            imageBytes
-        } else {
-            decodeHexImageBytes(imageBytes.toString(StandardCharsets.UTF_8))
-                ?: throw SchoolException("學校驗證碼回應格式異常", refreshCaptcha = true)
-        }
-
-        CaptchaChallenge(
-            loginToken = loginToken,
-            shCaptchaGenCode = shCaptchaGenCode,
-            deviceToken = deviceToken,
-            cookies = cookieJar.snapshot(),
-            imageBytes = normalizedBytes,
-            contentType = if ("image" in contentType.lowercase(Locale.ROOT)) contentType else "image/png",
-        )
-    }
-
-    suspend fun login(
-        username: String,
-        password: String,
-        captchaCode: String,
-        challenge: CaptchaChallenge,
-    ): AuthenticatedSession = withContext(Dispatchers.IO) {
-        if (username.isBlank() || password.isBlank()) {
-            throw SchoolException("請輸入帳號密碼")
-        }
-        if (captchaCode.isBlank()) {
-            throw SchoolException("請輸入驗證碼")
-        }
-
-        cookieJar.replace(challenge.cookies, domain = baseUrl.host)
-        val form = FormBody.Builder()
-            .add("SchoolCode", "030305")
-            .add("LoginId", username.trim())
-            .add("PassString", password)
-            .add("LoginType", "Student")
-            .add("IsKeepLogin", "false")
-            .add("IdentityId", "6")
-            .add("SchoolName", "國立中大壢中")
-            .add("GoogleToken", "8")
-            .add("isRegistration", "false")
-            .add("ShCaptchaGenCode", captchaCode.trim().ifBlank { challenge.shCaptchaGenCode })
-            .add("__RequestVerificationToken", challenge.loginToken)
-            .apply {
-                if (challenge.deviceToken.isNotBlank()) add("DeviceToken", challenge.deviceToken)
-            }
-            .build()
-
-        val response = execute(
-            Request.Builder()
-                .url(resolve("Auth/Auth/DoCloudLoginCheck"))
-                .headers(
-                    defaultHeaders(referer = loginPageUrl().toString()).newBuilder()
-                        .add("Origin", "https://shcloud2.k12ea.gov.tw")
-                        .add("X-Requested-With", "XMLHttpRequest")
-                        .build(),
-                )
-                .post(form)
-                .build(),
-        )
-        val payload = response.body.string()
-        val root = SchoolJson.parseToJsonElement(payload).jsonObject
-        val result = root["Result"].asObjectOrNull()
-        val ok = result?.boolean("IsLoginSuccess") == true
-        if (!ok) {
-            val message = result?.string("DisplayMsg")
-                ?.takeIf { it.isNotBlank() }
-                ?: root.string("Message", "登入失敗")
-            throw SchoolException(message, refreshCaptcha = true)
-        }
-
-        val gradesPage = execute(
-            Request.Builder()
-                .url(gradesPageUrl())
-                .headers(defaultHeaders(referer = loginPageUrl().toString()))
-                .get()
-                .build(),
-        ).body.string()
-        val apiToken = hiddenInput(gradesPage, "__RequestVerificationToken")
-            ?: throw SchoolException("找不到成績 API token")
-
-        AuthenticatedSession(
-            studentNo = username.trim(),
-            apiToken = apiToken,
-            cookies = cookieJar.snapshot(),
-        )
-    }
 
     suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption> {
         cookieJar.replace(session.cookies, domain = baseUrl.host)
@@ -157,17 +47,14 @@ class SchoolGradeClient(
                 "__RequestVerificationToken" to session.apiToken,
             ),
         )
-        val semaphore = Semaphore(4)
         return coroutineScope {
             yearTerms.map { (text, value) ->
                 async {
-                    semaphore.withPermit {
-                        YearTermOption(
-                            text = text,
-                            value = value,
-                            exams = loadExams(session, value),
-                        )
-                    }
+                    YearTermOption(
+                        text = text,
+                        value = value,
+                        exams = loadExams(session, value),
+                    )
                 }
             }.awaitAll()
         }
@@ -195,6 +82,140 @@ class SchoolGradeClient(
         parseGradeReport(body)
     }
 
+    private suspend fun getSchedulePageToken(session: AuthenticatedSession): String {
+        cookieJar.replace(session.cookies, domain = baseUrl.host)
+        val pageResponse = execute(
+            Request.Builder()
+                .url(resolve("ClassTableV2/ClassTable"))
+                .headers(defaultHeaders(referer = resolve("ICampus/Home/Index2").toString()))
+                .get()
+                .build(),
+        ).body.string()
+        return hiddenInput(pageResponse, "__RequestVerificationToken")
+            ?: throw SchoolException("找不到課表 API token")
+    }
+
+    private fun scheduleHeaders(): Headers =
+        defaultHeaders(referer = resolve("ClassTableV2/ClassTable").toString()).newBuilder()
+            .add("Origin", origin)
+            .add("X-Requested-With", "XMLHttpRequest")
+            .build()
+
+    private fun buildScheduleFormDefaults(token: String): FormBody.Builder =
+        FormBody.Builder()
+            .add("__RequestVerificationToken", token)
+            .add("SchoolCode", "030305")
+            .add("WeekNo", "")
+            .add("ClassroomNo", "")
+            .add("CrossName", "")
+            .add("TeacherNo", "")
+            .add("SubjectNo", "")
+            .add("ShowWindow", "left")
+            .add("IsReverse", "false")
+            .add("教師超鐘點顯示", "顯示")
+            .add("教師姓名", "正常顯示")
+            .add("學生能檢視的課程", "學生能檢視整天的課程")
+            .add("檢視權限設定", "")
+            .add("是否顯示午休", "隱藏")
+            .add("是否顯示早自習", "隱藏")
+            .add("是否顯示節次時間", "顯示")
+            .add("顯示科目名稱", "全名")
+            .add("是否顯示總時數", "否")
+            .add("是否顯示實施日期", "否")
+
+    private fun parseOptionList(json: String): List<Pair<String, String>> {
+        val root = runCatching { SchoolJson.parseToJsonElement(json) }.getOrNull()
+        val rootArray = when (root) {
+            is JsonArray -> root
+            is JsonObject -> {
+                (root["Data"] ?: root["data"] ?: root["Result"] ?: root["result"] ?: root["items"]) as? JsonArray ?: JsonArray(emptyList())
+            }
+            else -> JsonArray(emptyList())
+        }
+        return rootArray.mapNotNull { element ->
+            val obj = element as? JsonObject ?: return@mapNotNull null
+            val text = (obj["Text"] ?: obj["text"] ?: obj["DisplayText"])?.let { if (it is JsonPrimitive) it.content else null }
+            val value = (obj["Value"] ?: obj["value"])?.let { if (it is JsonPrimitive) it.content else null }
+            if (text != null && value != null) text to value else null
+        }
+    }
+
+    suspend fun getScheduleYears(session: AuthenticatedSession): List<ScheduleYearTermOption> = withContext(Dispatchers.IO) {
+        val token = getSchedulePageToken(session)
+        val body = FormBody.Builder()
+            .add("__RequestVerificationToken", token)
+            .build()
+        val json = execute(
+            Request.Builder()
+                .url(resolve("ClassTableV2/ClassTable/GetYearTermList"))
+                .headers(scheduleHeaders())
+                .post(body)
+                .build(),
+        ).body.string()
+        parseOptionList(json).map { (text, value) -> ScheduleYearTermOption(text, value) }
+    }
+
+    suspend fun getScheduleClasses(
+        session: AuthenticatedSession,
+        year: String,
+        term: String
+    ): List<ScheduleClassOption> = withContext(Dispatchers.IO) {
+        val token = getSchedulePageToken(session)
+        val body = buildScheduleFormDefaults(token)
+            .add("Year", year)
+            .add("Term", term)
+            .add("ClassNo", "")
+            .add("TimetableType", "")
+            .build()
+        val json = execute(
+            Request.Builder()
+                .url(resolve("ClassTableV2/ClassTable/GetClassNoList"))
+                .headers(scheduleHeaders())
+                .post(body)
+                .build(),
+        ).body.string()
+        parseOptionList(json).map { (text, value) -> ScheduleClassOption(text, value) }
+    }
+
+    suspend fun fetchSchedule(
+        session: AuthenticatedSession,
+        yearValue: String,
+        year: String,
+        term: String,
+        classNo: String,
+    ): ScheduleReport = withContext(Dispatchers.IO) {
+        val token = getSchedulePageToken(session)
+        val form = buildScheduleFormDefaults(token)
+            .add("Year", year)
+            .add("Term", term)
+            .apply {
+                if (classNo.isNotBlank()) {
+                    add("ClassNo", classNo)
+                    add("TimetableType", "Class")
+                } else {
+                    add("StudentNo", session.studentNo)
+                    add("TimetableType", "Student")
+                }
+            }
+            .build()
+
+        val timetableJson = execute(
+            Request.Builder()
+                .url(resolve("ClassTableV2/ClassTable/GetTimeTable"))
+                .headers(scheduleHeaders())
+                .post(form)
+                .build(),
+        ).body.string()
+
+        val items = parseScheduleItems(timetableJson)
+
+        if (items.isEmpty()) {
+            throw SchoolException("無法解析課表資料結構或無課表")
+        }
+
+        ScheduleReport(yearTermValue = yearValue, items = items)
+    }
+
     fun restoreSession(session: AuthenticatedSession) {
         cookieJar.replace(session.cookies, domain = baseUrl.host)
     }
@@ -207,7 +228,7 @@ class SchoolGradeClient(
         val gradesPage = execute(
             Request.Builder()
                 .url(gradesPageUrl())
-                .headers(defaultHeaders(referer = loginPageUrl().toString()))
+                .headers(defaultHeaders(referer = resolve("Auth/Auth/CloudLogin").toString()))
                 .get()
                 .build(),
         ).body.string()
@@ -258,34 +279,13 @@ class SchoolGradeClient(
                 .url(resolve(path))
                 .headers(
                     defaultHeaders(referer).newBuilder()
-                        .add("Origin", "https://shcloud2.k12ea.gov.tw")
+                        .add("Origin", origin)
                         .add("X-Requested-With", "XMLHttpRequest")
                         .build(),
                 )
                 .post(body)
                 .build(),
         ).body.string()
-    }
-
-    private fun requestCaptcha(url: HttpUrl, referer: HttpUrl): Response {
-        val response = execute(
-            Request.Builder()
-                .url(url)
-                .headers(
-                    Headers.Builder()
-                        .add("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                        .add("User-Agent", USER_AGENT)
-                        .add("Referer", referer.toString())
-                        .build(),
-                )
-                .get()
-                .build(),
-        )
-        if (response.code == 403) {
-            response.close()
-            throw SchoolException("驗證碼網址被拒絕", refreshCaptcha = true)
-        }
-        return response
     }
 
     private fun execute(request: Request): Response {
@@ -300,38 +300,10 @@ class SchoolGradeClient(
 
     private fun hiddenInput(html: String, name: String): String? {
         val doc = Jsoup.parse(html)
-        return doc.selectFirst("""input[name="$name"]""")?.attr("value")?.trim()?.takeIf { it.isNotBlank() }
+        val element = doc.selectFirst("""[name="$name"]""")
+        return (element?.attr("value") ?: element?.text())?.trim()?.takeIf { it.isNotBlank() }
     }
 
-    private fun findCaptchaImageUrl(html: String): HttpUrl? {
-        val doc = Jsoup.parse(html)
-        val node = doc.select("img").firstOrNull { img ->
-            val src = img.attr("src")
-            src.contains("/Auth/Auth/GetCaptcha") ||
-                src.contains("GetCaptcha") ||
-                img.id().contains("captcha", ignoreCase = true) ||
-                img.classNames().any { it.contains("captcha", ignoreCase = true) }
-        } ?: return null
-        val src = node.attr("src").takeIf { it.isNotBlank() } ?: return null
-        return loginPageUrl().resolve(src)
-    }
-
-    private fun decodeHexImageBytes(rawText: String): ByteArray? {
-        var normalized = rawText.trim().replace(Regex("\\s+"), "")
-        if (normalized.startsWith("0x", ignoreCase = true)) normalized = normalized.drop(2)
-        if (normalized.length < 64 || normalized.length % 2 != 0) return null
-        if (!normalized.matches(Regex("[0-9a-fA-F]+"))) return null
-        return runCatching {
-            normalized.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        }.getOrNull()
-    }
-
-    private fun loginPageUrl(): HttpUrl = resolve("Auth/Auth/CloudLogin")
-
-    private fun buildCaptchaUrl(): HttpUrl = resolve("Auth/Auth/GetCaptcha")
-        .newBuilder()
-        .addQueryParameter("t", System.currentTimeMillis().toString())
-        .build()
 
     private fun gradesPageUrl(): HttpUrl = resolve("ICampus/StudentInfo/Index")
         .newBuilder()
@@ -351,7 +323,6 @@ class SchoolGradeClient(
 
     private fun String.ensureTrailingSlash(): String = if (endsWith("/")) this else "$this/"
 
-    private fun String?.ifNullOrBlank(default: String): String = if (isNullOrBlank()) default else this
 
     companion object {
         const val DEFAULT_BASE_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC"

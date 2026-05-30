@@ -38,6 +38,7 @@ venv.bak/
 *.p12
 
 # Application Data & Temporary Files
+.agent/skills/
 grades_raw.json
 shared_grades/
 .flask_session/

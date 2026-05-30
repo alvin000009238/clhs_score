@@ -50,6 +50,12 @@ data class ErrorDiagnosticContext(
     val gradesErrorMessage: String?,
 )
 
+data class DiagnosticEvent(
+    val timestamp: String,
+    val area: String,
+    val message: String,
+)
+
 class DeveloperDiagnostics(private val context: Context) {
     private val appContext = context.applicationContext
 
@@ -107,6 +113,16 @@ class DeveloperDiagnostics(private val context: Context) {
             }
             appendLine("- 合計: ${storage.totalBytes.toReadableSize()}")
             appendLine()
+            appendLine("近期診斷事件")
+            val events = recentEvents(appContext)
+            if (events.isEmpty()) {
+                appendLine("- 無")
+            } else {
+                events.forEach { event ->
+                    appendLine("- ${event.timestamp} [${event.area}] ${event.message}")
+                }
+            }
+            appendLine()
             appendLine("隱私: 此診斷包不包含帳密、cookie、token、學生姓名或成績內容。")
         }
     }
@@ -155,6 +171,51 @@ class DeveloperDiagnostics(private val context: Context) {
         return walkTopDown()
             .filter { it.isFile }
             .sumOf { file -> runCatching { file.length() }.getOrDefault(0L) }
+    }
+
+    companion object {
+        private const val DiagnosticsPrefs = "developer_diagnostics"
+        private const val EventsKey = "recent_events"
+        private const val MaxEvents = 20
+        private const val Separator = "\u001F"
+
+        fun recordEvent(context: Context, area: String, message: String) {
+            val appContext = context.applicationContext
+            val nextEvent = DiagnosticEvent(
+                timestamp = Instant.now().toString(),
+                area = area.sanitizeEventField(),
+                message = message.sanitizeEventField(),
+            )
+            val prefs = appContext.getSharedPreferences(DiagnosticsPrefs, Context.MODE_PRIVATE)
+            val updated = (recentEvents(appContext) + nextEvent).takeLast(MaxEvents)
+            prefs.edit()
+                .putString(EventsKey, updated.joinToString("\n") { it.serialize() })
+                .apply()
+        }
+
+        fun recentEvents(context: Context): List<DiagnosticEvent> {
+            val prefs = context.applicationContext.getSharedPreferences(DiagnosticsPrefs, Context.MODE_PRIVATE)
+            return prefs.getString(EventsKey, null)
+                ?.lineSequence()
+                ?.mapNotNull { it.deserializeEvent() }
+                ?.toList()
+                .orEmpty()
+        }
+
+        private fun DiagnosticEvent.serialize(): String =
+            listOf(timestamp, area, message).joinToString(Separator)
+
+        private fun String.deserializeEvent(): DiagnosticEvent? {
+            val parts = split(Separator)
+            if (parts.size != 3) return null
+            return DiagnosticEvent(parts[0], parts[1], parts[2])
+        }
+
+        private fun String.sanitizeEventField(): String =
+            replace("\n", " ")
+                .replace("\r", " ")
+                .replace(Separator, " ")
+                .take(240)
     }
 }
 

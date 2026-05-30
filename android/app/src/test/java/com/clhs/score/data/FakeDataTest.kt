@@ -28,14 +28,15 @@ class FakeDataTest {
     @Test
     fun fakeRepositoryCanServeAppWithoutApiSession() = runTest {
         val repository = FakeGradeRepository()
-        val session = repository.loginWithCookies("demo-student", emptyMap())
+        val session = repository.loginWithCookies("DEMO-000", emptyMap())
 
         assertNotNull(session)
         val structure = repository.loadStructure(session!!)
         val report = repository.fetchGrades(session, FakeData.currentYearValue, FakeData.currentExamValue)
 
         assertTrue(structure.isNotEmpty())
-        assertEquals("展示學生", report.studentInfo.studentName)
+        assertEquals("範例學生", report.studentInfo.studentName)
+        assertEquals("DEMO-000", report.studentInfo.studentNo)
         assertEquals("期末考", report.examSummary?.examName)
     }
 

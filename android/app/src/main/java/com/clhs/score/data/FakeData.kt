@@ -7,6 +7,11 @@ enum class StudentScenario {
 }
 
 object MockGradeSystem {
+    private const val DemoStudentNo = "DEMO-000"
+    private const val DemoStudentName = "範例學生"
+    private const val DemoClassName = "示範班級"
+    private const val DemoSeatNo = "00"
+
     data class SubjectSpec(
         val name: String,
         val classAverage: Double,
@@ -120,10 +125,10 @@ object MockGradeSystem {
         return GradeReport(
             message = "fake mock data",
             studentInfo = StudentInfo(
-                studentNo = "110000",
-                studentName = "展示學生",
-                className = "高二 3 班",
-                seatNo = "18",
+                studentNo = DemoStudentNo,
+                studentName = DemoStudentName,
+                className = DemoClassName,
+                seatNo = DemoSeatNo,
                 updatedAt = "2026-05-20 08:00",
                 showClassRank = true,
                 showClassRankCount = true,
@@ -162,7 +167,7 @@ object MockGradeSystem {
 
 object FakeData {
     val session = AuthenticatedSession(
-        studentNo = "demo-student",
+        studentNo = "DEMO-000",
         apiToken = "fake-token",
         cookies = emptyMap(),
     )
@@ -247,22 +252,6 @@ class FakeGradeRepository : GradeRepository {
 
     override fun restoreSession(): AuthenticatedSession? = activeSession
 
-    override suspend fun refreshCaptcha(): CaptchaChallenge = CaptchaChallenge(
-        loginToken = "fake-login-token",
-        shCaptchaGenCode = "fake-captcha",
-        deviceToken = "fake-device",
-        cookies = emptyMap(),
-        imageBytes = ByteArray(0),
-        contentType = "image/png",
-    )
-
-    override suspend fun login(
-        username: String,
-        password: String,
-        captchaCode: String,
-        challenge: CaptchaChallenge,
-    ): AuthenticatedSession = FakeData.session.also { activeSession = it }
-
     override suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean): List<YearTermOption> = FakeData.structure
 
     override suspend fun fetchGrades(
@@ -280,4 +269,63 @@ class FakeGradeRepository : GradeRepository {
         studentNo: String,
         cookies: Map<String, String>,
     ): AuthenticatedSession = FakeData.session.also { activeSession = it }
+}
+
+object FakeScheduleData {
+    val years = listOf(
+        ScheduleYearTermOption("113學年度第1學期", "1131"),
+        ScheduleYearTermOption("113學年度第2學期", "1132")
+    )
+
+    val classes = listOf(
+        ScheduleClassOption("高二 30 班", "230"),
+        ScheduleClassOption("高二 31 班", "231"),
+    )
+
+    fun report(yearValue: String, classNo: String): ScheduleReport {
+        return ScheduleReport(
+            yearTermValue = yearValue,
+            items = listOf(
+                ScheduleItem(dayOfWeek = 1, period = 1, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 1, period = 2, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 1, period = 3, subjectName = "英語文", teacherName = "王五", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 1, period = 4, subjectName = "體育", teacherName = "趙六", classroom = "操場"),
+                ScheduleItem(dayOfWeek = 1, period = 5, subjectName = "物理", teacherName = "孫七", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 1, period = 6, subjectName = "化學", teacherName = "周八", classroom = "實驗室"),
+                ScheduleItem(dayOfWeek = 1, period = 7, subjectName = "歷史", teacherName = "吳九", classroom = "高二30"),
+
+                ScheduleItem(dayOfWeek = 2, period = 1, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 2, period = 2, subjectName = "英語文", teacherName = "王五", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 2, period = 3, subjectName = "地理", teacherName = "鄭十", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 2, period = 4, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 2, period = 5, subjectName = "美術", teacherName = "林一", classroom = "美術教室"),
+                ScheduleItem(dayOfWeek = 2, period = 6, subjectName = "美術", teacherName = "林一", classroom = "美術教室"),
+                ScheduleItem(dayOfWeek = 2, period = 7, subjectName = "班會", teacherName = "導師", classroom = "高二30"),
+
+                ScheduleItem(dayOfWeek = 3, period = 1, subjectName = "英語文", teacherName = "王五", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 3, period = 2, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 3, period = 3, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 3, period = 4, subjectName = "公民", teacherName = "陳二", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 3, period = 5, subjectName = "物理", teacherName = "孫七", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 3, period = 6, subjectName = "音樂", teacherName = "黃三", classroom = "音樂教室"),
+                ScheduleItem(dayOfWeek = 3, period = 7, subjectName = "體育", teacherName = "趙六", classroom = "體育館"),
+
+                ScheduleItem(dayOfWeek = 4, period = 1, subjectName = "化學", teacherName = "周八", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 2, subjectName = "歷史", teacherName = "吳九", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 3, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 4, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 5, subjectName = "英語文", teacherName = "王五", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 6, subjectName = "地科", teacherName = "何四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 4, period = 7, subjectName = "社團", teacherName = "各社團指導", classroom = "各處"),
+
+                ScheduleItem(dayOfWeek = 5, period = 1, subjectName = "物理", teacherName = "孫七", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 2, subjectName = "化學", teacherName = "周八", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 3, subjectName = "英語文", teacherName = "王五", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 4, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 5, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 6, subjectName = "地理", teacherName = "鄭十", classroom = "高二30"),
+                ScheduleItem(dayOfWeek = 5, period = 7, subjectName = "公民", teacherName = "陳二", classroom = "高二30")
+            )
+        )
+    }
 }

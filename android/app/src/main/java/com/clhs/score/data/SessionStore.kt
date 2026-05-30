@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.clhs.score.data
 
 import android.content.Context

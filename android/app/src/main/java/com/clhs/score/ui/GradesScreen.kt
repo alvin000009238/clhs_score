@@ -89,6 +89,7 @@ fun GradesScreen(
     onOpenSettings: () -> Unit,
     onToggleSubject: (String) -> Unit,
     onOpenScoreSimulator: () -> Unit,
+    onOpenSchedule: () -> Unit,
 ) {
     var selectedDestination by rememberSaveable { mutableIntStateOf(GradesDestination.Overview.ordinal) }
     val scrollState = rememberScrollState()
@@ -219,6 +220,7 @@ fun GradesScreen(
                                 simulatorHistoryCount = state.simulatorHistoryReports.size,
                                 trend = state.trend,
                                 onOpenScoreSimulator = onOpenScoreSimulator,
+                                onOpenSchedule = onOpenSchedule,
                             )
                         }
                     }
@@ -399,6 +401,7 @@ private fun AdvancedTab(
     simulatorHistoryCount: Int,
     trend: GradeTrend?,
     onOpenScoreSimulator: () -> Unit,
+    onOpenSchedule: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Text(
@@ -418,6 +421,9 @@ private fun AdvancedTab(
             historyLabel = simulatorHistoryLabel,
             historyCount = simulatorHistoryCount,
             onOpen = onOpenScoreSimulator,
+        )
+        ScheduleEntryCard(
+            onOpen = onOpenSchedule,
         )
     }
 }

@@ -400,19 +400,6 @@ private fun activeWeightedSubjects(
     }
 }
 
-private fun SubjectScore.classAverageOrNull(): Double? =
-    classAverageDisplay.toDoubleOrNull() ?: classAverage
-
-private fun GradeStandard.relativeSpread(): Double? {
-    val topBottom = top?.let { topValue ->
-        bottom?.let { bottomValue -> topValue - bottomValue }
-    }
-    if (topBottom != null && topBottom > 0.0) return topBottom
-    val frontBack = front?.let { frontValue ->
-        back?.let { backValue -> frontValue - backValue }
-    }
-    return frontBack?.takeIf { it > 0.0 }
-}
 
 private fun GradeReport.toTrendPoint(examName: String): GradeTrendPoint = GradeTrendPoint(
     examName = examName.ifBlank { examSummary?.examName.orEmpty().ifBlank { "考試" } },

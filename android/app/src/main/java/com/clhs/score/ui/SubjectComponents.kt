@@ -169,7 +169,7 @@ internal fun SubjectCard(
                         )
                     } ?: EmptySubjectDetail("尚無五標與分布資料")
 
-                    DetailRow("歷次成績", analysis.comparison?.let { deltaText("較上一考", it.scoreDelta, "分") } ?: "尚無上一考可比較")
+                    DetailRow("上次成績", analysis.comparison?.let { deltaText("較上一考", it.scoreDelta, "分") } ?: "尚無上一考可比較")
                 }
             }
         }

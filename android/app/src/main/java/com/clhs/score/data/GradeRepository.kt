@@ -3,14 +3,6 @@ package com.clhs.score.data
 interface GradeRepository {
     fun restoreSession(): AuthenticatedSession?
 
-    suspend fun refreshCaptcha(): CaptchaChallenge
-
-    suspend fun login(
-        username: String,
-        password: String,
-        captchaCode: String,
-        challenge: CaptchaChallenge,
-    ): AuthenticatedSession
 
     suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean = false): List<YearTermOption>
 
@@ -40,18 +32,7 @@ class SchoolGradeRepository(
         return session
     }
 
-    override suspend fun refreshCaptcha(): CaptchaChallenge = client.prepareLoginCaptcha()
 
-    override suspend fun login(
-        username: String,
-        password: String,
-        captchaCode: String,
-        challenge: CaptchaChallenge,
-    ): AuthenticatedSession {
-        val session = client.login(username, password, captchaCode, challenge)
-        sessionStore.saveSession(session)
-        return session
-    }
 
     override suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean): List<YearTermOption> {
         if (!forceRefresh) {

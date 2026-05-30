@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,128 +25,10 @@ class SchoolGradeClientTest {
     fun tearDown() {
         server.shutdown()
     }
-
-    @Test
-    fun prepareLoginCaptchaParsesTokensCookiesAndImage() = runTest {
-        server.enqueue(
-            htmlResponse(
-                """
-                <html>
-                  <body>
-                    <input name="__RequestVerificationToken" value="login-token" />
-                    <input name="ShCaptchaGenCode" value="captcha-gen" />
-                    <input name="DeviceToken" value="device-token" />
-                    <img id="captcha" src="/CLHSTYC/Auth/Auth/GetCaptcha?seed=1" />
-                  </body>
-                </html>
-                """.trimIndent(),
-            ).addHeader("Set-Cookie", "ASP.NET_SessionId=abc; Path=/"),
-        )
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .addHeader("Content-Type", "image/png")
-                .setBody("PNGDATA"),
-        )
-
-        val challenge = client.prepareLoginCaptcha()
-
-        assertEquals("login-token", challenge.loginToken)
-        assertEquals("captcha-gen", challenge.shCaptchaGenCode)
-        assertEquals("device-token", challenge.deviceToken)
-        assertEquals("image/png", challenge.contentType)
-        assertArrayEquals("PNGDATA".toByteArray(), challenge.imageBytes)
-        assertEquals("abc", challenge.cookies["ASP.NET_SessionId"])
-        assertEquals("/CLHSTYC/Auth/Auth/CloudLogin", server.takeRequest().path)
-        assertEquals("/CLHSTYC/Auth/Auth/GetCaptcha?seed=1", server.takeRequest().path)
-    }
-
-    @Test
-    fun prepareLoginCaptchaSupportsHexImageFallback() = runTest {
-        val hexPng = "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015df4a8b00000000049454e44ae426082"
-        server.enqueue(
-            htmlResponse(
-                """
-                <input name="__RequestVerificationToken" value="token" />
-                <input name="ShCaptchaGenCode" value="10" />
-                """.trimIndent(),
-            ),
-        )
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .addHeader("Content-Type", "text/plain")
-                .setBody(hexPng),
-        )
-
-        val challenge = client.prepareLoginCaptcha()
-
-        assertEquals("image/png", challenge.contentType)
-        assertTrue(challenge.imageBytes.size > 8)
-        assertEquals(0x89.toByte(), challenge.imageBytes[0])
-    }
-
-    @Test
-    fun loginSuccessReturnsSessionAndPostsExpectedForm() = runTest {
-        val challenge = CaptchaChallenge(
-            loginToken = "login-token",
-            shCaptchaGenCode = "10",
-            deviceToken = "device-token",
-            cookies = mapOf("ASP.NET_SessionId" to "abc"),
-            imageBytes = "PNG".toByteArray(),
-            contentType = "image/png",
-        )
-        server.enqueue(
-            jsonResponse(
-                """
-                {"Result":{"IsLoginSuccess":true,"DisplayMsg":"OK"}}
-                """.trimIndent(),
-            ),
-        )
-        server.enqueue(
-            htmlResponse("""<input name="__RequestVerificationToken" value="api-token" />"""),
-        )
-
-        val session = client.login("310471", "secret", "1234", challenge)
-
-        val loginRequest = server.takeRequest()
-        assertEquals("/CLHSTYC/Auth/Auth/DoCloudLoginCheck", loginRequest.path)
-        val form = loginRequest.body.readUtf8()
-        assertTrue(form.contains("LoginId=310471"))
-        assertTrue(form.contains("PassString=secret"))
-        assertTrue(form.contains("ShCaptchaGenCode=1234"))
-        assertTrue(form.contains("__RequestVerificationToken=login-token"))
-        assertEquals("310471", session.studentNo)
-        assertEquals("api-token", session.apiToken)
-        assertFalse(session.cookies.isEmpty())
-        assertEquals("/CLHSTYC/ICampus/StudentInfo/Index?page=%E6%88%90%E7%B8%BE%E6%9F%A5%E8%A9%A2", server.takeRequest().path)
-    }
-
-    @Test
-    fun loginFailureRequiresCaptchaRefresh() = runTest {
-        val challenge = CaptchaChallenge(
-            loginToken = "login-token",
-            shCaptchaGenCode = "10",
-            deviceToken = "",
-            cookies = emptyMap(),
-            imageBytes = ByteArray(0),
-            contentType = "image/png",
-        )
-        server.enqueue(jsonResponse("""{"Result":{"IsLoginSuccess":false,"DisplayMsg":"驗證碼錯誤"}}"""))
-
-        val error = runCatching {
-            client.login("310471", "secret", "0000", challenge)
-        }.exceptionOrNull()
-
-        assertTrue(error is SchoolException)
-        assertTrue((error as SchoolException).refreshCaptcha)
-        assertEquals("驗證碼錯誤", error.message)
-    }
-
     @Test
     fun loadStructureAndFetchGradesMapResponses() = runTest {
         val session = AuthenticatedSession(
-            studentNo = "310471",
+            studentNo = "DEMO-001",
             apiToken = "api-token",
             cookies = mapOf("ASP.NET_SessionId" to "abc"),
         )
@@ -160,7 +41,8 @@ class SchoolGradeClientTest {
 
         assertEquals("114學年度 上學期", structure.single().text)
         assertEquals("期末考", structure.single().exams.single().text)
-        assertEquals("高浚瑋", report.studentInfo.studentName)
+        assertEquals("範例學生", report.studentInfo.studentName)
+        assertEquals("DEMO-001", report.studentInfo.studentNo)
         assertEquals("國語文", report.subjects.single().subjectName)
         assertEquals(78.0, report.subjects.single().scoreValue, 0.001)
         assertEquals(80.0, report.standards.single().top ?: 0.0, 0.001)
@@ -171,6 +53,66 @@ class SchoolGradeClientTest {
         assertEquals("114" to "1", parseYearTerm("114_1"))
         assertEquals("114" to "1", parseYearTerm("1141"))
         assertEquals("114" to "1", parseYearTerm("bad"))
+    }
+
+    @Test
+    fun parseScheduleItemsRecursesThroughNestedAliasesAndDeduplicatesSlots() {
+        val items = parseScheduleItems(scheduleJson)
+
+        assertEquals(2, items.size)
+        assertEquals(
+            ScheduleItem(
+                dayOfWeek = 1,
+                period = 2,
+                subjectName = "數學",
+                teacherName = "範例教師",
+                classroom = "示範教室",
+            ),
+            items[0].copy(rawData = null),
+        )
+        assertEquals(
+            ScheduleItem(
+                dayOfWeek = 3,
+                period = 4,
+                subjectName = "英語文",
+                teacherName = "代理教師",
+                classroom = "語言教室",
+            ),
+            items[1].copy(rawData = null),
+        )
+    }
+
+    @Test
+    fun fetchSchedulePostsSelectionAndParsesRecursiveTimetableResponse() = runTest {
+        val session = AuthenticatedSession(
+            studentNo = "DEMO-001",
+            apiToken = "api-token",
+            cookies = mapOf("ASP.NET_SessionId" to "abc"),
+        )
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session = session,
+            yearValue = "114_1",
+            year = "114",
+            term = "1",
+            classNo = "230",
+        )
+
+        assertEquals("114_1", report.yearTermValue)
+        assertEquals(2, report.items.size)
+        assertEquals("數學", report.items.first().subjectName)
+
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable", server.takeRequest().path)
+        val timetableRequest = server.takeRequest()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetTimeTable", timetableRequest.path)
+        val form = timetableRequest.body.readUtf8()
+        assertTrue(form.contains("__RequestVerificationToken=schedule-token"))
+        assertTrue(form.contains("Year=114"))
+        assertTrue(form.contains("Term=1"))
+        assertTrue(form.contains("ClassNo=230"))
+        assertTrue(form.contains("TimetableType=Class"))
     }
 
     @Test
@@ -201,10 +143,10 @@ class SchoolGradeClientTest {
         {
           "Message": "",
           "Result": {
-            "StudentNo": "310471",
-            "StudentName": "高浚瑋",
-            "StudentClassName": "二年 11 班",
-            "StudentSeatNo": "20",
+            "StudentNo": "DEMO-001",
+            "StudentName": "範例學生",
+            "StudentClassName": "示範班級",
+            "StudentSeatNo": "00",
             "Show班級排名": true,
             "Show班級排名人數": true,
             "Show類組排名": true,
@@ -249,6 +191,43 @@ class SchoolGradeClientTest {
                 "大於20Count": 1,
                 "大於10Count": 1,
                 "大於0Count": 1
+              }
+            ]
+          }
+        }
+    """.trimIndent()
+
+    private val scheduleJson = """
+        {
+          "payload": {
+            "weeks": [
+              {
+                "items": [
+                  {
+                    "SubjectName": "數學",
+                    "WeekDay": "1",
+                    "SectionSeq": "2",
+                    "TeacherNameDisplay": "範例教師",
+                    "ClassroomName": "示範教室"
+                  },
+                  {
+                    "SubjectName": "重複資料",
+                    "WeekDay": "1",
+                    "SectionSeq": "2"
+                  },
+                  {
+                    "CourseName": "英語文",
+                    "DayOfWeek": "3",
+                    "Period": "4",
+                    "FirstTeacherName": "代理教師",
+                    "ClassroomDisplay": "語言教室"
+                  },
+                  {
+                    "SubjectDisplay": "",
+                    "DayOfWeek": "5",
+                    "Period": "6"
+                  }
+                ]
               }
             ]
           }

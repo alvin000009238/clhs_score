@@ -19,21 +19,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.clhs.score.data.ExamOption
-import com.clhs.score.data.ExamSummary
-import com.clhs.score.data.GradeReport
-import com.clhs.score.data.GradeStandard
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
-import com.clhs.score.data.StudentInfo
 import com.clhs.score.data.StudentScenario
-import com.clhs.score.data.SubjectScore
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
-import kotlinx.serialization.json.JsonObject
 import org.junit.Rule
 import org.junit.Test
 
@@ -73,7 +67,7 @@ class ScoreUiTest {
         composeRule.onNodeWithContentDescription("進階").assertIsDisplayed()
         composeRule.onAllNodesWithText("全部科目").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表").assertCountEquals(0)
-        composeRule.onNodeWithText("展示學生", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("範例學生", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("加權平均").assertIsDisplayed()
         composeRule.onNodeWithText("班排 15/38（前 39%）").assertIsDisplayed()
         composeRule.onNodeWithText("類排 88/226（前 38%）").assertIsDisplayed()
@@ -185,7 +179,7 @@ class ScoreUiTest {
         GradesScreen(
             state = GradesUiState(
                 isLoggedIn = true,
-                studentNo = "110000",
+                studentNo = "DEMO-000",
                 structure = listOf(
                     YearTermOption(
                         text = "114學年度 上學期",
@@ -213,6 +207,7 @@ class ScoreUiTest {
                 expanded = if (key in expanded) expanded - key else expanded + key
             },
             onOpenScoreSimulator = {},
+            onOpenSchedule = {},
         )
     }
 }

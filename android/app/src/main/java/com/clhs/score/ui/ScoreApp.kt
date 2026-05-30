@@ -15,7 +15,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.glance.appwidget.updateAll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -23,10 +27,13 @@ import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
+import com.clhs.score.viewmodel.ScheduleViewModel
 import com.clhs.score.viewmodel.SettingsUiState
+import kotlinx.coroutines.launch
 
 private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
+private const val ScheduleRoute = "schedule"
 private const val SettingsRoute = "settings"
 private const val DeveloperSettingsRoute = "developer-settings"
 
@@ -97,6 +104,7 @@ fun ScoreApp(
                         onReload = onReload,
                         onToggleSubject = onToggleSubject,
                         onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
+                        onOpenSchedule = { navController.navigate(ScheduleRoute) },
                         onOpenSettings = { navController.navigate(SettingsRoute) },
                     )
                 }
@@ -105,6 +113,32 @@ fun ScoreApp(
                         state = gradesState,
                         snackbarHostState = snackbarHostState,
                         onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = ScheduleRoute,
+                    deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "scoreapp://schedule" })
+                ) {
+                    val context = LocalContext.current
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ScheduleViewModel>(
+                        factory = ScheduleViewModel.factory(context, settings.demoMode),
+                    )
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    val coroutineScope = rememberCoroutineScope()
+                    com.clhs.score.ui.schedule.ScheduleScreen(
+                        uiState = uiState,
+                        onBack = { navController.popBackStack() },
+                        onRefresh = { viewModel.refresh() },
+                        onYearSelected = { viewModel.selectYear(it) },
+                        onClassSelected = { viewModel.selectClass(it) },
+                        onConfirmSelection = { viewModel.confirmSelection() },
+                        onClearSelection = { viewModel.clearSelection() },
+                        onSaveWidgetPreferences = { showTeacher, showClassroom, showTime ->
+                            viewModel.saveWidgetPreferences(showTeacher, showClassroom, showTime)
+                            coroutineScope.launch {
+                                com.clhs.score.widget.ScheduleWidget().updateAll(context)
+                            }
+                        }
                     )
                 }
                 composable(SettingsRoute) {
@@ -155,7 +189,7 @@ fun ScoreApp(
                 } else {
                     IntroScreen(
                         showSkipButton = settings.demoMode,
-                        onSkipClick = { onWebViewLoginSuccess("demo-student", "fake=cookie") },
+                        onSkipClick = { onWebViewLoginSuccess("DEMO-000", "fake=cookie") },
                         onLoginClick = { showWebView = true }
                     )
                 }
