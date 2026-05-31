@@ -79,7 +79,7 @@ const translations = {
     'privacy.logout.title': 'Clean logout',
     'privacy.logout.desc': 'All local session data is wiped on logout, leaving no trace.',
     'disclaimer.title': 'Disclaimer',
-    'disclaimer.text': 'This is an unofficial third-party project and is not directly affiliated with CLHS or Xinhe Smart Campus.',
+    'disclaimer.text': 'This is an unofficial third-party project and is not directly affiliated with CLHS or ShinHer Smart Campus.',
     'footer.github': 'View source on GitHub',
     'footer.license': 'MIT License © 2026',
     'footer.contributor': 'Developed by alvin000009238',
@@ -147,7 +147,7 @@ function updateDownloadStatsText() {
   const latestEl = document.getElementById('stat-latest');
   const prevEl = document.getElementById('stat-prev');
   if (!latestEl || !prevEl) return;
-  
+
   if (currentLang === 'zh') {
     latestEl.textContent = `最新版 (${releaseData.latest.tag}): ${releaseData.latest.count} 次下載`;
     prevEl.textContent = `上一版 (${releaseData.prev.tag}): ${releaseData.prev.count} 次下載`;
