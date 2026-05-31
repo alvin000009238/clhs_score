@@ -110,6 +110,51 @@ function setLanguage(lang) {
   if (toggle) {
     toggle.textContent = lang === 'zh' ? 'EN' : '中文';
   }
+
+  updateDownloadStatsText();
+}
+
+// ===== Fetch Download Stats =====
+let releaseData = null;
+async function initDownloadStats() {
+  try {
+    const response = await fetch('https://api.github.com/repos/alvin000009238/clhs_score/releases');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.length >= 2) {
+        releaseData = {
+          latest: {
+            tag: data[0].tag_name,
+            count: data[0].assets.reduce((sum, asset) => sum + asset.download_count, 0)
+          },
+          prev: {
+            tag: data[1].tag_name,
+            count: data[1].assets.reduce((sum, asset) => sum + asset.download_count, 0)
+          }
+        };
+        updateDownloadStatsText();
+        const statsEl = document.getElementById('download-stats');
+        if (statsEl) statsEl.style.opacity = 1;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch stats:', err);
+  }
+}
+
+function updateDownloadStatsText() {
+  if (!releaseData) return;
+  const latestEl = document.getElementById('stat-latest');
+  const prevEl = document.getElementById('stat-prev');
+  if (!latestEl || !prevEl) return;
+  
+  if (currentLang === 'zh') {
+    latestEl.textContent = `最新版 (${releaseData.latest.tag}): ${releaseData.latest.count} 次下載`;
+    prevEl.textContent = `上一版 (${releaseData.prev.tag}): ${releaseData.prev.count} 次下載`;
+  } else {
+    latestEl.textContent = `Latest (${releaseData.latest.tag}): ${releaseData.latest.count} dl`;
+    prevEl.textContent = `Previous (${releaseData.prev.tag}): ${releaseData.prev.count} dl`;
+  }
 }
 
 // ===== Reduced Motion Check =====
@@ -214,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initHeroContent();
   initScrollAnimations();
   initNavObserver();
+  initDownloadStats();
 
   const toggle = document.getElementById('lang-toggle');
   if (toggle) {

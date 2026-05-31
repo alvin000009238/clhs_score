@@ -253,6 +253,23 @@ a {
   color: var(--text-tertiary);
 }
 
+.download-stats {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ===== Hero Visual ===== */
 .hero-visual {
   display: flex;
@@ -571,6 +588,10 @@ a {
   }
 
   .hero-actions {
+    align-items: center;
+  }
+
+  .download-stats {
     align-items: center;
   }
 
