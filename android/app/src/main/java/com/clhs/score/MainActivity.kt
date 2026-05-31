@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
                 val loginState by viewModel.loginState.collectAsState()
                 val gradesState by viewModel.gradesState.collectAsState()
                 ScoreApp(
+                    scoreViewModel = viewModel,
                     loginState = loginState,
                     gradesState = gradesState,
                     settings = appSettings,

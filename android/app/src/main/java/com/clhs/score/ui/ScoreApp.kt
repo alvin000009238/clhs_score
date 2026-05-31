@@ -33,12 +33,14 @@ import kotlinx.coroutines.launch
 
 private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
+private const val SubjectTrendRoute = "subject-trend"
 private const val ScheduleRoute = "schedule"
 private const val SettingsRoute = "settings"
 private const val DeveloperSettingsRoute = "developer-settings"
 
 @Composable
 fun ScoreApp(
+    scoreViewModel: com.clhs.score.viewmodel.ScoreViewModel,
     loginState: LoginUiState,
     gradesState: GradesUiState,
     settings: AppSettings,
@@ -105,6 +107,9 @@ fun ScoreApp(
                         onToggleSubject = onToggleSubject,
                         onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
                         onOpenSchedule = { navController.navigate(ScheduleRoute) },
+                        onOpenSubjectTrend = {
+                            navController.navigate(SubjectTrendRoute)
+                        },
                         onOpenSettings = { navController.navigate(SettingsRoute) },
                     )
                 }
@@ -113,6 +118,15 @@ fun ScoreApp(
                         state = gradesState,
                         snackbarHostState = snackbarHostState,
                         onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(SubjectTrendRoute) {
+                    LaunchedEffect(Unit) {
+                        scoreViewModel.initSubjectTrend()
+                    }
+                    SubjectTrendScreen(
+                        viewModel = scoreViewModel,
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable(

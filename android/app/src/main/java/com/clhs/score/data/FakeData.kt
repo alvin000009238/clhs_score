@@ -66,6 +66,7 @@ object MockGradeSystem {
         customClassRank: Double? = null,
         customCategoryRank: Double? = null,
         customScores: List<Double>? = null,
+        customSubjectNames: List<String>? = null,
     ): GradeReport {
         val yearTermDisplay = "$year 學年度 $termText"
         
@@ -79,7 +80,10 @@ object MockGradeSystem {
         val classCount = 38
         val yearRankCount = 226
 
-        val subjects = subjectSpecs.zip(scores).mapIndexed { index, (spec, scoreValue) ->
+        val subjects = subjectSpecs.zip(scores).mapIndexedNotNull { index, (spec, scoreValue) ->
+            if (scoreValue == -999.0) return@mapIndexedNotNull null
+            
+            val subjectName = customSubjectNames?.getOrNull(index) ?: spec.name
             val classAverage = spec.classAverage
             val isAbsent = scoreValue == -1.0
             val isCheating = scoreValue == -2.0
@@ -94,7 +98,7 @@ object MockGradeSystem {
             val subjectYearRank = if (isAbsent || isCheating) yearRankCount else (subjectClassRank * 6 - 2).coerceIn(1, yearRankCount)
 
             SubjectScore(
-                subjectName = spec.name,
+                subjectName = subjectName,
                 scoreDisplay = scoreDisplay,
                 score = if (isAbsent || isCheating) null else actualScore,
                 classAverageDisplay = "%.2f".format(classAverage),
@@ -171,7 +175,6 @@ object FakeData {
         apiToken = "fake-token",
         cookies = emptyMap(),
     )
-
     val structure: List<YearTermOption> = listOf(
         YearTermOption(
             text = "113 學年度 第 2 學期",
@@ -188,7 +191,6 @@ object FakeData {
             exams = listOf(
                 ExamOption("第一次段考", "114_1_E1"),
                 ExamOption("第二次段考", "114_1_E2"),
-                ExamOption("第三次段考", "114_1_E3"),
                 ExamOption("期末考", "114_1_E4"),
             ),
         ),
@@ -202,48 +204,58 @@ object FakeData {
             ("114_1" to "114_1_E4") to MockGradeSystem.generateReport(
                 year = 114, termText = "第 1 學期", examName = "期末考",
                 customTotalScore = 566.0, customAverageScore = 80.9, customClassRank = 7.0, customCategoryRank = 38.0,
-                customScores = listOf(84.0, 78.0, 92.0, 88.0, 73.0, 81.0, 70.0)
-            ),
-            ("114_1" to "114_1_E3") to MockGradeSystem.generateReport(
-                year = 114, termText = "第 1 學期", examName = "第三次段考",
-                customTotalScore = 543.0, customAverageScore = 77.6, customClassRank = 10.0, customCategoryRank = 52.0,
-                customScores = listOf(80.0, 75.0, 86.0, 83.0, 70.0, 79.0, 70.0)
+                customScores = listOf(84.0, 78.0, 92.0, 88.0, 73.0, 81.0, 70.0),
+                customSubjectNames = listOf("國文", "英文", "選修數學甲", "自然", "社會", "地理", "歷史")
             ),
             ("114_1" to "114_1_E2") to MockGradeSystem.generateReport(
                 year = 114, termText = "第 1 學期", examName = "第二次段考",
                 customTotalScore = 523.0, customAverageScore = 74.7, customClassRank = 14.0, customCategoryRank = 71.0,
-                customScores = listOf(76.0, 72.0, 82.0, 80.0, 68.0, 75.0, 70.0)
+                customScores = listOf(76.0, 72.0, 82.0, 80.0, 68.0, 75.0, 70.0),
+                customSubjectNames = listOf("國文", "英文", "數學A", "自然", "社會", "地理", "歷史")
             ),
             ("114_1" to "114_1_E1") to MockGradeSystem.generateReport(
                 year = 114, termText = "第 1 學期", examName = "第一次段考",
                 customTotalScore = 506.0, customAverageScore = 72.3, customClassRank = 18.0, customCategoryRank = 90.0,
-                customScores = listOf(72.0, 70.0, 78.0, 76.0, 66.0, 73.0, 71.0)
+                customScores = listOf(72.0, 70.0, 78.0, 76.0, 66.0, 73.0, -1.0),
+                customSubjectNames = listOf("國文", "英文", "數學A", "自然", "社會", "地理", "歷史")
             ),
             ("113_2" to "113_2_E3") to MockGradeSystem.generateReport(
                 year = 113, termText = "第 2 學期", examName = "期末考",
                 customTotalScore = 514.0, customAverageScore = 73.4, customClassRank = 16.0, customCategoryRank = 82.0,
-                customScores = listOf(74.0, 71.0, 80.0, 78.0, 67.0, 75.0, 69.0)
+                customScores = listOf(74.0, 71.0, 80.0, 78.0, 67.0, 75.0, 69.0),
+                customSubjectNames = listOf("國文", "英文", "數學", "自然", "社會", "地理", "歷史")
+            ),
+            ("113_2" to "113_2_E2") to MockGradeSystem.generateReport(
+                year = 113, termText = "第 2 學期", examName = "第二次段考",
+                customTotalScore = 510.0, customAverageScore = 72.8, customClassRank = 17.0, customCategoryRank = 85.0,
+                customScores = listOf(70.0, 68.0, 78.0, 75.0, 65.0, 72.0, 65.0),
+                customSubjectNames = listOf("國文", "英文", "數學", "自然", "社會", "地理", "歷史")
+            ),
+            ("113_2" to "113_2_E1") to MockGradeSystem.generateReport(
+                year = 113, termText = "第 2 學期", examName = "第一次段考",
+                customTotalScore = 495.0, customAverageScore = 70.7, customClassRank = 19.0, customCategoryRank = 92.0,
+                customScores = listOf(68.0, 65.0, 75.0, 72.0, 62.0, 70.0, 62.0),
+                customSubjectNames = listOf("國文", "英文", "數學", "自然", "社會", "地理", "歷史")
             ),
         )
     }
 
     fun reportFor(yearValue: String, examValue: String): GradeReport =
         reports[yearValue to examValue] ?: reports.getValue(currentYearValue to currentExamValue)
-
     fun latestReport(): GradeReport = reportFor(currentYearValue, currentExamValue)
 
-    fun previousReport(): GradeReport = reportFor("114_1", "114_1_E3")
+    fun previousReport(): GradeReport = reportFor("114_1", "114_1_E2")
 
     fun trendReports(): List<Pair<String, GradeReport>> = listOf(
         "第一次段考" to reportFor("114_1", "114_1_E1"),
         "第二次段考" to reportFor("114_1", "114_1_E2"),
-        "第三次段考" to reportFor("114_1", "114_1_E3"),
+        "期末考" to reportFor("114_1", "114_1_E4"),
     )
 
     fun simulatorHistoryReports(): List<GradeReport> = listOf(
         reportFor("114_1", "114_1_E1"),
         reportFor("114_1", "114_1_E2"),
-        reportFor("114_1", "114_1_E3"),
+        reportFor("114_1", "114_1_E4"),
     )
 }
 

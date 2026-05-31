@@ -36,7 +36,12 @@ private fun ScoreAppFakePreview(
     @PreviewParameter(ScenarioProvider::class) scenario: StudentScenario
 ) {
     ScoreTheme {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val scoreViewModel: com.clhs.score.viewmodel.ScoreViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+            factory = com.clhs.score.viewmodel.ScoreViewModel.factory(context, useFakeData = true)
+        )
         ScoreApp(
+            scoreViewModel = scoreViewModel,
             loginState = LoginUiState(),
             gradesState = fakeGradesState(scenario = scenario),
             settings = AppSettings(),
@@ -84,6 +89,7 @@ private fun GradesScreenFakePreview(
             onToggleSubject = {},
             onOpenScoreSimulator = {},
             onOpenSchedule = {},
+            onOpenSubjectTrend = {},
         )
     }
 }

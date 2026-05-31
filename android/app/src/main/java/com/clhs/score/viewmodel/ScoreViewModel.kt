@@ -72,6 +72,14 @@ data class GradesUiState(
     val errorMessage: String? = null,
 )
 
+data class SubjectTrendUiState(
+    val selectedYearValues: Set<String> = emptySet(),
+    val selectedSubjectKeys: Set<String> = emptySet(),
+    val isLoading: Boolean = false,
+    val reports: List<GradeReport> = emptyList(),
+    val errorMessage: String? = null,
+)
+
 class ScoreViewModel(
     private val repository: GradeRepository,
     private val insightProvider: ScoreInsightProvider = LocalScoreInsightProvider(),
@@ -84,6 +92,9 @@ class ScoreViewModel(
 
     private val _gradesState = MutableStateFlow(GradesUiState())
     val gradesState: StateFlow<GradesUiState> = _gradesState
+
+    private val _subjectTrendState = MutableStateFlow(SubjectTrendUiState())
+    val subjectTrendState: StateFlow<SubjectTrendUiState> = _subjectTrendState
 
     init {
         restoreSession()
@@ -470,6 +481,96 @@ class ScoreViewModel(
             }
         }
         return requests.distinctBy { it.yearValue to it.examValue }
+    }
+
+    private var isSubjectTrendInitialized = false
+
+    fun initSubjectTrend() {
+        if (isSubjectTrendInitialized) return
+        isSubjectTrendInitialized = true
+        
+        val structure = _gradesState.value.structure
+        val allYears = structure.map { it.value }.toSet()
+        val defaultSubjects = emptySet<String>()
+        _subjectTrendState.update {
+            it.copy(
+                selectedYearValues = allYears,
+                selectedSubjectKeys = defaultSubjects,
+            )
+        }
+        fetchSubjectTrendGrades()
+    }
+
+    fun toggleSubjectTrendYear(yearValue: String) {
+        _subjectTrendState.update { state ->
+            val next = if (yearValue in state.selectedYearValues) {
+                state.selectedYearValues - yearValue
+            } else {
+                state.selectedYearValues + yearValue
+            }
+            state.copy(selectedYearValues = next)
+        }
+        fetchSubjectTrendGrades()
+    }
+
+    fun toggleSubjectTrendSubject(subjectKey: String) {
+        _subjectTrendState.update { state ->
+            val next = if (subjectKey in state.selectedSubjectKeys) {
+                state.selectedSubjectKeys - subjectKey
+            } else {
+                state.selectedSubjectKeys + subjectKey
+            }
+            state.copy(selectedSubjectKeys = next)
+        }
+    }
+
+    private fun fetchSubjectTrendGrades() {
+        val currentSession = session ?: return
+        val structure = _gradesState.value.structure
+        val selectedYears = _subjectTrendState.value.selectedYearValues
+        
+        val requests = buildList {
+            structure.filter { it.value in selectedYears }
+                .sortedWith(compareBy({ com.clhs.score.data.parseYearTerm(it.value, "0", "0").first.toIntOrNull() ?: 0 }, { com.clhs.score.data.parseYearTerm(it.value, "0", "0").second.toIntOrNull() ?: 0 }))
+                .forEach { yearTerm ->
+                    yearTerm.exams.forEach { exam ->
+                        add(HistoricalExamRequest(yearTerm.value, exam.value, exam.text))
+                    }
+                }
+        }
+        
+        if (requests.isEmpty()) {
+            _subjectTrendState.update { it.copy(reports = emptyList(), errorMessage = null) }
+            return
+        }
+
+        viewModelScope.launch {
+            _subjectTrendState.update { it.copy(isLoading = true, errorMessage = null) }
+            runCatching {
+                coroutineScope {
+                    requests.map { request ->
+                        async {
+                            repository.fetchGrades(currentSession, request.yearValue, request.examValue, false)
+                        }
+                    }.awaitAll()
+                }
+            }.onSuccess { reports ->
+                _subjectTrendState.update {
+                    it.copy(
+                        isLoading = false,
+                        reports = reports,
+                        errorMessage = null,
+                    )
+                }
+            }.onFailure { error ->
+                _subjectTrendState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "載入折線圖資料失敗",
+                    )
+                }
+            }
+        }
     }
 
     companion object {
