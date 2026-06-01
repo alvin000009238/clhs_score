@@ -56,12 +56,14 @@ fun ScoreApp(
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
+    onSetNotificationsEnabled: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
     onDismissUpdateResult: () -> Unit,
     onVersionTap: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
     onSetDemoMode: (Boolean) -> Unit,
     onDismissRestartDialog: () -> Unit,
+    onDismissNotificationPrompt: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showWebView by remember { mutableStateOf(false) }
@@ -76,6 +78,11 @@ fun ScoreApp(
         snackbarHostState.showSnackbar(message)
         onDismissGradesError()
     }
+
+    UpdateResultDialog(
+        result = settingsUiState.updateResult,
+        onDismiss = onDismissUpdateResult,
+    )
 
     AnimatedContent(
         targetState = gradesState.isLoggedIn,
@@ -98,6 +105,11 @@ fun ScoreApp(
                 popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { it / 8 } },
             ) {
                 composable(GradesRoute) {
+                    NotificationPromptDialog(
+                        settings = settings,
+                        onEnableNotifications = onSetNotificationsEnabled,
+                        onDismiss = onDismissNotificationPrompt,
+                    )
                     GradesScreen(
                         state = gradesState,
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -163,6 +175,7 @@ fun ScoreApp(
                         onSetThemeMode = onSetThemeMode,
                         onSetDynamicColor = onSetDynamicColor,
                         onSetAmoledBlack = onSetAmoledBlack,
+                        onSetNotificationsEnabled = onSetNotificationsEnabled,
                         onCheckUpdate = onCheckUpdate,
                         onDismissUpdateResult = onDismissUpdateResult,
                         onVersionTap = onVersionTap,

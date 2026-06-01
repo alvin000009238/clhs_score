@@ -43,6 +43,7 @@ grades_raw.json
 shared_grades/
 .flask_session/
 *.json
+!android/app/google-services.json
 !requirements.txt
 !.env.example
 !package.json

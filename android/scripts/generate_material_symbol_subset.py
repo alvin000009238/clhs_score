@@ -30,6 +30,7 @@ ICONS = (
     "person",
     "lock",
     "lock_open",
+    "notifications",
 )
 
 AAR_GROUP_PATH = Path("dev.vicart/compose-material-symbols-android/1.0.2")

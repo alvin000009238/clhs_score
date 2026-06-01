@@ -10,6 +10,7 @@ import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.UpdateChecker
 import com.clhs.score.data.UpdateResult
+import com.clhs.score.notifications.NotificationTopicManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,9 @@ data class SettingsUiState(
 class SettingsViewModel(
     private val repository: SettingsRepository,
     private val updateChecker: UpdateChecker,
+    private val notificationTopicManager: NotificationTopicManager,
 ) : ViewModel() {
+    private var lastNotificationsEnabled: Boolean? = null
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -42,6 +45,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             repository.settings.collect { newSettings ->
                 _settings.value = newSettings
+                if (lastNotificationsEnabled != newSettings.notificationsEnabled) {
+                    lastNotificationsEnabled = newSettings.notificationsEnabled
+                    notificationTopicManager.setNotificationsEnabled(newSettings.notificationsEnabled)
+                }
                 if (!_isReady.value) {
                     _isReady.value = true
                 }
@@ -59,6 +66,14 @@ class SettingsViewModel(
 
     fun setAmoledBlack(enabled: Boolean) {
         viewModelScope.launch { repository.setAmoledBlack(enabled) }
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
+    }
+
+    fun dismissNotificationPrompt() {
+        viewModelScope.launch { repository.setNotificationPromptDismissed(true) }
     }
 
     fun checkUpdate() {
@@ -112,7 +127,7 @@ class SettingsViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val repo = SettingsRepository(context)
                     val checker = UpdateChecker()
-                    return SettingsViewModel(repo, checker) as T
+                    return SettingsViewModel(repo, checker, NotificationTopicManager()) as T
                 }
             }
     }

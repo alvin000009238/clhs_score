@@ -24,6 +24,8 @@ class SettingsRepository(context: Context) {
             } ?: ThemeMode.SYSTEM,
             dynamicColor = prefs[KEY_DYNAMIC_COLOR] ?: false,
             amoledBlack = prefs[KEY_AMOLED_BLACK] ?: false,
+            notificationsEnabled = prefs[KEY_NOTIFICATIONS_ENABLED] ?: false,
+            notificationPromptDismissed = prefs[KEY_NOTIFICATION_PROMPT_DISMISSED] ?: false,
             developerEnabled = prefs[KEY_DEVELOPER_ENABLED] ?: false,
             demoMode = prefs[KEY_DEMO_MODE] ?: false,
         )
@@ -41,8 +43,16 @@ class SettingsRepository(context: Context) {
         dataStore.edit { it[KEY_AMOLED_BLACK] = enabled }
     }
 
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_NOTIFICATIONS_ENABLED] = enabled }
+    }
+
     suspend fun setDeveloperEnabled(enabled: Boolean) {
         dataStore.edit { it[KEY_DEVELOPER_ENABLED] = enabled }
+    }
+
+    suspend fun setNotificationPromptDismissed(dismissed: Boolean) {
+        dataStore.edit { it[KEY_NOTIFICATION_PROMPT_DISMISSED] = dismissed }
     }
 
     suspend fun setDemoMode(enabled: Boolean) {
@@ -53,6 +63,8 @@ class SettingsRepository(context: Context) {
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_AMOLED_BLACK = booleanPreferencesKey("amoled_black")
+        val KEY_NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val KEY_NOTIFICATION_PROMPT_DISMISSED = booleanPreferencesKey("notification_prompt_dismissed")
         val KEY_DEVELOPER_ENABLED = booleanPreferencesKey("developer_enabled")
         val KEY_DEMO_MODE = booleanPreferencesKey("demo_mode")
     }

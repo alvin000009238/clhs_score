@@ -57,12 +57,14 @@ private fun ScoreAppFakePreview(
             onSetThemeMode = {},
             onSetDynamicColor = {},
             onSetAmoledBlack = {},
+            onSetNotificationsEnabled = {},
             onCheckUpdate = {},
             onDismissUpdateResult = {},
             onVersionTap = {},
             onDismissDeveloperToast = {},
             onSetDemoMode = {},
             onDismissRestartDialog = {},
+            onDismissNotificationPrompt = {},
         )
     }
 }

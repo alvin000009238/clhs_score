@@ -21,10 +21,6 @@ sealed class UpdateResult {
 }
 
 class UpdateChecker {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
 
     suspend fun check(currentVersionName: String): UpdateResult = withContext(Dispatchers.IO) {
         try {
@@ -33,11 +29,11 @@ class UpdateChecker {
                 .header("Accept", "application/vnd.github+json")
                 .get()
                 .build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                return@withContext UpdateResult.Error("HTTP ${response.code}")
-            }
-            val body = response.body.string()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext UpdateResult.Error("HTTP ${response.code}")
+                }
+                val body = response.body.string()
             val json = SchoolJson.parseToJsonElement(body).jsonObject
             val tagName = json["tag_name"]?.jsonPrimitive?.content.orEmpty()
             val remoteVersion = tagName.removePrefix("v")
@@ -57,6 +53,7 @@ class UpdateChecker {
                 )
             } else {
                 UpdateResult.UpToDate
+            }
             }
         } catch (e: Exception) {
             UpdateResult.Error(e.message ?: "未知錯誤")
@@ -79,5 +76,10 @@ class UpdateChecker {
     private companion object {
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/alvin000009238/clhs_score/releases/latest"
+
+        val client: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
     }
 }

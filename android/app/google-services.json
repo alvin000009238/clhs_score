@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1021793264456",
+    "project_id": "clhs-score",
+    "storage_bucket": "clhs-score.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021793264456:android:d63f8d7b98f264b124497d",
+        "android_client_info": {
+          "package_name": "com.clhs.score"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMTocd3A3JGmTxZIxTxITmUvK7YIcFOAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021793264456:android:86b17f63d054c93224497d",
+        "android_client_info": {
+          "package_name": "com.clhs.score.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMTocd3A3JGmTxZIxTxITmUvK7YIcFOAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

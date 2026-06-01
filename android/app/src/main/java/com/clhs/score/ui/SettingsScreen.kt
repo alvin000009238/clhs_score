@@ -1,8 +1,11 @@
 package com.clhs.score.ui
 
-import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -49,11 +52,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
 import com.clhs.score.BuildConfig
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ThemeMode
-import com.clhs.score.data.UpdateResult
 import com.clhs.score.viewmodel.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +67,7 @@ fun SettingsScreen(
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
+    onSetNotificationsEnabled: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
     onDismissUpdateResult: () -> Unit,
     onVersionTap: () -> Unit,
@@ -74,6 +77,31 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            onSetNotificationsEnabled(true)
+        } else {
+            onSetNotificationsEnabled(false)
+            Toast.makeText(context, "未取得通知權限，暫不接收推播通知", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val onNotificationToggle: (Boolean) -> Unit = { enabled ->
+        if (!enabled) {
+            onSetNotificationsEnabled(false)
+        } else if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onSetNotificationsEnabled(true)
+        }
+    }
 
     LaunchedEffect(uiState.showDeveloperUnlockedToast) {
         if (uiState.showDeveloperUnlockedToast) {
@@ -104,11 +132,6 @@ fun SettingsScreen(
         )
     }
 
-    UpdateResultDialog(
-        result = uiState.updateResult,
-        onDismiss = onDismissUpdateResult,
-    )
-
     SubpageLayout(onBack = onBack) {
         Column(
             modifier = Modifier
@@ -122,14 +145,13 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(56.dp))
 
             SectionHeader("一般")
-            AppearanceCard(
+            GeneralSettingsCard(
                 settings = settings,
                 onSetThemeMode = onSetThemeMode,
                 onSetDynamicColor = onSetDynamicColor,
                 onSetAmoledBlack = onSetAmoledBlack,
+                onNotificationToggle = onNotificationToggle,
             )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             ClickableSettingsItem(
                 icon = "system_update",
@@ -215,11 +237,12 @@ private fun SectionHeader(title: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppearanceCard(
+private fun GeneralSettingsCard(
     settings: AppSettings,
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
+    onNotificationToggle: (Boolean) -> Unit,
 ) {
     val isDarkActive = settings.themeMode == ThemeMode.DARK ||
         (settings.themeMode == ThemeMode.SYSTEM /* assume could be dark */)
@@ -285,6 +308,15 @@ private fun AppearanceCard(
                 checked = settings.amoledBlack,
                 onCheckedChange = onSetAmoledBlack,
                 enabled = isDarkActive,
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchSettingsRow(
+                icon = "notifications",
+                title = "通知",
+                subtitle = "接收 app 更新與公告推播",
+                checked = settings.notificationsEnabled,
+                onCheckedChange = onNotificationToggle,
             )
         }
     }
@@ -377,60 +409,6 @@ private fun ClickableSettingsItem(
                 )
             }
             trailing?.invoke()
-        }
-    }
-}
-
-@Composable
-private fun UpdateResultDialog(
-    result: UpdateResult?,
-    onDismiss: () -> Unit,
-) {
-    if (result == null) return
-    val context = LocalContext.current
-    when (result) {
-        is UpdateResult.UpToDate -> {
-            LaunchedEffect(Unit) {
-                Toast.makeText(context, "已是最新版本", Toast.LENGTH_SHORT).show()
-                onDismiss()
-            }
-        }
-        is UpdateResult.Error -> {
-            LaunchedEffect(result) {
-                Toast.makeText(context, "檢查更新失敗：${result.message}", Toast.LENGTH_LONG).show()
-                onDismiss()
-            }
-        }
-        is UpdateResult.NewVersion -> {
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text("有新版本") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("v${result.versionName} 已可更新")
-                        if (result.releaseNotes.isNotBlank()) {
-                            Text(
-                                text = result.releaseNotes.take(300),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val url = result.apkDownloadUrl ?: result.htmlUrl
-                        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                        context.startActivity(intent)
-                        onDismiss()
-                    }) {
-                        Text(if (result.apkDownloadUrl != null) "下載 APK" else "前往 GitHub")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = onDismiss) { Text("稍後") }
-                },
-            )
         }
     }
 }
