@@ -105,11 +105,13 @@ fun ScoreApp(
                 popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { it / 8 } },
             ) {
                 composable(GradesRoute) {
-                    NotificationPromptDialog(
-                        settings = settings,
-                        onEnableNotifications = onSetNotificationsEnabled,
-                        onDismiss = onDismissNotificationPrompt,
-                    )
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        NotificationPromptDialog(
+                            settings = settings,
+                            onEnableNotifications = onSetNotificationsEnabled,
+                            onDismiss = onDismissNotificationPrompt,
+                        )
+                    }
                     GradesScreen(
                         state = gradesState,
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
