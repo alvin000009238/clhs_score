@@ -35,7 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.clhs.score.data.GradeStandard
@@ -115,16 +119,33 @@ internal fun SubjectCard(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoChip(
-                    modifier = Modifier.weight(1f),
-                    label = "百分位",
-                    value = subjectPercentLabel(subject.classRank, subject.classRankCount),
-                )
+                val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+                val buildRankString: (Int?, Int?) -> AnnotatedString = { rank, count ->
+                    val rankStr = formatRank(rank?.toDouble(), count, true)
+                    val pctStr = subjectPercentLabel(rank, count)
+                    buildAnnotatedString {
+                        append(rankStr)
+                        if (rankStr != "--" && pctStr != "--") {
+                            withStyle(SpanStyle(color = onSurfaceVariant, fontSize = 12.sp)) {
+                                append(" • $pctStr")
+                            }
+                        }
+                    }
+                }
+
                 InfoChip(
                     modifier = Modifier.weight(1f),
                     label = "班排",
-                    value = formatRank(subject.classRank?.toDouble(), subject.classRankCount, true),
+                    value = buildRankString(subject.classRank, subject.classRankCount),
                 )
+
+                if (subject.yearRank != null) {
+                    InfoChip(
+                        modifier = Modifier.weight(1f),
+                        label = "校排",
+                        value = buildRankString(subject.yearRank, subject.yearRankCount),
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -181,6 +202,25 @@ internal fun InfoChip(
     modifier: Modifier,
     label: String,
     value: String,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    InfoChip(
+        modifier = modifier,
+        label = label,
+        value = AnnotatedString(value),
+        containerColor = containerColor,
+        labelColor = labelColor,
+        valueColor = valueColor,
+    )
+}
+
+@Composable
+internal fun InfoChip(
+    modifier: Modifier,
+    label: String,
+    value: AnnotatedString,
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
