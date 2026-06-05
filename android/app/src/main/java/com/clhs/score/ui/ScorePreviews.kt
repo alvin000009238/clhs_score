@@ -65,6 +65,8 @@ private fun ScoreAppFakePreview(
             onSetDemoMode = {},
             onDismissRestartDialog = {},
             onDismissNotificationPrompt = {},
+            onExportGrades = {},
+            onDismissExportResult = {},
         )
     }
 }

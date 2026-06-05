@@ -59,3 +59,9 @@
 - 桌面課表小工具 (`ScheduleWidget`) 使用 Jetpack Glance 實作。
 - 自動更新依賴 `AlarmManager.setAndAllowWhileIdle` (`WidgetUpdateReceiver`)，在每日午夜與每節課下課時觸發更新，避開了需申請 `SCHEDULE_EXACT_ALARM` 權限的限制。
 - 測試 Widget UI 時，注意 Glance 的 RemoteViews 資源回收問題：所有動態修飾 (`GlanceModifier`)，包括 `background` 或 `cornerRadius`，在條件分支 (`if-else`) 中都必須明確設置（例如重設為 `Color.Transparent` 與 `0.dp`），否則滑動列表時樣式會錯誤殘留。
+
+## Android 成績匯出
+
+- 設定頁的「匯出成績」使用 `GradeExporter`（`data/GradeExporter.kt`）產生 BOM+UTF-8 CSV，透過 `MediaStore` API 存到 Downloads。
+- 匯出流程由 `ScoreViewModel.exportGrades()` 驅動，支援跨學期多考試批次匯出；未快取的考試會自動從網路拉取。
+- 考試勾選 UI 在 `ui/ExportDialog.kt`，依學期分組並預設全選。

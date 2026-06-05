@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.clhs.score.data.AuthenticatedSession
+import com.clhs.score.data.ExamSelection
+import com.clhs.score.data.GradeExporter
 
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
@@ -70,6 +72,8 @@ data class GradesUiState(
     val analysis: GradeAnalysis? = null,
     val expandedSubjectKeys: Set<String> = emptySet(),
     val errorMessage: String? = null,
+    val isExporting: Boolean = false,
+    val exportResult: String? = null,
 )
 
 data class SubjectTrendUiState(
@@ -170,6 +174,46 @@ class ScoreViewModel(
 
     fun reloadStructure() {
         loadStructure(forceRefresh = true)
+    }
+
+    fun exportGrades(selections: List<ExamSelection>, context: Context) {
+        val currentSession = session ?: return
+        viewModelScope.launch {
+            _gradesState.update { it.copy(isExporting = true, exportResult = null) }
+            runCatching {
+                val reports = coroutineScope {
+                    selections.map { sel ->
+                        async {
+                            sel to repository.fetchGrades(
+                                currentSession, sel.yearValue, sel.examValue, false,
+                            )
+                        }
+                    }.awaitAll()
+                }
+                val csvPairs = reports.map { (sel, report) -> sel.displayName to report }
+                val csv = GradeExporter.buildCsvContent(csvPairs)
+                GradeExporter.saveCsvToDownloads(
+                    context = context,
+                    csv = csv,
+                    studentNo = currentSession.studentNo,
+                ).getOrThrow()
+            }.onSuccess { fileName ->
+                _gradesState.update {
+                    it.copy(isExporting = false, exportResult = "已儲存至 Downloads/$fileName")
+                }
+            }.onFailure { error ->
+                _gradesState.update {
+                    it.copy(
+                        isExporting = false,
+                        exportResult = "匯出失敗：${error.message ?: "未知錯誤"}",
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissExportResult() {
+        _gradesState.update { it.copy(exportResult = null) }
     }
 
     fun logout() {

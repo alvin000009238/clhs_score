@@ -24,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.clhs.score.data.AppSettings
+import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
@@ -64,6 +65,8 @@ fun ScoreApp(
     onSetDemoMode: (Boolean) -> Unit,
     onDismissRestartDialog: () -> Unit,
     onDismissNotificationPrompt: () -> Unit,
+    onExportGrades: (List<ExamSelection>) -> Unit,
+    onDismissExportResult: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showWebView by remember { mutableStateOf(false) }
@@ -173,6 +176,9 @@ fun ScoreApp(
                     SettingsScreen(
                         settings = settings,
                         uiState = settingsUiState,
+                        structure = gradesState.structure,
+                        isExporting = gradesState.isExporting,
+                        exportResult = gradesState.exportResult,
                         onBack = { navController.popBackStack() },
                         onSetThemeMode = onSetThemeMode,
                         onSetDynamicColor = onSetDynamicColor,
@@ -183,6 +189,8 @@ fun ScoreApp(
                         onVersionTap = onVersionTap,
                         onDismissDeveloperToast = onDismissDeveloperToast,
                         onOpenDeveloperSettings = { navController.navigate(DeveloperSettingsRoute) },
+                        onExportGrades = onExportGrades,
+                        onDismissExportResult = onDismissExportResult,
                         onLogout = onLogout,
                     )
                 }

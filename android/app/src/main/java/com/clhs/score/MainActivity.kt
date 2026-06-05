@@ -86,6 +86,8 @@ class MainActivity : ComponentActivity() {
                     onSetDemoMode = settingsVm::setDemoMode,
                     onDismissRestartDialog = settingsVm::dismissRestartDialog,
                     onDismissNotificationPrompt = settingsVm::dismissNotificationPrompt,
+                    onExportGrades = { selections -> scoreVm.exportGrades(selections, applicationContext) },
+                    onDismissExportResult = scoreVm::dismissExportResult,
                 )
             }
         }

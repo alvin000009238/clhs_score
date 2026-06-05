@@ -55,7 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.clhs.score.BuildConfig
 import com.clhs.score.data.AppSettings
+import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
+import com.clhs.score.data.YearTermOption
 import com.clhs.score.viewmodel.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +65,9 @@ import com.clhs.score.viewmodel.SettingsUiState
 fun SettingsScreen(
     settings: AppSettings,
     uiState: SettingsUiState,
+    structure: List<YearTermOption>,
+    isExporting: Boolean,
+    exportResult: String?,
     onBack: () -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
@@ -73,10 +78,13 @@ fun SettingsScreen(
     onVersionTap: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
     onOpenDeveloperSettings: () -> Unit,
+    onExportGrades: (List<ExamSelection>) -> Unit,
+    onDismissExportResult: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -108,6 +116,24 @@ fun SettingsScreen(
             Toast.makeText(context, "已開啟開發者選項", Toast.LENGTH_SHORT).show()
             onDismissDeveloperToast()
         }
+    }
+
+    LaunchedEffect(exportResult) {
+        if (exportResult != null) {
+            Toast.makeText(context, exportResult, Toast.LENGTH_LONG).show()
+            onDismissExportResult()
+        }
+    }
+
+    if (showExportDialog) {
+        ExportDialog(
+            structure = structure,
+            onConfirm = { selections ->
+                showExportDialog = false
+                onExportGrades(selections)
+            },
+            onDismiss = { showExportDialog = false },
+        )
     }
 
     if (showLogoutDialog) {
@@ -160,6 +186,21 @@ fun SettingsScreen(
                 onClick = onCheckUpdate,
                 trailing = {
                     if (uiState.isCheckingUpdate) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                },
+            )
+
+            ClickableSettingsItem(
+                icon = "download",
+                title = "匯出成績",
+                subtitle = if (isExporting) "匯出中…" else "將成績資料匯出為 CSV 檔案",
+                onClick = { if (!isExporting) showExportDialog = true },
+                trailing = {
+                    if (isExporting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
