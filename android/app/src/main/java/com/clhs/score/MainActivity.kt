@@ -99,8 +99,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE, false) == true) {
+        if (intent == null) return
+
+        val isUpdateTopic = intent.getStringExtra("from") == "/topics/app_updates" ||
+            intent.getStringExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE) == "true" ||
+            intent.getStringExtra("action") == "check_update" ||
+            intent.getBooleanExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE, false)
+
+        if (isUpdateTopic) {
             checkUpdateChannel.trySend(Unit)
+            intent.removeExtra("from")
+            intent.removeExtra("action")
             intent.removeExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE)
         }
     }
