@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
+import androidx.core.content.edit
 
 enum class LocalDataCategory(
     val key: String,
@@ -188,9 +189,9 @@ class DeveloperDiagnostics(private val context: Context) {
             )
             val prefs = appContext.getSharedPreferences(DiagnosticsPrefs, Context.MODE_PRIVATE)
             val updated = (recentEvents(appContext) + nextEvent).takeLast(MaxEvents)
-            prefs.edit()
-                .putString(EventsKey, updated.joinToString("\n") { it.serialize() })
-                .apply()
+            prefs.edit {
+                putString(EventsKey, updated.joinToString("\n") { it.serialize() })
+            }
         }
 
         fun recentEvents(context: Context): List<DiagnosticEvent> {

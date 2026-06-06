@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.clhs.score.data.ThemeMode
 
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = Color(0xFF1565C0),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFBBDEFB),
@@ -41,7 +41,7 @@ private val LightColors = lightColorScheme(
     outlineVariant = Color(0xFFC3C7CF),
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Color(0xFF82B1FF),
     onPrimary = Color(0xFF00316B),
     primaryContainer = Color(0xFF004A97),
@@ -70,7 +70,7 @@ private val DarkColors = darkColorScheme(
     outlineVariant = Color(0xFF43474E),
 )
 
-private val AmoledDarkColors = DarkColors.copy(
+internal val AmoledDarkColors = DarkColors.copy(
     background = Color.Black,
     surface = Color.Black,
     surfaceContainer = Color(0xFF0A0A0A),

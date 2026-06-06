@@ -71,6 +71,7 @@ fun NotificationPromptDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable {
                         onDismiss()
+                        Toast.makeText(context, "日後可在設定中隨時開啟通知", Toast.LENGTH_SHORT).show()
                     },
                 )
             }

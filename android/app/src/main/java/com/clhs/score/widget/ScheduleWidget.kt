@@ -49,7 +49,48 @@ import androidx.glance.text.TextStyle
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.SessionStore
+import com.clhs.score.data.AppSettings
+import com.clhs.score.data.SettingsRepository
+import com.clhs.score.data.ThemeMode
+import com.clhs.score.ui.theme.AmoledDarkColors
+import com.clhs.score.ui.theme.DarkColors
+import com.clhs.score.ui.theme.LightColors
+import kotlinx.coroutines.flow.first
+import android.os.Build
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.glance.material3.ColorProviders
 import java.util.Calendar
+
+fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
+    val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    
+    val light = if (dynamicColor) {
+        dynamicLightColorScheme(context)
+    } else {
+        LightColors
+    }
+    
+    val dark = if (dynamicColor) {
+        val base = dynamicDarkColorScheme(context)
+        if (settings.amoledBlack) {
+            base.copy(
+                background = Color.Black,
+                surface = Color.Black,
+                surfaceContainer = Color(0xFF0A0A0A),
+                surfaceContainerHigh = Color(0xFF141414),
+            )
+        } else base
+    } else {
+        if (settings.amoledBlack) AmoledDarkColors else DarkColors
+    }
+
+    when (settings.themeMode) {
+        ThemeMode.LIGHT -> ColorProviders(light = light, dark = light)
+        ThemeMode.DARK -> ColorProviders(light = dark, dark = dark)
+        ThemeMode.SYSTEM -> ColorProviders(light = light, dark = dark)
+    }
+}
 
 class ScheduleWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
@@ -58,6 +99,7 @@ class ScheduleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val sessionStore = SessionStore(context)
         val cacheStore = GradeCacheStore(context)
+        val settingsRepository = SettingsRepository(context)
 
         val session = sessionStore.loadSession()
         val report = if (session != null) {
@@ -70,9 +112,12 @@ class ScheduleWidget : GlanceAppWidget() {
         val showTeacher = prefs.first
         val showClassroom = prefs.second
         val showTime = prefs.third
+        
+        val appSettings = settingsRepository.settings.first()
 
         provideContent {
-            GlanceTheme {
+            val colors = getWidgetColorProviders(context, appSettings)
+            GlanceTheme(colors = colors) {
                 ScheduleWidgetContent(report?.items, showTeacher, showClassroom, showTime)
             }
         }
