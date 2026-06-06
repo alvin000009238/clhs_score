@@ -35,17 +35,14 @@
 -keep class org.jsoup.** { *; }
 -dontwarn org.jsoup.**
 
-# Keep data classes used for JSON parsing
--keep class com.clhs.score.data.** { *; }
-
 # Glance and Widgets
 -keep class androidx.glance.** { *; }
 -keep class com.clhs.score.widget.** { *; }
--keep class androidx.compose.runtime.** { *; }
 
-# WorkManager, Room, DataStore
+# WorkManager + Room + SQLite (transitive dep from Firebase Messaging)
 -keep class androidx.work.** { *; }
 -keep class androidx.room.** { *; }
 -keep class androidx.sqlite.** { *; }
+
+# DataStore
 -keep class androidx.datastore.** { *; }
--keep class kotlinx.coroutines.** { *; }
