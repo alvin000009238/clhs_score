@@ -45,13 +45,11 @@ shared_grades/
 *.json
 !android/app/google-services.json
 !requirements.txt
-!.env.example
 !package.json
 !package-lock.json
 !manifest.json
 *.md
 !README.md
-!web/README.md
 !AGENTS.md
 !DESIGN.md
 !CHANGELOG.md
@@ -67,7 +65,6 @@ shared_grades/
 
 # Docker
 .dockerignore
-!web/.dockerignore
 
 # IDE & OS
 .idea/
@@ -78,6 +75,7 @@ Thumbs.db
 # Node.js
 node_modules/
 public/dist/
+
 
 # bat
 *.bat

@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://score.clhs.dev/sitemap.xml

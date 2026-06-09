@@ -4,12 +4,15 @@
 
 ## 專案結構
 
-- `web/`：Web 端工作目錄，包含 Flask 後端、Vite 前端、web 測試、Dockerfile 與 web 專用 scripts。
-- `web/app/` 與 `web/server.py`：Flask 後端。`app.create_app()` 是主要 app factory，`server.py` 只負責本機啟動。
-- `web/frontend/`：Vite 前端原始碼，進入點是 `web/frontend/main.js`，樣式拆在 `web/frontend/styles/`。
-- `web/public/`：Flask 服務的靜態入口與 Vite build 輸出位置。
 - `android/`：獨立 Kotlin / Jetpack Compose / Material 3 Android app，package 為 `com.clhs.score`。
-- `web/tests/`：後端 pytest 與前端 Node 測試。
+- `demo/`：展示或 demo 相關內容。
+- `docs/`：Android 與整體專案文件。
+- `.github/workflows/`：此 repo 的 Android release、demo deploy 與通用檢查 workflow。
+
+## 已搬出的同層專案
+
+- `..\clhs-score-worker\web`：原 `web/`，Flask 後端、Vite 前端、web 測試、Dockerfile、Docker Compose 與 web 專用 scripts。
+- `..\clhs-score-worker`：原 `workers/clhs-score-worker/`，獨立 Cloudflare Workers fullstack web backend nested git repo。
 
 ## 工作規則
 
@@ -20,10 +23,9 @@
 
 ## 常用驗證
 
-- Web 後端：在 `web/` 內執行 `pytest tests/backend/`
-- Web Python 語法：在 `web/` 內執行 `python -m compileall app fetcher.py server.py`
-- Web 前端：在 `web/` 內執行 `npm run test`、`npm run build`
 - Android：在 `android/` 內執行 `.\gradlew.bat test`
+- Web：切到同層 `..\clhs-score-worker\web` 後執行該專案的 `AGENTS.md` 驗證
+- Cloudflare Worker：切到同層 `..\clhs-score-worker` 後執行該專案的 `AGENTS.md` 驗證
 
 在 Windows Codex 環境跑 Android Gradle 時，若 `java` 不在 PATH，使用 Android Studio 內建 JBR，並將 `GRADLE_USER_HOME`、`ANDROID_USER_HOME` 指到 workspace 內的暫存目錄。若測試一開始就出現 `could not open ...\jbr\lib\jvm.cfg`，通常是設定的 Android Studio JBR 路徑不存在或不完整；先用 `Test-Path` 或列出 `C:\Program Files\Android\Android Studio*` 確認實際 JBR 位置。本機曾遇到 `C:\Program Files\Android\Android Studio\jbr` 不可用，而 `C:\Program Files\Android\Android Studio1\jbr` 可用。
 
@@ -65,3 +67,8 @@
 - 設定頁的「匯出成績」使用 `GradeExporter`（`data/GradeExporter.kt`）產生 BOM+UTF-8 CSV，透過 `MediaStore` API 存到 Downloads。
 - 匯出流程由 `ScoreViewModel.exportGrades()` 驅動，支援跨學期多考試批次匯出；未快取的考試會自動從網路拉取。
 - 考試勾選 UI 在 `ui/ExportDialog.kt`，依學期分組並預設全選。
+
+## 搬出專案提醒
+
+- `web/` 已搬到同層 `..\clhs-score-worker\web`，此 repo 不再放 Flask/Vite web 程式碼。
+- `workers/clhs-score-worker/` 已搬到同層 `..\clhs-score-worker`，Worker 相關提交應在該獨立 repo 內處理。

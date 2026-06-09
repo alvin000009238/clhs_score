@@ -146,7 +146,7 @@ Web 與 Android app 採 Material 3 語彙：藍色作為主要行動與資料焦
 
 ## Colors
 
-色彩以 Material 3 的 light/dark scheme 為核心。Android 的 `ScoreTheme.kt` 是 app 端主要來源；Web 的 `web/frontend/styles/tokens.css` 是網頁端主要來源。
+色彩以 Material 3 的 light/dark scheme 為核心。Android 的 `ScoreTheme.kt` 是 app 端主要來源；Web 已搬到同層 `../clhs-score-worker/web`；網頁端主要來源是 `../clhs-score-worker/web/frontend/styles/tokens.css`。
 
 - **Primary** 用於主要 CTA、選取狀態、目前資料點、進度與重點數字。
 - **Surface** 用於卡片、底部導覽、彈窗與表格容器；不要把大面積內容做成過亮或過飽和。
