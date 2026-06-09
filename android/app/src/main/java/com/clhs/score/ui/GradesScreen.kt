@@ -29,9 +29,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -249,13 +249,12 @@ private fun GradesBottomNavigation(
     selectedDestination: Int,
     onSelect: (GradesDestination) -> Unit,
 ) {
-    NavigationBar(
+    ShortNavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 3.dp,
     ) {
         GradesDestination.entries.forEach { destination ->
             val selected = selectedDestination == destination.ordinal
-            NavigationBarItem(
+            ShortNavigationBarItem(
                 selected = selected,
                 onClick = { onSelect(destination) },
                 icon = {
@@ -278,10 +277,10 @@ private fun GradesBottomNavigation(
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     )
                 },
-                colors = NavigationBarItemDefaults.colors(
+                colors = ShortNavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedIndicatorColor = MaterialTheme.colorScheme.primaryContainer,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
