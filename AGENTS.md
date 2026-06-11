@@ -5,14 +5,8 @@
 ## 專案結構
 
 - `android/`：獨立 Kotlin / Jetpack Compose / Material 3 Android app，package 為 `com.clhs.score`。
-- `demo/`：展示或 demo 相關內容。
-- `docs/`：Android 與整體專案文件。
+- `demo/`：展示素材與截圖頁面。
 - `.github/workflows/`：此 repo 的 Android release、demo deploy 與通用檢查 workflow。
-
-## 已搬出的同層專案
-
-- `..\clhs-score-worker\web`：原 `web/`，Flask 後端、Vite 前端、web 測試、Dockerfile、Docker Compose 與 web 專用 scripts。
-- `..\clhs-score-worker`：原 `workers/clhs-score-worker/`，獨立 Cloudflare Workers fullstack web backend nested git repo。
 
 ## 工作規則
 
@@ -24,8 +18,6 @@
 ## 常用驗證
 
 - Android：在 `android/` 內執行 `.\gradlew.bat test`
-- Web：切到同層 `..\clhs-score-worker\web` 後執行該專案的 `AGENTS.md` 驗證
-- Cloudflare Worker：切到同層 `..\clhs-score-worker` 後執行該專案的 `AGENTS.md` 驗證
 
 在 Windows Codex 環境跑 Android Gradle 時，若 `java` 不在 PATH，使用 Android Studio 內建 JBR，並將 `GRADLE_USER_HOME`、`ANDROID_USER_HOME` 指到 workspace 內的暫存目錄。若測試一開始就出現 `could not open ...\jbr\lib\jvm.cfg`，通常是設定的 Android Studio JBR 路徑不存在或不完整；先用 `Test-Path` 或列出 `C:\Program Files\Android\Android Studio*` 確認實際 JBR 位置。本機曾遇到 `C:\Program Files\Android\Android Studio\jbr` 不可用，而 `C:\Program Files\Android\Android Studio1\jbr` 可用。
 
@@ -35,7 +27,7 @@
 - Release notes 來自 `CHANGELOG.md` 內與 tag 對應的 `## [x.y.z]` 區塊；新增版本時要先補 changelog。
 - `CHANGELOG.md` 的新版本內容必須和上一個版本比較，並比照既有 `v1.1.0` 的分類寫法（Features、Bug Fixes、Performance Improvements），不要混入更早版本已經發布的內容。
 - **重要規則**：將更新發布推送至 GitHub 前，必須先將 `CHANGELOG.md` 寫完並請使用者檢查和修改，確認無誤後才能推送。
-- **重要規則**：`CHANGELOG.md` 僅用於記錄與 Android app 有關的更新。若僅修改 Web Demo 等非 Android app 相關的程式碼，請勿更動 `CHANGELOG.md`，也不要新增版本號。
+- **重要規則**：`CHANGELOG.md` 僅用於記錄與 Android app 有關的更新。若僅修改展示素材、文件或 workflow，請勿新增版本號。
 - GitHub Secrets 需設定 `ANDROID_RELEASE_KEYSTORE_BASE64`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、`ANDROID_RELEASE_KEY_ALIAS`、`ANDROID_RELEASE_KEY_PASSWORD`。不要提交 keystore 或密碼。
 
 ## Android UI fake data
@@ -67,8 +59,3 @@
 - 設定頁的「匯出成績」使用 `GradeExporter`（`data/GradeExporter.kt`）產生 BOM+UTF-8 CSV，透過 `MediaStore` API 存到 Downloads。
 - 匯出流程由 `ScoreViewModel.exportGrades()` 驅動，支援跨學期多考試批次匯出；未快取的考試會自動從網路拉取。
 - 考試勾選 UI 在 `ui/ExportDialog.kt`，依學期分組並預設全選。
-
-## 搬出專案提醒
-
-- `web/` 已搬到同層 `..\clhs-score-worker\web`，此 repo 不再放 Flask/Vite web 程式碼。
-- `workers/clhs-score-worker/` 已搬到同層 `..\clhs-score-worker`，Worker 相關提交應在該獨立 repo 內處理。

@@ -1,6 +1,6 @@
 # Android 原生成績查詢 App
 
-這是成績查詢系統的 Android 原生版本，使用 Kotlin、Jetpack Compose 與 Material 3 實作。手機端直接連線學校系統，不依賴既有 Flask server。
+這是成績查詢系統的 Android 原生版本，使用 Kotlin、Jetpack Compose 與 Material 3 實作。手機端直接連線學校系統。
 
 ## 技術棧
 
@@ -16,11 +16,11 @@
 - `applicationId`: `com.clhs.score`
 - namespace: `com.clhs.score`
 - minSdk: 29
-- targetSdk: 36
-- compileSdk: 36
-- Android Gradle Plugin: 9.0.0
-- Gradle wrapper: 9.3.1
-- Compose BOM: 2026.03.00
+- targetSdk: 37
+- compileSdk: 37
+- Android Gradle Plugin: 9.2.1
+- Gradle wrapper: 9.4.1
+- Compose BOM: 2026.05.01
 
 
 ## 功能

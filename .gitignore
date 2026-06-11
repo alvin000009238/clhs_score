@@ -41,7 +41,6 @@ venv.bak/
 .agent/skills/
 grades_raw.json
 shared_grades/
-.flask_session/
 *.json
 !android/app/google-services.json
 !requirements.txt
@@ -62,9 +61,6 @@ shared_grades/
 
 # Logs
 *.log
-
-# Docker
-.dockerignore
 
 # IDE & OS
 .idea/

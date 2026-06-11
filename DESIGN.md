@@ -1,12 +1,10 @@
 ---
 version: alpha
 name: CLHS Score
-description: Design system for the CLHS Score web app, Android app, and demo site.
+description: Design system for the CLHS Score Android app.
 colors:
   primary: "#1565C0"
   primaryDark: "#82B1FF"
-  primaryWeb: "#2D5DAA"
-  primaryDemo: "#4A9EFF"
   onPrimary: "#FFFFFF"
   primaryContainer: "#BBDEFB"
   onPrimaryContainer: "#002171"
@@ -22,11 +20,8 @@ colors:
   dangerDark: "#FFB4AB"
   backgroundLight: "#FBFCFF"
   backgroundDark: "#121212"
-  backgroundWebDark: "#111318"
-  demoBackground: "#0A0A0F"
   surfaceLight: "#FBFCFF"
   surfaceDark: "#121212"
-  surfaceWebDark: "#111318"
   surfaceElevatedLight: "#FFFFFF"
   surfaceElevatedDark: "#1E2025"
   surfaceContainerLight: "#EEF2F6"
@@ -35,7 +30,6 @@ colors:
   surfaceVariantDark: "#43474E"
   textLight: "#1A1C1E"
   textDark: "#E2E2E6"
-  textWebDark: "#E1E2E8"
   textSecondaryLight: "#43474E"
   textSecondaryDark: "#C3C7CF"
   outlineLight: "#73777F"
@@ -107,7 +101,7 @@ components:
     rounded: "{rounded.md}"
     padding: 14px
   button-primary-hover:
-    backgroundColor: "{colors.primaryWeb}"
+    backgroundColor: "{colors.primary}"
     textColor: "{colors.onPrimary}"
     rounded: "{rounded.md}"
   card:
@@ -140,34 +134,33 @@ components:
 
 ## Overview
 
-壢中成績的介面是「安靜、可信、可重複使用的成績工具」，不是行銷式儀表板。設計重點是讓學生快速確認平均、排名、科目落點與趨勢，因此資訊層級、數字可讀性和狀態辨識要優先於裝飾。
+壢中成績的 Android 介面是「安靜、可信、可重複使用的成績工具」，不是行銷式儀表板。設計重點是讓學生快速確認平均、排名、科目落點與趨勢，因此資訊層級、數字可讀性和狀態辨識要優先於裝飾。
 
-Web 與 Android app 採 Material 3 語彙：藍色作為主要行動與資料焦點，綠色處理成長/優勢，黃橘色處理提醒，紅色只用於錯誤或低分風險。Demo site 可以更有展示感，但仍要延續深色、藍色焦點與清楚的 app icon 訊號。
+Android app 採 Material 3 語彙：藍色作為主要行動與資料焦點，綠色處理成長/優勢，黃橘色處理提醒，紅色只用於錯誤或低分風險。
 
 ## Colors
 
-色彩以 Material 3 的 light/dark scheme 為核心。Android 的 `ScoreTheme.kt` 是 app 端主要來源；Web 已搬到同層 `../clhs-score-worker/web`；網頁端主要來源是 `../clhs-score-worker/web/frontend/styles/tokens.css`。
+色彩以 Material 3 的 light/dark scheme 為核心。Android 的 `ScoreTheme.kt` 是 app 端主要來源。
 
 - **Primary** 用於主要 CTA、選取狀態、目前資料點、進度與重點數字。
 - **Surface** 用於卡片、底部導覽、彈窗與表格容器；不要把大面積內容做成過亮或過飽和。
 - **Success / warning / danger** 只表達成績語意或系統狀態，不應當作裝飾色。
-- **Demo background** 可以使用接近黑色的深色背景與白色粒子，但粒子不可遮擋文字或 icon。
 
 ## Typography
 
-Android 使用 Material 3 預設 Roboto，Web 使用 `Roboto` + `Noto Sans TC`，Demo 使用 `Outfit` + `Noto Sans TC`。新介面若未明確屬於 demo，預設使用 Roboto / Noto Sans TC。
+Android 使用 Material 3 預設 Roboto；中文說明可使用 Noto Sans TC 作為文件與展示文字參考。
 
 數字欄位、平均、排名、百分比、分數差距必須使用 tabular numbers 或等寬數字特性，避免資料更新時水平跳動。中文說明文字使用較寬鬆 line-height，標題保持短句，不做過度行銷化文案。
 
 ## Layout
 
-畫面應以「總覽 → 排名/平均 → 科目細節 → 圖表/趨勢 → 操作」的閱讀順序組織。手機 app 優先單欄、卡片堆疊；Web 可使用兩欄或卡片 grid，但不要讓同一層級資訊密度過高。
+畫面應以「總覽 → 排名/平均 → 科目細節 → 圖表/趨勢 → 操作」的閱讀順序組織。手機 app 優先單欄、卡片堆疊，不要讓同一層級資訊密度過高。
 
-常用間距以 8px 系列建立：8px 用於小元素內距，16px 用於卡片內容，24px 用於卡片群組，32px 以上用於區塊分隔。主要內容容器在 Web 上維持可掃讀寬度，避免滿版拉長成績表格。
+常用間距以 8px 系列建立：8px 用於小元素內距，16px 用於卡片內容，24px 用於卡片群組，32px 以上用於區塊分隔。
 
 ## Elevation & Depth
 
-深色模式偏向低陰影、靠 surface 色階與細邊框建立層級。Light mode 可以使用柔和陰影，但卡片不應浮得太重。Demo 首屏可使用 glow、粒子與 icon shadow，但產品內頁要避免大面積裝飾光暈。
+深色模式偏向低陰影、靠 surface 色階與細邊框建立層級。Light mode 可以使用柔和陰影，但卡片不應浮得太重。產品內頁要避免大面積裝飾光暈。
 
 互動狀態以 subtle background、outline、primary tint 或 1-2px 位移呈現；不要用大幅縮放造成資料版面跳動。
 
@@ -193,7 +186,6 @@ Do:
 - 保持工具感：資訊密度可以高，但層級要清楚。
 - 使用 Material 3 color roles 和既有 tokens，不臨時創造近似藍色。
 - 讓平均、排名、百分比等數字對齊且容易比較。
-- 在 demo 或行銷頁可加入動態背景，但互動效果必須在內容層之後。
 
 Don't:
 - 不要把學生資料、帳密、token 或正式環境 secret 寫進 UI、文件範例或截圖。
