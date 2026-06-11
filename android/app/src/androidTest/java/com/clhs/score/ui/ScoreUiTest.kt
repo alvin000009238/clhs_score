@@ -61,10 +61,10 @@ class ScoreUiTest {
 
         composeRule.onNodeWithText("總覽").assertIsDisplayed()
         composeRule.onNodeWithText("科目").assertIsDisplayed()
-        composeRule.onNodeWithText("進階").assertIsDisplayed()
+        composeRule.onNodeWithText("更多").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("總覽").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("科目").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("進階").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("更多").assertIsDisplayed()
         composeRule.onAllNodesWithText("全部科目").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表").assertCountEquals(0)
         composeRule.onNodeWithText("範例學生", substring = true).assertIsDisplayed()
@@ -82,7 +82,7 @@ class ScoreUiTest {
         composeRule.onNodeWithText("強弱科摘要").assertIsDisplayed()
         composeRule.onAllNodesWithText("科目分析").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表分析").assertCountEquals(0)
-        composeRule.onAllNodesWithText("進階資料").assertCountEquals(0)
+        composeRule.onAllNodesWithText("更多資料").assertCountEquals(0)
     }
 
     @Test

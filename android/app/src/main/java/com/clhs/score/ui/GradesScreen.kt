@@ -1,7 +1,7 @@
 package com.clhs.score.ui
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -34,19 +38,23 @@ import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.text.font.FontWeight
@@ -63,11 +71,10 @@ import com.clhs.score.data.SubjectScore
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.shortenSubjectName
 import com.clhs.score.viewmodel.GradesUiState
-import kotlin.math.floor
 
-private val PositiveColor = Color(0xFF059669)
-private val NegativeColor = Color(0xFFDC2626)
-private val NeutralColor = Color(0xFF64748B)
+import com.clhs.score.ui.theme.ScoreTheme
+
+private const val TAB_SLIDE_DURATION_MILLIS = 220
 
 private enum class GradesDestination(
     val label: String,
@@ -75,7 +82,7 @@ private enum class GradesDestination(
 ) {
     Overview("總覽", "home"),
     Subjects("科目", "newsstand"),
-    Advanced("進階", "antigravity"),
+    Advanced("更多", "more_horiz"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,10 +100,21 @@ fun GradesScreen(
     onOpenSubjectTrend: () -> Unit,
 ) {
     var selectedDestination by rememberSaveable { mutableIntStateOf(GradesDestination.Overview.ordinal) }
-    val scrollState = rememberScrollState()
+    val pagerState = rememberPagerState(
+        initialPage = GradesDestination.Overview.ordinal,
+        pageCount = { GradesDestination.entries.size },
+    )
+    val overviewScrollState = rememberScrollState()
+    val subjectsScrollState = rememberScrollState()
+    val advancedScrollState = rememberScrollState()
 
     LaunchedEffect(selectedDestination) {
-        scrollState.scrollTo(0)
+        if (pagerState.currentPage != selectedDestination || pagerState.targetPage != selectedDestination) {
+            pagerState.animateScrollToPage(
+                page = selectedDestination,
+                animationSpec = tween(durationMillis = TAB_SLIDE_DURATION_MILLIS),
+            )
+        }
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -168,66 +186,105 @@ fun GradesScreen(
         },
         containerColor = MaterialTheme.colorScheme.surface,
     ) { padding ->
-        Column(
+        val isRefreshing = state.isLoadingStructure || state.isLoadingGrades
+
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onReload,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            if (state.isLoadingStructure || state.isLoadingGrades || state.isLoadingComparison || state.isLoadingTrend) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-            ) {
-                val report = state.report
-                val analysis = state.analysis
-                when {
-                    report == null && (state.isLoadingStructure || state.isLoadingGrades) -> OverviewSkeleton()
-                    report == null -> EmptyPanel(
-                        message = if (state.structure.isEmpty()) "尚未取得可查詢考試" else "請選擇考試",
-                        onReload = onReload,
-                    )
-                    analysis == null -> OverviewSkeleton()
-                    else -> Crossfade(
-                        targetState = selectedDestination,
-                        label = "gradesDestinationFade",
-                    ) { destination ->
-                        when (destination) {
-                            GradesDestination.Overview.ordinal -> OverviewTab(
-                                report = report,
-                                analysis = analysis,
-                                isLoadingComparison = state.isLoadingComparison,
-                                comparisonError = state.comparisonError,
-                                isLoadingTrend = state.isLoadingTrend,
-                                trendError = state.trendError,
-                                trend = state.trend,
-                                insights = state.insights,
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (state.isLoadingStructure || state.isLoadingGrades || state.isLoadingComparison || state.isLoadingTrend) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    val report = state.report
+                    val analysis = state.analysis
+                    when {
+                        report == null && (state.isLoadingStructure || state.isLoadingGrades) -> GradesTabPage(
+                            scrollState = overviewScrollState,
+                        ) {
+                            OverviewSkeleton()
+                        }
+                        report == null -> GradesTabPage(
+                            scrollState = overviewScrollState,
+                        ) {
+                            EmptyPanel(
+                                message = if (state.structure.isEmpty()) "尚未取得可查詢考試" else "請選擇考試",
+                                onReload = onReload,
                             )
-                            GradesDestination.Subjects.ordinal -> SubjectsTab(
-                                analyses = analysis.subjects,
-                                expandedSubjectKeys = state.expandedSubjectKeys,
-                                onToggleSubject = onToggleSubject,
-                            )
-                            GradesDestination.Advanced.ordinal -> AdvancedTab(
-                                report = report,
-                                analysis = analysis,
-                                isLoadingTrend = state.isLoadingTrend,
-                                trendError = state.trendError,
-                                isLoadingSimulatorHistory = state.isLoadingSimulatorHistory,
-                                simulatorHistoryLabel = state.simulatorHistoryLabel,
-                                simulatorHistoryCount = state.simulatorHistoryReports.size,
-                                trend = state.trend,
-                                onOpenScoreSimulator = onOpenScoreSimulator,
-                                onOpenSchedule = onOpenSchedule,
-                                onOpenSubjectTrend = onOpenSubjectTrend,
-                            )
+                        }
+                        analysis == null -> GradesTabPage(
+                            scrollState = overviewScrollState,
+                        ) {
+                            OverviewSkeleton()
+                        }
+                        else -> HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            userScrollEnabled = false,
+                        ) { destination ->
+                            val tabScrollState = when (destination) {
+                                GradesDestination.Overview.ordinal -> overviewScrollState
+                                GradesDestination.Subjects.ordinal -> subjectsScrollState
+                                else -> advancedScrollState
+                            }
+                            GradesTabPage(scrollState = tabScrollState) {
+                                when (destination) {
+                                    GradesDestination.Overview.ordinal -> OverviewTab(
+                                        report = report,
+                                        analysis = analysis,
+                                        isLoadingComparison = state.isLoadingComparison,
+                                        comparisonError = state.comparisonError,
+                                        isLoadingTrend = state.isLoadingTrend,
+                                        trendError = state.trendError,
+                                        trend = state.trend,
+                                        insights = state.insights,
+                                    )
+                                    GradesDestination.Subjects.ordinal -> SubjectsTab(
+                                        analyses = analysis.subjects,
+                                        expandedSubjectKeys = state.expandedSubjectKeys,
+                                        onToggleSubject = onToggleSubject,
+                                    )
+                                    GradesDestination.Advanced.ordinal -> AdvancedTab(
+                                        report = report,
+                                        analysis = analysis,
+                                        isLoadingTrend = state.isLoadingTrend,
+                                        trendError = state.trendError,
+                                        isLoadingSimulatorHistory = state.isLoadingSimulatorHistory,
+                                        simulatorHistoryLabel = state.simulatorHistoryLabel,
+                                        simulatorHistoryCount = state.simulatorHistoryReports.size,
+                                        trend = state.trend,
+                                        onOpenScoreSimulator = onOpenScoreSimulator,
+                                        onOpenSchedule = onOpenSchedule,
+                                        onOpenSubjectTrend = onOpenSubjectTrend,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GradesTabPage(
+    scrollState: ScrollState,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState),
+    ) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            content()
         }
     }
 }
@@ -377,7 +434,10 @@ private fun OverviewTab(
     insights: ScoreInsightSet?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        HeroCard(report, analysis)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            HeroCard(report, analysis)
+            HeroChipRow(report, analysis)
+        }
         StrengthWeaknessCard(analysis)
         InsightCard(
             analysis = analysis,
@@ -407,7 +467,7 @@ private fun AdvancedTab(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Text(
-            text = "進階",
+            text = "更多功能",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
         )
@@ -441,6 +501,11 @@ private fun HeroCard(report: GradeReport, analysis: GradeAnalysis) {
         targetValue = analysis.weightedAverage.toFloat(),
         label = "weightedAverage",
     )
+    val totalScore = summary?.totalScoreDisplay?.toDoubleOrNull()?.let { "%.0f".format(it) }
+        ?: summary?.totalScoreDisplay?.takeIf { it.isNotBlank() }
+        ?: "--"
+    val rankLine = heroRankLine(summary, student)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -448,48 +513,112 @@ private fun HeroCard(report: GradeReport, analysis: GradeAnalysis) {
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column {
+                Text(
+                    text = "加權平均",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "%.1f".format(animatedAverage),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    val deltaText = heroAverageDeltaTextShort(analysis)
+                    if (deltaText != null) {
+                        val deltaColor = diffColor(analysis.comparison?.averageDelta ?: 0.0)
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = deltaColor.copy(alpha = 0.15f),
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        ) {
+                            Text(
+                                text = deltaText,
+                                color = deltaColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
             Text(
-                text = listOfNotNull(report.subjects.firstOrNull()?.yearTermDisplay, summary?.examName?.takeIf { it.isNotBlank() })
-                    .joinToString(" ")
-                    .ifBlank { "本次考試" },
+                text = "總分 $totalScore",
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "%.1f".format(animatedAverage),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
+                style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "加權平均",
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.labelLarge,
-            )
-            Text(
-                text = heroRankLine(summary, student),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                text = rankLine,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
             )
-            Text(
-                text = analysis.classPercentile?.percentLabel ?: "尚無百分位資料",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+        }
+    }
+}
+
+@Composable
+private fun HeroChip(
+    text: String,
+    containerColor: Color,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = containerColor,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun HeroChipRow(report: GradeReport, analysis: GradeAnalysis) {
+    val summary = report.examSummary
+    val examName = summary?.examName?.takeIf { it.isNotBlank() } ?: "本次考試"
+
+    val classPercent = analysis.classPercentile?.topPercent
+    val categoryPercent = analysis.categoryPercentile?.topPercent
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 1. 考試名稱
+        HeroChip(
+            text = examName,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // 2. 班級百分位
+        if (classPercent != null) {
+            HeroChip(
+                text = "班級前 $classPercent%",
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = heroAverageDeltaText(analysis),
-                    color = diffColor(analysis.comparison?.averageDelta ?: 0.0),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "${trendGlyph(analysis.comparison?.averageDelta)} ${heroTrendStateText(analysis.comparison?.averageDelta)}",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+        }
+
+        // 3. 類組百分位
+        if (categoryPercent != null) {
+            HeroChip(
+                text = "類組前 $categoryPercent%",
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -500,20 +629,13 @@ private fun heroRankLine(summary: ExamSummary?, student: StudentInfo): String {
     return "班排 ${if (student.showClassRank) classRank else "--"} ・ 類排 ${if (student.showCategoryRank) categoryRank else "--"}"
 }
 
-private fun heroAverageDeltaText(analysis: GradeAnalysis): String {
-    val delta = analysis.comparison?.averageDelta ?: return "尚無上次比較"
+private fun heroAverageDeltaTextShort(analysis: GradeAnalysis): String? {
+    val delta = analysis.comparison?.averageDelta ?: return null
     return when {
-        delta > 0.05 -> "較上次 +${"%.1f".format(delta)}"
-        delta < -0.05 -> "較上次 ${"%.1f".format(delta)}"
-        else -> "較上次 持平"
+        delta > 0.05 -> "↑ +${"%.1f".format(delta)}"
+        delta < -0.05 -> "↓ ${"%.1f".format(delta)}"
+        else -> "→ 持平"
     }
-}
-
-private fun heroTrendStateText(delta: Double?): String = when {
-    delta == null -> "等待歷次資料"
-    delta > 0.05 -> "持續進步"
-    delta < -0.05 -> "需要回穩"
-    else -> "表現穩定"
 }
 
 @Composable
@@ -528,21 +650,21 @@ private fun InsightCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("分析", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             DashboardInsightRow(
-                label = "風險",
+                label = "需要注意",
                 text = riskInsightText(analysis, insights),
-                color = NegativeColor,
+                color = ScoreTheme.semanticColors.negative,
             )
             DashboardInsightRow(
                 label = "優勢",
                 text = advantageInsightText(analysis),
-                color = PositiveColor,
+                color = ScoreTheme.semanticColors.positive,
             )
             DashboardInsightRow(
                 label = "ROI",
@@ -584,7 +706,7 @@ private fun riskInsightText(analysis: GradeAnalysis, insights: ScoreInsightSet?)
     }
     val weakness = analysis.weaknesses.firstOrNull()
     return weakness?.let { "${shortenSubjectName(it.subjectName)} 低於班平均 ${"%.1f".format(kotlin.math.abs(it.diffValue))} 分，建議優先處理。" }
-        ?: "目前沒有明顯拉低科目，風險集中度低。"
+        ?: "目前沒有明顯拉低科目，需要注意的科目集中度低。"
 }
 
 private fun advantageInsightText(analysis: GradeAnalysis): String {
@@ -610,8 +732,8 @@ private fun StrengthWeaknessCard(analysis: GradeAnalysis) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("摘要", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        SubjectHighlightRow(title = "優勢科目", subjects = analysis.strengths, color = PositiveColor, emptyText = "尚無明顯高於平均的科目")
-        SubjectHighlightRow(title = "待加強科目", subjects = analysis.weaknesses, color = NegativeColor, emptyText = "尚無明顯低於平均的科目")
+        SubjectHighlightRow(title = "優勢科目", subjects = analysis.strengths, color = ScoreTheme.semanticColors.positive, emptyText = "尚無明顯高於平均的科目")
+        SubjectHighlightRow(title = "待加強科目", subjects = analysis.weaknesses, color = ScoreTheme.semanticColors.negative, emptyText = "尚無明顯低於平均的科目")
     }
 }
 
@@ -630,7 +752,7 @@ private fun SubjectHighlightRow(title: String, subjects: List<SubjectScore>, col
                     Column(
                         modifier = Modifier
                             .width(150.dp)
-                            .background(color.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                            .background(color.copy(alpha = 0.10f), MaterialTheme.shapes.medium)
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
@@ -716,7 +838,7 @@ private fun SkeletonBlock(height: androidx.compose.ui.unit.Dp) {
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f), RoundedCornerShape(16.dp)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f), MaterialTheme.shapes.medium),
     )
 }
 
@@ -732,18 +854,6 @@ private fun EmptyPanel(message: String, onReload: () -> Unit) {
             Text("重新整理")
         }
     }
-}
-
-private fun formatRank(rank: Double?, count: Int?, showCount: Boolean): String {
-    if (rank == null) return "--"
-    val rankText = floor(rank).toInt().toString()
-    return if (showCount && count != null && count > 0) "$rankText/$count" else rankText
-}
-
-private fun subjectPercentLabel(rank: Int?, count: Int?): String {
-    if (rank == null || count == null || count <= 0) return "--"
-    val percent = ((rank.toDouble() / count) * 100.0).toInt().coerceIn(1, 100)
-    return "前 $percent%"
 }
 
 private fun signedValue(value: Double): String = "${if (value >= 0.0) "+" else ""}${"%.1f".format(value)}"
@@ -763,8 +873,9 @@ private fun trendGlyph(diff: Double?): String = when {
     else -> "→"
 }
 
+@Composable
 private fun diffColor(diff: Double): Color = when {
-    diff > 0.05 -> PositiveColor
-    diff < -0.05 -> NegativeColor
-    else -> NeutralColor
+    diff > 0.05 -> ScoreTheme.semanticColors.positive
+    diff < -0.05 -> ScoreTheme.semanticColors.negative
+    else -> ScoreTheme.semanticColors.neutral
 }

@@ -2,11 +2,8 @@ package com.clhs.score.data
 
 import android.content.ContentValues
 import android.content.Context
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,8 +44,8 @@ object GradeExporter {
                     cleanSubjectName(subject.subjectName),
                     subject.scoreDisplay,
                     subject.classAverageDisplay,
-                    formatRank(subject.classRank, subject.classRankCount),
-                    formatRank(subject.yearRank, subject.yearRankCount),
+                    formatExportRank(subject.classRank, subject.classRankCount),
+                    formatExportRank(subject.yearRank, subject.yearRankCount),
                     standard?.top?.formatScore() ?: "",
                     standard?.front?.formatScore() ?: "",
                     standard?.average?.formatScore() ?: "",
@@ -71,31 +68,18 @@ object GradeExporter {
         val fileName = "${studentNo}_成績_${timestamp}.csv"
         val bytes = csv.toByteArray(Charsets.UTF_8)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "text/csv")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-            }
-            val uri = context.contentResolver.insert(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                values,
-            ) ?: throw IllegalStateException("無法建立檔案")
-            context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                ?: throw IllegalStateException("無法寫入檔案")
-        } else {
-            @Suppress("DEPRECATION")
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            dir.mkdirs()
-            val file = File(dir, fileName)
-            FileOutputStream(file).use { it.write(bytes) }
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
         }
+        val uri = context.contentResolver.insert(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            values,
+        ) ?: throw IllegalStateException("無法建立檔案")
+        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+            ?: throw IllegalStateException("無法寫入檔案")
         fileName
-    }
-
-    private fun formatRank(rank: Int?, count: Int?): String {
-        if (rank == null) return ""
-        return if (count != null) "$rank/$count" else "$rank"
     }
 
     private fun Double.formatScore(): String {
@@ -104,6 +88,11 @@ object GradeExporter {
         } else {
             "%.1f".format(this)
         }
+    }
+
+    private fun formatExportRank(rank: Int?, count: Int?): String {
+        if (rank == null) return ""
+        return if (count != null && count > 0) "$rank/$count" else "$rank"
     }
 
     private fun csvEscape(value: String): String {

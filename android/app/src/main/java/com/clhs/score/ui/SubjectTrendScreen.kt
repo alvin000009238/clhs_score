@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -32,7 +36,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -61,7 +66,6 @@ fun SubjectTrendScreen(
 ) {
     val state by viewModel.subjectTrendState.collectAsState()
     val structure = viewModel.gradesState.collectAsState().value.structure
-    @Suppress("UNUSED_VALUE")
     var showSubjectBottomSheet by remember { mutableStateOf(false) }
     var selectedBaseName by remember { mutableStateOf<String?>(null) }
 
@@ -139,7 +143,8 @@ fun SubjectTrendScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(280.dp),
+                            .heightIn(min = 280.dp, max = 400.dp)
+                            .aspectRatio(1.5f),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -225,7 +230,7 @@ fun SubjectTrendScreen(
 
                 // 4. Subjects Filter Button
                 item {
-                    OutlinedButton(
+                    ElevatedButton(
                         onClick = { showSubjectBottomSheet = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -241,80 +246,86 @@ fun SubjectTrendScreen(
     }
 
     if (showSubjectBottomSheet) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showSubjectBottomSheet = false },
-            properties = androidx.compose.ui.window.DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
+        SubjectSelectionSheet(
+            subjects = availableSubjects,
+            selectedSubjectKeys = state.selectedSubjectKeys,
+            onToggleSubject = viewModel::toggleSubjectTrendSubject,
+            onDismiss = { showSubjectBottomSheet = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubjectSelectionSheet(
+    subjects: List<String>,
+    selectedSubjectKeys: Set<String>,
+    onToggleSubject: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
         ) {
-            Box(
+            Text(
+                text = "選擇要顯示的科目",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+            LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showSubjectBottomSheet = false }
-                    ),
-                contentAlignment = Alignment.BottomCenter
+                    .fillMaxWidth()
+                    .weight(1f),
             ) {
-                androidx.compose.material3.Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.85f)
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
-                            onClick = {} // Consume click
-                        ),
-                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
-                    ) {
-                        Text(
-                            text = "選擇要顯示的科目",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth().weight(1f)
-                        ) {
-                            items(availableSubjects.toList()) { subjectKey ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { viewModel.toggleSubjectTrendSubject(subjectKey) }
-                                        .padding(vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(
-                                        checked = state.selectedSubjectKeys.contains(subjectKey),
-                                        onCheckedChange = null
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(text = subjectKey, style = MaterialTheme.typography.bodyLarge)
-                                }
-                            }
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        androidx.compose.material3.Button(
-                            onClick = { showSubjectBottomSheet = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("確認", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
+                items(subjects) { subjectKey ->
+                    SubjectSelectionRow(
+                        subjectKey = subjectKey,
+                        selected = selectedSubjectKeys.contains(subjectKey),
+                        onToggleSubject = onToggleSubject,
+                    )
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("確認", style = MaterialTheme.typography.titleMedium)
+            }
         }
+    }
+}
+
+@Composable
+private fun SubjectSelectionRow(
+    subjectKey: String,
+    selected: Boolean,
+    onToggleSubject: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggleSubject(subjectKey) }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = selected,
+            onCheckedChange = null,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = subjectKey, style = MaterialTheme.typography.bodyLarge)
     }
 }

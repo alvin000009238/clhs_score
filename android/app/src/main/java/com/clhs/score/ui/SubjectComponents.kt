@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -48,13 +50,9 @@ import com.clhs.score.data.deltaText
 import com.clhs.score.data.scoreDistributions
 import com.clhs.score.data.shortenSubjectName
 import kotlinx.coroutines.delay
-import kotlin.math.floor
 import kotlin.math.roundToInt
 
-private val SubjectPositive = Color(0xFF0B7D3B)
-private val SubjectWarning = Color(0xFFE87500)
-private val SubjectNegative = Color(0xFFBA1A1A)
-private val SubjectNeutral = Color(0xFF625B71)
+import com.clhs.score.ui.theme.ScoreTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -83,12 +81,13 @@ internal fun SubjectCard(
         onClick = onToggle,
         modifier = Modifier
             .fillMaxWidth()
-            .bringIntoViewRequester(bringIntoViewRequester),
-        shape = RoundedCornerShape(16.dp),
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .semantics { stateDescription = if (expanded) "已展開" else "已收合" },
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -193,6 +192,19 @@ internal fun SubjectCard(
                     DetailRow("上次成績", analysis.comparison?.let { deltaText("較上一考", it.scoreDelta, "分") } ?: "尚無上一考可比較")
                 }
             }
+
+            // Arrow at the bottom center of the card
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                OutlinedRoundedSymbol(
+                    icon = if (expanded) "keyboard_arrow_up" else "keyboard_arrow_down",
+                    contentDescription = if (expanded) "收合" else "展開",
+                    size = 16.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -227,7 +239,7 @@ internal fun InfoChip(
 ) {
     Column(
         modifier = modifier
-            .background(containerColor, RoundedCornerShape(14.dp))
+            .background(containerColor, MaterialTheme.shapes.small)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -465,24 +477,12 @@ private fun EmptySubjectDetail(message: String) {
     Text(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
             .padding(12.dp),
         text = message,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-private fun subjectPercentLabel(rank: Int?, count: Int?): String {
-    if (rank == null || count == null || count <= 0) return "--"
-    val percent = ((rank.toDouble() / count) * 100.0).toInt().coerceIn(1, 100)
-    return "前 $percent%"
-}
-
-private fun formatRank(rank: Double?, count: Int?, showCount: Boolean): String {
-    if (rank == null) return "--"
-    val rankText = floor(rank).toInt().toString()
-    return if (showCount && count != null && count > 0) "$rankText/$count" else rankText
 }
 
 private fun signedValue(value: Double): String = "%.1f".format(value)
@@ -493,25 +493,18 @@ private fun diffArrow(diff: Double): String = when {
     else -> "→"
 }
 
+@Composable
 private fun diffColor(diff: Double): Color = when {
-    diff > 0.05 -> SubjectPositive
-    diff < -0.05 -> SubjectNegative
-    else -> SubjectNeutral
+    diff > 0.05 -> ScoreTheme.semanticColors.positive
+    diff < -0.05 -> ScoreTheme.semanticColors.negative
+    else -> ScoreTheme.semanticColors.neutral
 }
 
+@Composable
 private fun scoreColor(score: Double): Color = when {
-    score >= 80.0 -> SubjectPositive
-    score >= 60.0 -> SubjectWarning
-    else -> SubjectNegative
+    score >= 80.0 -> ScoreTheme.semanticColors.positive
+    score >= 60.0 -> ScoreTheme.semanticColors.warning
+    else -> ScoreTheme.semanticColors.negative
 }
 
 private fun Double?.formatCompactScore(): String = this?.let { "%.0f".format(it) } ?: "--"
-
-private fun distributionColor(label: String): Color = when (label) {
-    "90-100" -> Color(0xFF4F8F63)
-    "80-89" -> Color(0xFF4B8F86)
-    "70-79" -> Color(0xFF5A789A)
-    "60-69" -> Color(0xFFC47A2C)
-    "50-59" -> Color(0xFFC26A45)
-    else -> Color(0xFFB75E62)
-}

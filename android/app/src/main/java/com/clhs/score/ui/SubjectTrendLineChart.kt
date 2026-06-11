@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +22,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -156,23 +156,24 @@ fun SubjectTrendLineChart(
         ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, dashedLines)
     }
 
-    val configuration = LocalConfiguration.current
-    val minSpacing = 50.dp
-    @Suppress("UnusedMaterial3ScaffoldPaddingParameter", "UsingConfigurationScreenWidthDp")
-    val requiredWidth = max(
-        configuration.screenWidthDp.dp - 64.dp, 
-        minSpacing * max(1, chartData.exams.size - 1) + 80.dp
-    )
+    val minSpacing = 80.dp
+    val scrollState = rememberScrollState()
 
-    Box(
-        modifier = modifier.horizontalScroll(rememberScrollState())
-    ) {
-        Canvas(modifier = Modifier
-            .width(requiredWidth)
-            .fillMaxHeight()
-            .pointerInput(chartData) {
+    BoxWithConstraints(modifier = modifier) {
+        val requiredWidth = max(
+            maxWidth,
+            minSpacing * max(1, chartData.exams.size - 1) + 80.dp
+        )
+
+        Box(
+            modifier = Modifier.horizontalScroll(scrollState)
+        ) {
+            Canvas(modifier = Modifier
+                .width(requiredWidth)
+                .fillMaxHeight()
+                .pointerInput(chartData) {
                 detectTapGestures { offset ->
-                    val paddingLeft = 52.dp.toPx()
+                    val paddingLeft = 64.dp.toPx()
                     val paddingBottom = 60.dp.toPx()
                     val paddingTop = 20.dp.toPx()
                     val paddingRight = 32.dp.toPx()
@@ -266,7 +267,7 @@ fun SubjectTrendLineChart(
                 }
             }
         ) {
-            val paddingLeft = 52.dp.toPx()
+            val paddingLeft = 64.dp.toPx()
             val paddingBottom = 60.dp.toPx()
             val paddingTop = 20.dp.toPx()
             val paddingRight = 32.dp.toPx()
@@ -359,7 +360,7 @@ fun SubjectTrendLineChart(
 
                     val labelPivot = Offset(x, size.height - paddingBottom + 8.dp.toPx())
                     val textLayoutResult = textMeasurer.measure(
-                        text = examName.take(6),
+                        text = examName,
                         style = TextStyle(color = onSurfaceVariant, fontSize = 10.sp)
                     )
                     
@@ -485,6 +486,7 @@ fun SubjectTrendLineChart(
                     )
                 }
             }
+        }
         }
     }
 }

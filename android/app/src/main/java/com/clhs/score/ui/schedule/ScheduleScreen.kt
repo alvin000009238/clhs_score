@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +44,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -57,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +72,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.getSubjectColor
+import com.clhs.score.ui.OutlinedRoundedSymbol
 import com.clhs.score.viewmodel.ScheduleUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -284,14 +289,12 @@ fun ScheduleScreen(
                         factory = { ctx ->
                             ComposeView(ctx).apply {
                                 setContent {
-                                    MaterialTheme {
                                         Surface {
                                             ScheduleGrid(
                                                 items = report.items,
                                                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
                                             )
                                         }
-                                    }
                                 }
                                 doOnLayout {
                                     captureView = this
@@ -344,6 +347,7 @@ private suspend fun saveBitmapToGallery(context: Context, view: View) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleGrid(
     items: List<ScheduleItem>,
@@ -354,8 +358,7 @@ fun ScheduleGrid(
     val itemsBySlot = remember(items) {
         items.associateBy { it.dayOfWeek to it.period }
     }
-
-
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     var selectedItem by remember { mutableStateOf<ScheduleItem?>(null) }
 
     Column(modifier = modifier) {
@@ -400,8 +403,8 @@ fun ScheduleGrid(
                             fontSize = 8.sp,
                             lineHeight = 10.sp,
                             textAlign = TextAlign.Center,
-                            color = Color.Gray,
-                            softWrap = false
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            softWrap = true
                         )
                     }
 
@@ -414,15 +417,14 @@ fun ScheduleGrid(
                                 .padding(horizontal = 2.dp)
                         ) {
                             if (item != null) {
-                                val bgColor = Color(getSubjectColor(item.subjectName))
-                                val textColor = Color.DarkGray
+                                val tileColors = scheduleTileColors(item.subjectName, isDarkSurface)
                                 val shortName = item.subjectName.split("-")[0]
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clickable { selectedItem = item },
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = CardDefaults.cardColors(containerColor = bgColor)
+                                    colors = CardDefaults.cardColors(containerColor = tileColors.container)
                                 ) {
                                     Column(
                                         modifier = Modifier
@@ -437,7 +439,7 @@ fun ScheduleGrid(
                                             fontWeight = FontWeight.Bold,
                                             textAlign = TextAlign.Center,
                                             maxLines = 2,
-                                            color = textColor,
+                                            color = tileColors.content,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
@@ -450,32 +452,142 @@ fun ScheduleGrid(
         }
     }
 
-    if (selectedItem != null) {
-        AlertDialog(
-            onDismissRequest = { selectedItem = null },
-            title = { Text(selectedItem!!.subjectName) },
-            text = {
-                Column {
-                    val hasTeacher = selectedItem!!.teacherName.isNotBlank() && selectedItem!!.teacherName != "null"
-                    val hasClassroom = selectedItem!!.classroom.isNotBlank() && selectedItem!!.classroom != "null"
-                    
+    selectedItem?.let { item ->
+        ScheduleDetailSheet(
+            item = item,
+            onDismiss = { selectedItem = null },
+        )
+    }
+}
+
+private data class ScheduleTileColors(
+    val container: Color,
+    val content: Color,
+)
+
+private fun scheduleTileColors(subjectName: String, isDarkSurface: Boolean): ScheduleTileColors {
+    val rawBgColor = Color(getSubjectColor(subjectName))
+    if (isDarkSurface) {
+        return ScheduleTileColors(
+            container = rawBgColor.copy(alpha = 0.15f),
+            content = rawBgColor,
+        )
+    }
+
+    val darkenedTextColor = Color(
+        red = (rawBgColor.red * 0.3f).coerceIn(0f, 1f),
+        green = (rawBgColor.green * 0.3f).coerceIn(0f, 1f),
+        blue = (rawBgColor.blue * 0.3f).coerceIn(0f, 1f),
+    )
+    return ScheduleTileColors(
+        container = rawBgColor,
+        content = darkenedTextColor,
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ScheduleDetailSheet(
+    item: ScheduleItem,
+    onDismiss: () -> Unit,
+) {
+    val hasTeacher = hasScheduleDetail(item.teacherName)
+    val hasClassroom = hasScheduleDetail(item.classroom)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = item.subjectName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            if (hasTeacher || hasClassroom) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     if (hasTeacher) {
-                        Text("教師：${selectedItem!!.teacherName}", fontSize = 16.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        ScheduleDetailRow(
+                            icon = "person",
+                            label = "教師",
+                            value = item.teacherName,
+                        )
                     }
                     if (hasClassroom) {
-                        Text("教室：${selectedItem!!.classroom}", fontSize = 16.sp)
-                    }
-                    if (!hasTeacher && !hasClassroom) {
-                        Text("無詳細資訊", fontSize = 16.sp, color = Color.Gray)
+                        ScheduleDetailRow(
+                            icon = "meeting_room",
+                            label = "教室",
+                            value = item.classroom,
+                        )
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedItem = null }) {
-                    Text("確定")
-                }
+            } else {
+                Text(
+                    text = "無詳細資訊",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("確定", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+private fun hasScheduleDetail(value: String): Boolean = value.isNotBlank() && value != "null"
+
+@Composable
+private fun ScheduleDetailRow(
+    icon: String,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        OutlinedRoundedSymbol(
+            icon = icon,
+            tint = MaterialTheme.colorScheme.primary,
+            size = 24.dp
         )
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 

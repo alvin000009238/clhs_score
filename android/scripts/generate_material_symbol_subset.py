@@ -20,7 +20,6 @@ ICONS = (
     "settings",
     "home",
     "newsstand",
-    "antigravity",
     "science",
     "system_update",
     "info",
@@ -28,10 +27,14 @@ ICONS = (
     "palette",
     "dark_mode",
     "person",
+    "meeting_room",
     "lock",
     "lock_open",
     "notifications",
     "download",
+    "keyboard_arrow_down",
+    "keyboard_arrow_up",
+    "more_horiz",
 )
 
 AAR_GROUP_PATH = Path("dev.vicart/compose-material-symbols-android/1.0.2")

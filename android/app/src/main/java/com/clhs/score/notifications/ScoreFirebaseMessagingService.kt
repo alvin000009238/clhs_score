@@ -6,8 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import com.clhs.score.R
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -54,7 +54,7 @@ class ScoreFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun buildContentIntent(url: String, isUpdateTopic: Boolean): PendingIntent {
         val safeUri = if (url.isNotBlank() && !isUpdateTopic) {
-            Uri.parse(url).takeIf { it.scheme in listOf("http", "https") }
+            url.toUri().takeIf { it.scheme in listOf("http", "https") }
         } else {
             null
         }

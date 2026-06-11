@@ -176,8 +176,48 @@ fun SettingsScreen(
                 onSetThemeMode = onSetThemeMode,
                 onSetDynamicColor = onSetDynamicColor,
                 onSetAmoledBlack = onSetAmoledBlack,
-                onNotificationToggle = onNotificationToggle,
             )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable { onNotificationToggle(!settings.notificationsEnabled) }
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedRoundedSymbol(
+                        icon = "notifications",
+                        tint = MaterialTheme.colorScheme.primary,
+                        size = 22.dp,
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "通知",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = "接收 app 更新與公告推播",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = settings.notificationsEnabled,
+                        onCheckedChange = onNotificationToggle,
+                    )
+                }
+            }
 
             ClickableSettingsItem(
                 icon = "system_update",
@@ -283,7 +323,6 @@ private fun GeneralSettingsCard(
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
-    onNotificationToggle: (Boolean) -> Unit,
 ) {
     val isDarkActive = settings.themeMode == ThemeMode.DARK ||
         (settings.themeMode == ThemeMode.SYSTEM /* assume could be dark */)
@@ -349,15 +388,6 @@ private fun GeneralSettingsCard(
                 checked = settings.amoledBlack,
                 onCheckedChange = onSetAmoledBlack,
                 enabled = isDarkActive,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            SwitchSettingsRow(
-                icon = "notifications",
-                title = "通知",
-                subtitle = "接收 app 更新與公告推播",
-                checked = settings.notificationsEnabled,
-                onCheckedChange = onNotificationToggle,
             )
         }
     }

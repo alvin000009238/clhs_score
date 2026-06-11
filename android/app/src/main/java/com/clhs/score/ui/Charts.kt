@@ -457,22 +457,6 @@ private fun radarPoint(center: Offset, radius: Float, index: Int, count: Int, sc
 
 private fun Double?.formatScore(): String = this?.let { "%.2f".format(it) } ?: "--"
 
-private fun subjectPercentLabel(rank: Int?, count: Int?): String {
-    if (rank == null || count == null || count <= 0) return "無百分位"
-    val percent = ((rank.toDouble() / count) * 100.0).toInt().coerceIn(1, 100)
-    return "前 $percent%"
-}
-
-private fun formatRank(rank: Int?, count: Int?): String =
-    if (rank != null && count != null && count > 0) "$rank/$count" else "--"
-
-private fun distributionColor(label: String): Color = when (label) {
-    "90-100", "80-89" -> Color(0xFF10B981)
-    "70-79" -> Color(0xFF3B82F6)
-    "60-69" -> Color(0xFFF59E0B)
-    "50-59" -> Color(0xFFF97316)
-    else -> Color(0xFFEF4444)
-}
 
 private fun chartSubjectLabel(subjectName: String, maxChars: Int = 5): String {
     val cleaned = shortenSubjectName(subjectName)

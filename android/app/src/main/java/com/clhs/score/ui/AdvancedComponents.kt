@@ -31,7 +31,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +88,7 @@ internal fun TrendChart(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("歷次考試趨勢", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             when {
                 isLoadingTrend -> ChartLoadingPlaceholder()
@@ -100,7 +100,7 @@ internal fun TrendChart(
                                     .size(10.dp)
                                     .background(
                                         if (index == trend.points.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                        RoundedCornerShape(999.dp),
+                                        androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
                                     ),
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -146,7 +146,7 @@ internal fun ScoreSimulatorEntryCard(
         modifier = Modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -154,7 +154,7 @@ internal fun ScoreSimulatorEntryCard(
             Text(
                 text = "自訂採計科目與目標分數，快速試算調整後的平均成績。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoChip(
@@ -187,15 +187,15 @@ internal fun ScheduleEntryCard(
         modifier = Modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("我的課表", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Text("我的課表", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Text(
                 text = "查看我的課表，以精美的畫面呈現。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -210,15 +210,15 @@ internal fun SubjectTrendEntryCard(
         modifier = Modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("成績折線圖", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("成績折線圖", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Text(
                 text = "以折線圖查看各科目歷次成績走勢。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -247,34 +247,34 @@ internal fun ScoreSimulatorScreen(
 
     val coroutineScope = rememberCoroutineScope()
 
-        val initialScores = remember(report) {
-            report.subjects.associate { cleanSubjectName(it.subjectName) to it.scoreValue }
-        }
-        var adjustedScores by remember(report) { mutableStateOf(initialScores) }
-        var isCustomGroupEnabled by remember { mutableStateOf(false) }
-        var isTargetReversalEnabled by remember { mutableStateOf(false) }
-        var checkedSubjects by remember(report) { mutableStateOf(report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()) }
-        var lockedSubjects by remember { mutableStateOf(emptySet<String>()) }
-        var targetAverageStr by remember { mutableStateOf("") }
+    val initialScores = remember(report) {
+        report.subjects.associate { cleanSubjectName(it.subjectName) to it.scoreValue }
+    }
+    var adjustedScores by remember(report) { mutableStateOf(initialScores) }
+    var isCustomGroupEnabled by remember { mutableStateOf(false) }
+    var isTargetReversalEnabled by remember { mutableStateOf(false) }
+    var checkedSubjects by remember(report) { mutableStateOf(report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()) }
+    var lockedSubjects by remember { mutableStateOf(emptySet<String>()) }
+    var targetAverageStr by remember { mutableStateOf("") }
 
-        val activeSubjects = if (isCustomGroupEnabled) checkedSubjects else report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()
+    val activeSubjects = if (isCustomGroupEnabled) checkedSubjects else report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()
 
-        val currentAverage = remember(report, activeSubjects) {
-            weightedAverageFor(report.subjects, emptyMap(), activeSubjects)
-        }
-        val adjustedAverage = remember(report, adjustedScores, activeSubjects) {
-            weightedAverageFor(report.subjects, adjustedScores, activeSubjects)
-        }
-        val currentTotal = remember(report, activeSubjects) {
-            weightedTotalFor(report.subjects, emptyMap(), activeSubjects)
-        }
-        val adjustedTotal = remember(report, adjustedScores, activeSubjects) {
-            weightedTotalFor(report.subjects, adjustedScores, activeSubjects)
-        }
+    val currentAverage = remember(report, activeSubjects) {
+        weightedAverageFor(report.subjects, emptyMap(), activeSubjects)
+    }
+    val adjustedAverage = remember(report, adjustedScores, activeSubjects) {
+        weightedAverageFor(report.subjects, adjustedScores, activeSubjects)
+    }
+    val currentTotal = remember(report, activeSubjects) {
+        weightedTotalFor(report.subjects, emptyMap(), activeSubjects)
+    }
+    val adjustedTotal = remember(report, adjustedScores, activeSubjects) {
+        weightedTotalFor(report.subjects, adjustedScores, activeSubjects)
+    }
 
-        val allHistory = remember(state.trendReports, state.simulatorHistoryReports) {
-            state.trendReports + state.simulatorHistoryReports
-        }
+    val allHistory = remember(state.trendReports, state.simulatorHistoryReports) {
+        state.trendReports + state.simulatorHistoryReports
+    }
 
     val historyMaxMin = remember(allHistory, report) {
         val map = mutableMapOf<String, Pair<Double, Double>>()
@@ -292,10 +292,10 @@ internal fun ScoreSimulatorScreen(
     val statusBars = WindowInsets.statusBars
     val statusBarHeightPx = remember(density, statusBars) { statusBars.getTop(density) }
     val topSpacerHeightPx = remember(density, statusBarHeightPx) { statusBarHeightPx + with(density) { 56.dp.toPx() }.roundToInt() }
-    
+
     val listState = rememberLazyListState()
     var cardHeightPx by remember { mutableIntStateOf(0) }
-    
+
     val cardYOffsetPx by remember(listState) {
         derivedStateOf {
             if (listState.firstVisibleItemIndex == 0) {
@@ -306,7 +306,7 @@ internal fun ScoreSimulatorScreen(
             }
         }
     }
-    
+
     val isStuck by remember(listState) {
         derivedStateOf {
             if (listState.firstVisibleItemIndex == 0) {
@@ -358,9 +358,14 @@ internal fun ScoreSimulatorScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("自訂採計組合", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "自訂採計組合",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                             Switch(checked = isCustomGroupEnabled, onCheckedChange = {
                                 isCustomGroupEnabled = it
                                 if (it) {
@@ -370,9 +375,30 @@ internal fun ScoreSimulatorScreen(
                                 }
                             })
                         }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            text = "可排除不想計算分數的科目，僅試算有打勾的科目。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("目標反推模式", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "目標反推模式",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                             Switch(checked = isTargetReversalEnabled, onCheckedChange = {
                                 isTargetReversalEnabled = it
                                 if (!it) lockedSubjects = emptySet()
@@ -383,6 +409,11 @@ internal fun ScoreSimulatorScreen(
                                 }
                             })
                         }
+                        Text(
+                            text = "鎖定科目分數，並設定目標平均，計算其他未鎖定科目需要達到的最低分數。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
                         if (isTargetReversalEnabled) {
                             Row(
@@ -399,6 +430,7 @@ internal fun ScoreSimulatorScreen(
                                     singleLine = true,
                                 )
                                 Button(
+                                    shape = RoundedCornerShape(14.dp),
                                     onClick = {
                                         val targetAvg = targetAverageStr.toDoubleOrNull() ?: return@Button
                                         val activeList = report.subjects.filter { cleanSubjectName(it.subjectName) in activeSubjects }
@@ -604,6 +636,7 @@ private fun SummaryMetricColumn(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubjectScoreSlider(
     subject: SubjectScore,
@@ -636,6 +669,8 @@ private fun SubjectScoreSlider(
         lastDispatchedScore = roundedScore
         onValueChange(roundedScore.toDouble())
     }
+
+    val scoreColor = if (isAboveMax) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -681,7 +716,7 @@ private fun SubjectScoreSlider(
                 modifier = Modifier.clickable(onClick = onResetSubject),
                 text = "%.0f".format(value),
                 style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"),
-                color = MaterialTheme.colorScheme.primary,
+                color = scoreColor,
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -690,7 +725,7 @@ private fun SubjectScoreSlider(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ScoreStepButton(label = "-5", onClick = { updateScore(value - 5.0, haptic = true) })
+                ScoreStepButton(label = "-", onClick = { updateScore(value - 1.0, haptic = true) })
             }
             FlameSlider(
                 modifier = Modifier.weight(1f),
@@ -699,7 +734,7 @@ private fun SubjectScoreSlider(
                 isFlameActive = isAboveMax,
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ScoreStepButton(label = "+5", onClick = { updateScore(value + 5.0, haptic = true) })
+                ScoreStepButton(label = "+", onClick = { updateScore(value + 1.0, haptic = true) })
             }
         }
     }
@@ -727,7 +762,6 @@ private fun FlameSlider(
         value = value,
         onValueChange = onValueChange,
         valueRange = 0f..100f,
-        steps = 99,
         colors = SliderDefaults.colors(
             thumbColor = thumbColor,
             activeTrackColor = trackColor,
@@ -741,10 +775,11 @@ private fun ScoreStepButton(
     label: String,
     onClick: () -> Unit,
 ) {
-    FilledTonalIconButton(
+    FilledTonalButton(
         onClick = onClick,
-        modifier = Modifier.size(44.dp),
-        shape = CircleShape,
+        modifier = Modifier.width(52.dp).height(38.dp),
+        shape = RoundedCornerShape(999.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
         Text(
             text = label,

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 fun SubpageLayout(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    title: String? = null,
     containerColor: Color = MaterialTheme.colorScheme.background,
     snackbarHost: @Composable () -> Unit = {},
     summaryContent: @Composable () -> Unit = {},
@@ -74,6 +75,20 @@ fun SubpageLayout(
                 ),
             ) {
                 OutlinedRoundedSymbol(icon = "arrow_back", contentDescription = "返回")
+            }
+
+            // 標題
+            if (title != null) {
+                androidx.compose.material3.Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 28.dp) // align with the button center
+                )
             }
         }
     }

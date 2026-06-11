@@ -10,7 +10,46 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.clhs.score.data.ThemeMode
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.ReadOnlyComposable
+
+data class ScoreSemanticColors(
+    val positive: Color,
+    val negative: Color,
+    val warning: Color,
+    val neutral: Color
+)
+
+internal val LightSemanticColors = ScoreSemanticColors(
+    positive = Color(0xFF059669),
+    negative = Color(0xFFDC2626),
+    warning = Color(0xFFD97706),
+    neutral = Color(0xFF6B7280)
+)
+
+internal val DarkSemanticColors = ScoreSemanticColors(
+    positive = Color(0xFF34D399),
+    negative = Color(0xFFF87171),
+    warning = Color(0xFFFBBF24),
+    neutral = Color(0xFF9CA3AF)
+)
+
+internal val LocalScoreSemanticColors = staticCompositionLocalOf { LightSemanticColors }
+
+object ScoreTheme {
+    val semanticColors: ScoreSemanticColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalScoreSemanticColors.current
+}
+
+internal val ScoreShapes = androidx.compose.material3.Shapes(
+    small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+)
 
 internal val LightColors = lightColorScheme(
     primary = Color(0xFF1565C0),
@@ -121,8 +160,15 @@ fun ScoreTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content,
-    )
+    val semanticColors = if (useDark) DarkSemanticColors else LightSemanticColors
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalScoreSemanticColors provides semanticColors
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            shapes = ScoreShapes,
+            content = content,
+        )
+    }
 }
