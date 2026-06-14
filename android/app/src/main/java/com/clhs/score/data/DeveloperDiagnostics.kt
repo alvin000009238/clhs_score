@@ -105,8 +105,8 @@ class DeveloperDiagnostics(private val context: Context) {
             appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
             appendLine("裝置: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine("登入狀態: ${if (context.isLoggedIn) "已登入" else "未登入"}")
-            appendLine("登入錯誤: ${context.loginErrorMessage?.takeIf { it.isNotBlank() } ?: "無"}")
-            appendLine("成績錯誤: ${context.gradesErrorMessage?.takeIf { it.isNotBlank() } ?: "無"}")
+            appendLine("登入錯誤: ${context.loginErrorMessage.toDiagnosticLine()}")
+            appendLine("成績錯誤: ${context.gradesErrorMessage.toDiagnosticLine()}")
             appendLine()
             appendLine("儲存空間")
             storage.entries.forEach { entry ->
@@ -120,7 +120,7 @@ class DeveloperDiagnostics(private val context: Context) {
                 appendLine("- 無")
             } else {
                 events.forEach { event ->
-                    appendLine("- ${event.timestamp} [${event.area}] ${event.message}")
+                    appendLine("- ${event.timestamp} [${event.area}] ${event.message.sanitizeDiagnosticText()}")
                 }
             }
             appendLine()
@@ -184,8 +184,8 @@ class DeveloperDiagnostics(private val context: Context) {
             val appContext = context.applicationContext
             val nextEvent = DiagnosticEvent(
                 timestamp = Instant.now().toString(),
-                area = area.sanitizeEventField(),
-                message = message.sanitizeEventField(),
+                area = area.sanitizeDiagnosticText(),
+                message = message.sanitizeDiagnosticText(),
             )
             val prefs = appContext.getSharedPreferences(DiagnosticsPrefs, Context.MODE_PRIVATE)
             val updated = (recentEvents(appContext) + nextEvent).takeLast(MaxEvents)
@@ -212,16 +212,47 @@ class DeveloperDiagnostics(private val context: Context) {
             return DiagnosticEvent(parts[0], parts[1], parts[2])
         }
 
-        private fun String.sanitizeEventField(): String =
-            replace("\n", " ")
-                .replace("\r", " ")
-                .replace(Separator, " ")
-                .take(240)
     }
 }
 
 fun defaultClearableLocalDataCategories(): Set<LocalDataCategory> =
     LocalDataCategory.entries.filter { it.isClearable }.toSet()
+
+internal fun String?.toDiagnosticLine(): String =
+    this?.sanitizeDiagnosticText()
+        ?.takeIf { it.isNotBlank() }
+        ?: "無"
+
+internal fun String.sanitizeDiagnosticText(): String {
+    val singleLine = replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\u001F", " ")
+        .trim()
+    return singleLine
+        .replace(SensitiveUrlRegex, "[url]")
+        .replace(SensitiveAssignmentRegex) { match ->
+            val key = match.groups["key"]?.value ?: "secret"
+            "$key=[redacted]"
+        }
+        .replace(SensitiveHeaderRegex) { match ->
+            val key = match.groups["key"]?.value ?: "secret"
+            "$key: [redacted]"
+        }
+        .replace(StudentLikeNumberRegex, "[number]")
+        .take(MaxDiagnosticTextLength)
+}
+
+private const val MaxDiagnosticTextLength = 240
+private val SensitiveUrlRegex = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
+private val SensitiveAssignmentRegex = Regex(
+    pattern = """(?<key>[A-Za-z0-9_.-]*(?:cookie|session|token|password|passwd|pwd|authorization|student[_-]?no)[A-Za-z0-9_.-]*)\s*=\s*[^\s;]+""",
+    option = RegexOption.IGNORE_CASE,
+)
+private val SensitiveHeaderRegex = Regex(
+    pattern = """(?<key>cookie|set-cookie|authorization|api[_-]?token|student[_-]?no)\s*:\s*[^\s;]+""",
+    option = RegexOption.IGNORE_CASE,
+)
+private val StudentLikeNumberRegex = Regex("""\b\d{5,}\b""")
 
 fun Long.toReadableSize(): String {
     val units = listOf("B", "KB", "MB", "GB")

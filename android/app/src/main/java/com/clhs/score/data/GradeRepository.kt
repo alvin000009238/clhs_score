@@ -2,7 +2,7 @@ package com.clhs.score.data
 
 interface GradeRepository {
     fun restoreSession(): AuthenticatedSession?
-
+    fun activateSession(session: AuthenticatedSession)
 
     suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean = false): List<YearTermOption>
 
@@ -13,7 +13,7 @@ interface GradeRepository {
         forceRefresh: Boolean = false,
     ): GradeReport
 
-    suspend fun logout()
+    suspend fun logout(currentSession: AuthenticatedSession? = null)
 
     suspend fun loginWithCookies(
         studentNo: String,
@@ -32,7 +32,9 @@ class SchoolGradeRepository(
         return session
     }
 
-
+    override fun activateSession(session: AuthenticatedSession) {
+        client.restoreSession(session)
+    }
 
     override suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean): List<YearTermOption> {
         if (!forceRefresh) {
@@ -59,8 +61,8 @@ class SchoolGradeRepository(
         return report
     }
 
-    override suspend fun logout() {
-        val studentNo = sessionStore.loadSession()?.studentNo
+    override suspend fun logout(currentSession: AuthenticatedSession?) {
+        val studentNo = currentSession?.studentNo ?: sessionStore.loadSession()?.studentNo
         sessionStore.clear()
         client.clearSession()
         if (studentNo != null) {

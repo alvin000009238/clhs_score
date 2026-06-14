@@ -1,10 +1,13 @@
 package com.clhs.score.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +55,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import com.clhs.score.BuildConfig
+import com.clhs.score.data.GradeChange
+import com.clhs.score.data.GradeChangeField
+import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.DeveloperDiagnostics
 import com.clhs.score.data.ErrorDiagnosticContext
@@ -61,6 +68,7 @@ import com.clhs.score.data.StorageDiagnostics
 import com.clhs.score.data.StorageEntry
 import com.clhs.score.data.defaultClearableLocalDataCategories
 import com.clhs.score.data.toReadableSize
+import com.clhs.score.reminders.GradeReminderNotifier
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,10 +132,16 @@ fun DeveloperSettingsScreen(
                 if (categories.isEmpty()) return@LocalDataManagementDialog
                 isBusy = true
                 scope.launch {
-                    cleanupResult = diagnostics.clearLocalData(categories)
-                    storageDiagnostics = cleanupResult?.storageAfterCleanup
+                    runCatching {
+                        diagnostics.clearLocalData(categories)
+                    }.onSuccess { result ->
+                        cleanupResult = result
+                        storageDiagnostics = result.storageAfterCleanup
+                        Toast.makeText(context, "已清除選取資料", Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        Toast.makeText(context, "清除資料失敗", Toast.LENGTH_SHORT).show()
+                    }
                     isBusy = false
-                    Toast.makeText(context, "已清除選取資料", Toast.LENGTH_SHORT).show()
                 }
             },
             onDismiss = { storageDiagnostics = null },
@@ -141,7 +155,11 @@ fun DeveloperSettingsScreen(
                 context.copyText("CLHS Score 診斷包", report)
                 Toast.makeText(context, "診斷包已複製", Toast.LENGTH_SHORT).show()
             },
-            onShare = { context.shareText(report) },
+            onShare = {
+                if (!context.shareText(report)) {
+                    Toast.makeText(context, "無法分享診斷包", Toast.LENGTH_SHORT).show()
+                }
+            },
             onDismiss = { diagnosticReport = null },
         )
     }
@@ -166,6 +184,18 @@ fun DeveloperSettingsScreen(
                 onCheckedChange = onSetDemoMode,
             )
 
+            if (BuildConfig.DEBUG) {
+                DeveloperActionItem(
+                    icon = "notifications_active",
+                    title = "段考提醒測試通知",
+                    subtitle = "發送一則模擬資訊更新通知，測試手機是否能收到提醒。",
+                    enabled = !isBusy,
+                    onClick = {
+                        showGradeReminderTestNotification(context)
+                    },
+                )
+            }
+
             DeveloperActionItem(
                 icon = "settings",
                 title = "本機資料與儲存空間",
@@ -176,7 +206,13 @@ fun DeveloperSettingsScreen(
                     scope.launch {
                         cleanupResult = null
                         selectedCleanupCategories = defaultClearableLocalDataCategories()
-                        storageDiagnostics = diagnostics.collectStorageDiagnostics()
+                        runCatching {
+                            diagnostics.collectStorageDiagnostics()
+                        }.onSuccess { result ->
+                            storageDiagnostics = result
+                        }.onFailure {
+                            Toast.makeText(context, "讀取儲存空間失敗", Toast.LENGTH_SHORT).show()
+                        }
                         isBusy = false
                     }
                 },
@@ -190,13 +226,19 @@ fun DeveloperSettingsScreen(
                 onClick = {
                     isBusy = true
                     scope.launch {
-                        diagnosticReport = diagnostics.buildErrorReport(
-                            ErrorDiagnosticContext(
-                                isLoggedIn = isLoggedIn,
-                                loginErrorMessage = loginErrorMessage,
-                                gradesErrorMessage = gradesErrorMessage,
-                            ),
-                        )
+                        runCatching {
+                            diagnostics.buildErrorReport(
+                                ErrorDiagnosticContext(
+                                    isLoggedIn = isLoggedIn,
+                                    loginErrorMessage = loginErrorMessage,
+                                    gradesErrorMessage = gradesErrorMessage,
+                                ),
+                            )
+                        }.onSuccess { report ->
+                            diagnosticReport = report
+                        }.onFailure {
+                            Toast.makeText(context, "產生診斷包失敗", Toast.LENGTH_SHORT).show()
+                        }
                         isBusy = false
                     }
                 },
@@ -226,6 +268,48 @@ fun DeveloperSettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+private fun showGradeReminderTestNotification(context: Context) {
+    if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    ) {
+        Toast.makeText(context, "請先允許通知權限", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val changeSet = GradeChangeSet(
+        studentNo = "debug",
+        yearValue = "debug_year",
+        examValue = "debug_exam",
+        examName = "段考測試",
+        checkedAtMillis = System.currentTimeMillis(),
+        changes = listOf(
+            GradeChange(
+                targetName = "數學",
+                subjectName = "數學",
+                field = GradeChangeField.SUBJECT_SCORE,
+                oldValue = "測試前",
+                newValue = "測試後",
+            ),
+            GradeChange(
+                targetName = "數學",
+                subjectName = "數學",
+                field = GradeChangeField.SUBJECT_CLASS_RANK,
+                oldValue = "測試前",
+                newValue = "測試後",
+            ),
+            GradeChange(
+                targetName = "總覽",
+                field = GradeChangeField.SUMMARY_AVERAGE,
+                oldValue = "測試前",
+                newValue = "測試後",
+            ),
+        ),
+    )
+    GradeReminderNotifier(context.applicationContext).showChangedNotification(changeSet)
+    Toast.makeText(context, "已發送段考提醒測試通知", Toast.LENGTH_SHORT).show()
 }
 
 @Composable
@@ -486,11 +570,12 @@ private fun Context.copyText(label: String, text: String) {
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
-private fun Context.shareText(text: String) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "CLHS Score 診斷包")
-        putExtra(Intent.EXTRA_TEXT, text)
-    }
-    startActivity(Intent.createChooser(intent, "分享診斷包"))
-}
+private fun Context.shareText(text: String): Boolean =
+    runCatching {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "CLHS Score 診斷包")
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(Intent.createChooser(intent, "分享診斷包"))
+    }.isSuccess

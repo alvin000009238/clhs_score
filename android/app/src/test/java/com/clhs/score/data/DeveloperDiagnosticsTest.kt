@@ -39,4 +39,28 @@ class DeveloperDiagnosticsTest {
         assertEquals("GradeCache", event.area)
         assertTrue(event.message.contains("decode failed"))
     }
+
+    @Test
+    fun diagnosticTextRedactsSensitiveValues() {
+        val text = """
+            token=secret Cookie: sessionid=abc student_no=123456
+            https://example.com/callback?token=secret
+        """.trimIndent()
+
+        val sanitized = text.sanitizeDiagnosticText()
+
+        assertFalse(sanitized.contains("secret"))
+        assertFalse(sanitized.contains("123456"))
+        assertFalse(sanitized.contains("https://example.com"))
+        assertTrue(sanitized.contains("token=[redacted]"))
+        assertTrue(sanitized.contains("Cookie: [redacted]"))
+        assertTrue(sanitized.contains("student_no=[redacted]"))
+        assertTrue(sanitized.contains("[url]"))
+    }
+
+    @Test
+    fun blankDiagnosticTextFallsBackToNone() {
+        assertEquals("無", null.toDiagnosticLine())
+        assertEquals("無", " \n ".toDiagnosticLine())
+    }
 }

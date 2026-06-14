@@ -11,15 +11,20 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.glance.appwidget.updateAll
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -30,6 +35,8 @@ import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.ScheduleViewModel
 import com.clhs.score.viewmodel.SettingsUiState
+import com.clhs.score.widget.ScheduleWidgetDisplayPreferences
+import com.clhs.score.widget.syncScheduleWidgetPreferences
 import kotlinx.coroutines.launch
 
 private const val GradesRoute = "grades"
@@ -46,6 +53,8 @@ fun ScoreApp(
     gradesState: GradesUiState,
     settings: AppSettings,
     settingsUiState: SettingsUiState,
+    openScheduleRequested: Boolean,
+    onScheduleOpenHandled: () -> Unit,
     onWebViewLoginSuccess: (studentNo: String, cookieString: String) -> Unit,
     onSelectYear: (String) -> Unit,
     onSelectExam: (String) -> Unit,
@@ -54,6 +63,11 @@ fun ScoreApp(
     onToggleSubject: (String) -> Unit,
     onDismissLoginError: () -> Unit,
     onDismissGradesError: () -> Unit,
+    onStartGradeReminder: () -> Unit,
+    onStopGradeReminder: () -> Unit,
+    onGradeReminderPrerequisiteFailed: (String) -> Unit,
+    onDismissGradeReminderError: () -> Unit,
+    onDismissGradeReminderChanges: () -> Unit,
     onSetThemeMode: (ThemeMode) -> Unit,
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
@@ -67,9 +81,15 @@ fun ScoreApp(
     onDismissNotificationPrompt: () -> Unit,
     onExportGrades: (List<ExamSelection>) -> Unit,
     onDismissExportResult: () -> Unit,
+    onSetBiometricEnabled: (Boolean, String?) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showWebView by remember { mutableStateOf(false) }
+
+    SystemNotificationPermissionSync(
+        settings = settings,
+        onSetNotificationsEnabled = onSetNotificationsEnabled,
+    )
 
     LaunchedEffect(loginState.errorMessage) {
         val message = loginState.errorMessage ?: return@LaunchedEffect
@@ -80,6 +100,11 @@ fun ScoreApp(
         val message = gradesState.errorMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
         onDismissGradesError()
+    }
+    LaunchedEffect(gradesState.gradeReminderError) {
+        val message = gradesState.gradeReminderError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        onDismissGradeReminderError()
     }
 
     UpdateResultDialog(
@@ -99,6 +124,17 @@ fun ScoreApp(
     ) { isLoggedIn ->
         if (isLoggedIn) {
             val navController = rememberNavController()
+            LaunchedEffect(openScheduleRequested, navController) {
+                if (openScheduleRequested) {
+                    if (navController.currentDestination?.route != ScheduleRoute) {
+                        navController.navigate(ScheduleRoute) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                    onScheduleOpenHandled()
+                }
+            }
             NavHost(
                 navController = navController,
                 startDestination = GradesRoute,
@@ -122,6 +158,11 @@ fun ScoreApp(
                         onSelectExam = onSelectExam,
                         onReload = onReload,
                         onToggleSubject = onToggleSubject,
+                        onStartGradeReminder = onStartGradeReminder,
+                        onStopGradeReminder = onStopGradeReminder,
+                        onSetNotificationsEnabled = onSetNotificationsEnabled,
+                        onGradeReminderPrerequisiteFailed = onGradeReminderPrerequisiteFailed,
+                        onDismissGradeReminderChanges = onDismissGradeReminderChanges,
                         onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
                         onOpenSchedule = { navController.navigate(ScheduleRoute) },
                         onOpenSubjectTrend = {
@@ -138,7 +179,7 @@ fun ScoreApp(
                     )
                 }
                 composable(SubjectTrendRoute) {
-                    LaunchedEffect(Unit) {
+                    LaunchedEffect(gradesState.structure) {
                         scoreViewModel.initSubjectTrend()
                     }
                     SubjectTrendScreen(
@@ -152,10 +193,19 @@ fun ScoreApp(
                 ) {
                     val context = LocalContext.current
                     val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ScheduleViewModel>(
-                        factory = ScheduleViewModel.factory(context, settings.demoMode),
+                        factory = ScheduleViewModel.factory(
+                            context = context,
+                            useFakeData = settings.demoMode,
+                            activeSessionProvider = scoreViewModel::getCurrentSession,
+                        ),
                     )
                     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                     val coroutineScope = rememberCoroutineScope()
+                    LaunchedEffect(uiState.report) {
+                        if (uiState.report != null) {
+                            com.clhs.score.widget.ScheduleWidget().updateAll(context)
+                        }
+                    }
                     com.clhs.score.ui.schedule.ScheduleScreen(
                         uiState = uiState,
                         onBack = { navController.popBackStack() },
@@ -165,9 +215,21 @@ fun ScoreApp(
                         onConfirmSelection = { viewModel.confirmSelection() },
                         onClearSelection = { viewModel.clearSelection() },
                         onSaveWidgetPreferences = { showTeacher, showClassroom, showTime ->
-                            viewModel.saveWidgetPreferences(showTeacher, showClassroom, showTime)
                             coroutineScope.launch {
-                                com.clhs.score.widget.ScheduleWidget().updateAll(context)
+                                val saveJob = viewModel.saveWidgetPreferences(
+                                    showTeacher = showTeacher,
+                                    showClassroom = showClassroom,
+                                    showTime = showTime,
+                                )
+                                saveJob.join()
+                                syncScheduleWidgetPreferences(
+                                    context = context,
+                                    preferences = ScheduleWidgetDisplayPreferences(
+                                        showTeacher = showTeacher,
+                                        showClassroom = showClassroom,
+                                        showTime = showTime,
+                                    ),
+                                )
                             }
                         }
                     )
@@ -192,6 +254,7 @@ fun ScoreApp(
                         onExportGrades = onExportGrades,
                         onDismissExportResult = onDismissExportResult,
                         onLogout = onLogout,
+                        onSetBiometricEnabled = onSetBiometricEnabled,
                     )
                 }
                 composable(DeveloperSettingsRoute) {
@@ -232,5 +295,36 @@ fun ScoreApp(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SystemNotificationPermissionSync(
+    settings: AppSettings,
+    onSetNotificationsEnabled: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationsEnabled by rememberUpdatedState(settings.notificationsEnabled)
+    val currentOnSetNotificationsEnabled by rememberUpdatedState(onSetNotificationsEnabled)
+
+    fun syncIfNeeded() {
+        if (notificationsEnabled && !context.arePostNotificationsGranted()) {
+            currentOnSetNotificationsEnabled(false)
+        }
+    }
+
+    LaunchedEffect(settings.notificationsEnabled) {
+        syncIfNeeded()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                syncIfNeeded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 }

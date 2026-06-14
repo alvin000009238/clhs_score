@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +78,7 @@ import com.clhs.score.viewmodel.ScheduleUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -131,6 +133,16 @@ fun ScheduleScreen(
                                     captureView?.let { view ->
                                         coroutineScope.launch {
                                             saveBitmapToGallery(context, view)
+                                                .onSuccess {
+                                                    Toast.makeText(context, "課表已儲存至相簿", Toast.LENGTH_SHORT).show()
+                                                }
+                                                .onFailure { error ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        "儲存失敗: ${error.message ?: "未知錯誤"}",
+                                                        Toast.LENGTH_SHORT,
+                                                    ).show()
+                                                }
                                         }
                                     } ?: run {
                                         Toast.makeText(context, "無法擷取課表", Toast.LENGTH_SHORT).show()
@@ -288,20 +300,23 @@ fun ScheduleScreen(
                     AndroidView(
                         factory = { ctx ->
                             ComposeView(ctx).apply {
-                                setContent {
-                                        Surface {
-                                            ScheduleGrid(
-                                                items = report.items,
-                                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
-                                            )
-                                        }
-                                }
+                                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                                 doOnLayout {
                                     captureView = this
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxSize()
+                        update = { composeView ->
+                            composeView.setContent {
+                                Surface {
+                                    ScheduleGrid(
+                                        items = report.items,
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
@@ -309,43 +324,54 @@ fun ScheduleScreen(
     }
 }
 
-private suspend fun saveBitmapToGallery(context: Context, view: View) {
-    withContext(Dispatchers.IO) {
-        try {
-            val bitmap = androidx.core.graphics.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            canvas.drawColor(android.graphics.Color.WHITE)
-            withContext(Dispatchers.Main) {
-                view.draw(canvas)
+private suspend fun saveBitmapToGallery(context: Context, view: View): Result<String> =
+    try {
+        val bitmap = withContext(Dispatchers.Main) {
+            if (view.width <= 0 || view.height <= 0) {
+                throw IOException("課表尚未完成排版")
             }
-
+            androidx.core.graphics.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                .also { bitmap ->
+                    val canvas = Canvas(bitmap)
+                    canvas.drawColor(android.graphics.Color.WHITE)
+                    view.draw(canvas)
+                }
+        }
+        try {
             val filename = "Schedule_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.png"
-            var fos: OutputStream? = null
-            
+            withContext(Dispatchers.IO) {
                 val resolver = context.contentResolver
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Schedules")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
                 val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-                if (imageUri != null) {
-                    fos = resolver.openOutputStream(imageUri)
-                }
-            
-            fos?.use {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "課表已儲存至相簿", Toast.LENGTH_SHORT).show()
+                    ?: throw IOException("無法建立圖片檔")
+                try {
+                    val output: OutputStream = resolver.openOutputStream(imageUri)
+                        ?: throw IOException("無法開啟圖片檔")
+                    output.use {
+                        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) {
+                            throw IOException("圖片壓縮失敗")
+                        }
+                    }
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(imageUri, contentValues, null, null)
+                } catch (error: Exception) {
+                    resolver.delete(imageUri, null, null)
+                    throw error
                 }
             }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, "儲存失敗: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            Result.success(filename)
+        } finally {
+            bitmap.recycle()
         }
+    } catch (error: Exception) {
+        Result.failure(error)
     }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

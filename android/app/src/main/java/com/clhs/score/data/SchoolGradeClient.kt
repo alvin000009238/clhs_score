@@ -35,9 +35,23 @@ class SchoolGradeClient(
         .followSslRedirects(true)
         .build()
 
+    private var currentStudentNo: String? = null
+    private var cachedScheduleToken: String? = null
+    private val sessionLock = Any()
+
+    private fun prepareSession(session: AuthenticatedSession) {
+        synchronized(sessionLock) {
+            if (currentStudentNo != session.studentNo) {
+                cookieJar.replace(session.cookies, domain = baseUrl.host)
+                currentStudentNo = session.studentNo
+                cachedScheduleToken = null
+            }
+        }
+    }
+
 
     suspend fun loadStructure(session: AuthenticatedSession): List<YearTermOption> {
-        cookieJar.replace(session.cookies, domain = baseUrl.host)
+        prepareSession(session)
         val yearTerms = postOptions(
             path = "ICampus/CommonData/GetGradeCanQueryYearTermListByStudentNo",
             referer = gradesPageUrl().toString(),
@@ -65,7 +79,7 @@ class SchoolGradeClient(
         yearValue: String,
         examValue: String,
     ): GradeReport = withContext(Dispatchers.IO) {
-        cookieJar.replace(session.cookies, domain = baseUrl.host)
+        prepareSession(session)
         val (year, term) = parseYearTerm(yearValue, defaultYear = "114", defaultTerm = "2")
         val body = postForm(
             path = "ICampus/TutorShGrade/GetScoreForStudentExamContent",
@@ -83,7 +97,10 @@ class SchoolGradeClient(
     }
 
     private suspend fun getSchedulePageToken(session: AuthenticatedSession): String {
-        cookieJar.replace(session.cookies, domain = baseUrl.host)
+        prepareSession(session)
+        synchronized(sessionLock) {
+            cachedScheduleToken?.let { return it }
+        }
         val pageResponse = execute(
             Request.Builder()
                 .url(resolve("ClassTableV2/ClassTable"))
@@ -91,8 +108,12 @@ class SchoolGradeClient(
                 .get()
                 .build(),
         ).body.string()
-        return hiddenInput(pageResponse, "__RequestVerificationToken")
+        val token = hiddenInput(pageResponse, "__RequestVerificationToken")
             ?: throw SchoolException("找不到課表 API token")
+        synchronized(sessionLock) {
+            cachedScheduleToken = token
+        }
+        return token
     }
 
     private fun scheduleHeaders(): Headers =
@@ -218,6 +239,10 @@ class SchoolGradeClient(
 
     fun restoreSession(session: AuthenticatedSession) {
         cookieJar.replace(session.cookies, domain = baseUrl.host)
+        synchronized(sessionLock) {
+            currentStudentNo = session.studentNo
+            cachedScheduleToken = null
+        }
     }
 
     suspend fun loginWithCookies(
@@ -225,6 +250,10 @@ class SchoolGradeClient(
         cookies: Map<String, String>,
     ): AuthenticatedSession = withContext(Dispatchers.IO) {
         cookieJar.replace(cookies, domain = baseUrl.host)
+        synchronized(sessionLock) {
+            currentStudentNo = studentNo
+            cachedScheduleToken = null
+        }
         val gradesPage = execute(
             Request.Builder()
                 .url(gradesPageUrl())
@@ -243,6 +272,10 @@ class SchoolGradeClient(
 
     fun clearSession() {
         cookieJar.clear()
+        synchronized(sessionLock) {
+            currentStudentNo = null
+            cachedScheduleToken = null
+        }
     }
 
     private suspend fun loadExams(session: AuthenticatedSession, yearValue: String): List<ExamOption> {

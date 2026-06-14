@@ -1,11 +1,7 @@
 package com.clhs.score.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -42,22 +38,28 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.clhs.score.BuildConfig
 import com.clhs.score.data.AppSettings
+import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.YearTermOption
+import com.clhs.score.ui.components.PinSetupDialog
 import com.clhs.score.viewmodel.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,31 +83,49 @@ fun SettingsScreen(
     onExportGrades: (List<ExamSelection>) -> Unit,
     onDismissExportResult: () -> Unit,
     onLogout: () -> Unit,
+    onSetBiometricEnabled: (Boolean, String?) -> Unit,
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            onSetNotificationsEnabled(true)
-        } else {
-            onSetNotificationsEnabled(false)
-            Toast.makeText(context, "未取得通知權限，暫不接收推播通知", Toast.LENGTH_SHORT).show()
+    var showPinSetupDialog by remember { mutableStateOf(false) }
+    var awaitingNotificationSettings by rememberSaveable { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, settings.notificationsEnabled) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_RESUME) {
+                return@LifecycleEventObserver
+            }
+            if (awaitingNotificationSettings) {
+                awaitingNotificationSettings = false
+                if (context.arePostNotificationsGranted()) {
+                    onSetNotificationsEnabled(true)
+                    Toast.makeText(context, "已開啟推播通知", Toast.LENGTH_SHORT).show()
+                } else {
+                    onSetNotificationsEnabled(false)
+                    Toast.makeText(context, "未取得通知權限，暫不接收推播通知", Toast.LENGTH_SHORT).show()
+                }
+            } else if (settings.notificationsEnabled && !context.arePostNotificationsGranted()) {
+                onSetNotificationsEnabled(false)
+                Toast.makeText(context, "系統通知權限已關閉，已同步關閉通知", Toast.LENGTH_SHORT).show()
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val onNotificationToggle: (Boolean) -> Unit = { enabled ->
+
+    val onNotificationToggle: (Boolean) -> Unit = notificationToggle@{ enabled ->
         if (!enabled) {
             onSetNotificationsEnabled(false)
-        } else if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!context.arePostNotificationsGranted()) {
+            awaitingNotificationSettings = true
+            if (context.openAppNotificationSettings()) {
+                Toast.makeText(context, "請在系統設定中開啟通知", Toast.LENGTH_SHORT).show()
+            } else {
+                awaitingNotificationSettings = false
+                Toast.makeText(context, "無法開啟通知設定，請手動到系統設定開啟", Toast.LENGTH_SHORT).show()
+            }
         } else {
             onSetNotificationsEnabled(true)
         }
@@ -133,6 +153,16 @@ fun SettingsScreen(
                 onExportGrades(selections)
             },
             onDismiss = { showExportDialog = false },
+        )
+    }
+
+    if (showPinSetupDialog) {
+        PinSetupDialog(
+            onConfirm = { pin ->
+                showPinSetupDialog = false
+                onSetBiometricEnabled(true, pin)
+            },
+            onDismiss = { showPinSetupDialog = false }
         )
     }
 
@@ -214,8 +244,58 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Switch(
                         checked = settings.notificationsEnabled,
-                        onCheckedChange = onNotificationToggle,
+                        onCheckedChange = null,
                     )
+                }
+            }
+
+            if (BiometricHelper.canAuthenticate(context)) {
+                val onBiometricToggle: (Boolean) -> Unit = { enabled ->
+                    if (enabled) {
+                        showPinSetupDialog = true
+                    } else {
+                        onSetBiometricEnabled(false, null)
+                    }
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { onBiometricToggle(!settings.biometricEnabled) }
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedRoundedSymbol(
+                            icon = "fingerprint",
+                            tint = MaterialTheme.colorScheme.primary,
+                            size = 22.dp,
+                            contentDescription = null,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "生物識別解鎖",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = "開啟後，每次啟動 App 均需進行驗證",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = settings.biometricEnabled,
+                            onCheckedChange = onBiometricToggle,
+                        )
+                    }
                 }
             }
 

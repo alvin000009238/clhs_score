@@ -13,20 +13,26 @@ class NetworkScheduleRepository(
     private val client: SchoolGradeClient,
     private val sessionStore: SessionStore,
     private val cacheStore: GradeCacheStore,
+    activeSessionProvider: () -> AuthenticatedSession? = { null },
 ) : ScheduleRepository {
+    private val sessionResolver = ActiveSessionResolver(
+        activeSessionProvider = activeSessionProvider,
+        storedSessionProvider = sessionStore::loadSession,
+        biometricSessionPresentProvider = sessionStore::hasBiometricSession,
+    )
 
     override suspend fun getScheduleYears(): List<ScheduleYearTermOption> {
-        val session = sessionStore.loadSession() ?: throw SchoolException("未登入")
+        val session = sessionResolver.requireSession()
         return client.getScheduleYears(session)
     }
 
     override suspend fun getScheduleClasses(year: String, term: String): List<ScheduleClassOption> {
-        val session = sessionStore.loadSession() ?: throw SchoolException("未登入")
+        val session = sessionResolver.requireSession()
         return client.getScheduleClasses(session, year, term)
     }
 
     override suspend fun fetchSchedule(yearValue: String, year: String, term: String, classNo: String): ScheduleReport {
-        val session = sessionStore.loadSession() ?: throw SchoolException("未登入")
+        val session = sessionResolver.requireSession()
         val report = client.fetchSchedule(session, yearValue, year, term, classNo)
         
         // Use a composite key for caching so different classes in the same semester are cached separately.
@@ -37,8 +43,10 @@ class NetworkScheduleRepository(
     }
 
     override suspend fun getLatestSchedule(): ScheduleReport? {
-        val session = sessionStore.loadSession() ?: return null
-        return cacheStore.loadLatestScheduleReport(session.studentNo)
+        val session = sessionResolver.currentSession() ?: return null
+        val report = cacheStore.loadLatestScheduleReport(session.studentNo) ?: return null
+        cacheStore.saveWidgetScheduleReport(session.studentNo, report)
+        return report
     }
 
     override suspend fun getWidgetPreferences(): Triple<Boolean, Boolean, Boolean> {
@@ -48,6 +56,21 @@ class NetworkScheduleRepository(
     override suspend fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
         cacheStore.saveWidgetPreferences(showTeacher, showClassroom, showTime)
     }
+}
+
+internal class ActiveSessionResolver(
+    private val activeSessionProvider: () -> AuthenticatedSession?,
+    private val storedSessionProvider: () -> AuthenticatedSession?,
+    private val biometricSessionPresentProvider: () -> Boolean,
+) {
+    fun currentSession(): AuthenticatedSession? {
+        activeSessionProvider()?.let { return it }
+        if (biometricSessionPresentProvider()) return null
+        return storedSessionProvider()
+    }
+
+    fun requireSession(): AuthenticatedSession =
+        currentSession() ?: throw SchoolException("未登入")
 }
 
 class FakeScheduleRepository : ScheduleRepository {

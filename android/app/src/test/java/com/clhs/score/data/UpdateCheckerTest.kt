@@ -1,0 +1,141 @@
+package com.clhs.score.data
+
+import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+class UpdateCheckerTest {
+    private lateinit var server: MockWebServer
+
+    @Before
+    fun setUp() {
+        server = MockWebServer()
+        server.start()
+    }
+
+    @After
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    @Test
+    fun newerReleaseReturnsValidatedDownloadUrl() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.0",
+                  "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.2.0",
+                  "body": "Bug fixes",
+                  "assets": [
+                    {
+                      "name": "clhs-score.apk",
+                      "browser_download_url": "https://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk"
+                    }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val result = checker().check("1.1.9")
+
+        result as UpdateResult.NewVersion
+        assertEquals("1.2.0", result.versionName)
+        assertEquals("Bug fixes", result.releaseNotes)
+        assertEquals(
+            "https://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk",
+            result.apkDownloadUrl,
+        )
+    }
+
+    @Test
+    fun sameVersionReturnsUpToDate() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.0",
+                  "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.2.0",
+                  "body": "",
+                  "assets": []
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals(UpdateResult.UpToDate, checker().check("1.2.0"))
+    }
+
+    @Test
+    fun invalidReleaseLinksReturnErrorInsteadOfActionableUpdate() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.0",
+                  "html_url": "javascript:alert(1)",
+                  "body": "",
+                  "assets": [
+                    {
+                      "name": "clhs-score.apk",
+                      "browser_download_url": "file:///tmp/app.apk"
+                    }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val result = checker().check("1.1.9")
+
+        result as UpdateResult.Error
+        assertEquals("更新連結格式不正確", result.message)
+    }
+
+    @Test
+    fun invalidApkUrlFallsBackToValidHtmlUrl() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.0",
+                  "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.2.0",
+                  "body": "",
+                  "assets": [
+                    {
+                      "name": "clhs-score.apk",
+                      "browser_download_url": "intent://download"
+                    }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val result = checker().check("1.1.9")
+
+        result as UpdateResult.NewVersion
+        assertNull(result.apkDownloadUrl)
+        assertTrue(result.htmlUrl.startsWith("https://github.com/"))
+    }
+
+    private fun checker(): UpdateChecker =
+        UpdateChecker(
+            client = OkHttpClient(),
+            latestReleaseUrl = server.url("/release/latest").toString(),
+        )
+
+    private fun jsonResponse(body: String): MockResponse =
+        MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "application/json")
+            .setBody(body)
+}

@@ -116,6 +116,35 @@ class SchoolGradeClientTest {
     }
 
     @Test
+    fun fetchScheduleRefreshesTokenAfterSessionRestore() = runTest {
+        val firstSession = AuthenticatedSession(
+            studentNo = "DEMO-001",
+            apiToken = "api-token",
+            cookies = mapOf("ASP.NET_SessionId" to "abc"),
+        )
+        val restoredSession = AuthenticatedSession(
+            studentNo = "DEMO-002",
+            apiToken = "api-token-2",
+            cookies = mapOf("ASP.NET_SessionId" to "def"),
+        )
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token-1" />"""))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token-2" />"""))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        client.fetchSchedule(firstSession, "114_1", "114", "1", "230")
+        client.restoreSession(restoredSession)
+        client.fetchSchedule(restoredSession, "114_1", "114", "1", "230")
+
+        server.takeRequest()
+        server.takeRequest()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable", server.takeRequest().path)
+        val secondTimetableRequest = server.takeRequest()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetTimeTable", secondTimetableRequest.path)
+        assertTrue(secondTimetableRequest.body.readUtf8().contains("__RequestVerificationToken=schedule-token-2"))
+    }
+
+    @Test
     fun clearSessionClearsCookieJar() {
         val jar = SchoolCookieJar()
         val clientWithJar = SchoolGradeClient(

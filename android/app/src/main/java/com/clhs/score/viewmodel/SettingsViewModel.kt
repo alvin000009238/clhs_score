@@ -114,6 +114,12 @@ class SettingsViewModel(
         }
     }
 
+    fun setBiometricEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setBiometricEnabled(enabled)
+        }
+    }
+
     fun dismissRestartDialog() {
         _uiState.update { it.copy(showRestartDialog = false) }
     }
@@ -125,7 +131,8 @@ class SettingsViewModel(
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    val repo = SettingsRepository(context)
+                    val appContext = context.applicationContext
+                    val repo = SettingsRepository(appContext)
                     val checker = UpdateChecker()
                     return SettingsViewModel(repo, checker, NotificationTopicManager()) as T
                 }

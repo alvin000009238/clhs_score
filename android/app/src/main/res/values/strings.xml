@@ -2,4 +2,6 @@
     <string name="app_name">壢中成績</string>
     <string name="notification_channel_updates_name">更新與公告</string>
     <string name="notification_channel_updates_description">接收 app 更新與一般公告通知</string>
+    <string name="notification_channel_grade_reminders_name">段考提醒</string>
+    <string name="notification_channel_grade_reminders_description">接收段考成績、排名與五標資訊變更提醒</string>
 </resources>

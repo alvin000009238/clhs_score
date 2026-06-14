@@ -32,17 +32,11 @@
 }
 
 # Jsoup
--keep class org.jsoup.** { *; }
 -dontwarn org.jsoup.**
 
-# Glance and Widgets
--keep class androidx.glance.** { *; }
--keep class com.clhs.score.widget.** { *; }
-
-# WorkManager + Room + SQLite (transitive dep from Firebase Messaging)
--keep class androidx.work.** { *; }
--keep class androidx.room.** { *; }
--keep class androidx.sqlite.** { *; }
-
-# DataStore
--keep class androidx.datastore.** { *; }
+# WorkManager stores worker class names in its database. Keep the app worker name
+# stable without preventing R8 from shrinking WorkManager and its transitive deps.
+-keepnames class com.clhs.score.reminders.GradeReminderWorker
+-keepclassmembers class com.clhs.score.reminders.GradeReminderWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}

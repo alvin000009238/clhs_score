@@ -14,4 +14,5 @@ data class AppSettings(
     val notificationPromptDismissed: Boolean = false,
     val developerEnabled: Boolean = false,
     val demoMode: Boolean = false,
+    val biometricEnabled: Boolean = false,
 )

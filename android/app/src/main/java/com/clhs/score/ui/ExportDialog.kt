@@ -34,7 +34,7 @@ fun ExportDialog(
     onConfirm: (List<ExamSelection>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val checkedState = remember {
+    val checkedState = remember(structure) {
         mutableStateMapOf<String, Boolean>().also { map ->
             structure.forEach { yearTerm ->
                 yearTerm.exams.forEach { exam ->

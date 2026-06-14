@@ -1,5 +1,9 @@
 package com.clhs.score.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -23,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,10 +45,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,13 +63,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.clhs.score.data.ExamSummary
+import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
+import com.clhs.score.data.GradeReminderState
+import com.clhs.score.data.GradeReminderText
 import com.clhs.score.data.GradeTrend
 import com.clhs.score.data.ScoreInsightSet
 import com.clhs.score.data.StudentInfo
@@ -73,6 +87,11 @@ import com.clhs.score.data.shortenSubjectName
 import com.clhs.score.viewmodel.GradesUiState
 
 import com.clhs.score.ui.theme.ScoreTheme
+import com.clhs.score.reminders.BatteryOptimizationHelper
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 private const val TAB_SLIDE_DURATION_MILLIS = 220
 
@@ -95,11 +114,20 @@ fun GradesScreen(
     onReload: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleSubject: (String) -> Unit,
+    onStartGradeReminder: () -> Unit,
+    onStopGradeReminder: () -> Unit,
+    onSetNotificationsEnabled: (Boolean) -> Unit,
+    onGradeReminderPrerequisiteFailed: (String) -> Unit,
+    onDismissGradeReminderChanges: () -> Unit,
     onOpenScoreSimulator: () -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenSubjectTrend: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var selectedDestination by rememberSaveable { mutableIntStateOf(GradesDestination.Overview.ordinal) }
+    val waitingForNotificationGrant = rememberSaveable { mutableStateOf(false) }
+    val waitingForBatteryOptimizationGrant = rememberSaveable { mutableStateOf(false) }
     val pagerState = rememberPagerState(
         initialPage = GradesDestination.Overview.ordinal,
         pageCount = { GradesDestination.entries.size },
@@ -107,6 +135,66 @@ fun GradesScreen(
     val overviewScrollState = rememberScrollState()
     val subjectsScrollState = rememberScrollState()
     val advancedScrollState = rememberScrollState()
+
+    fun requestBatteryOptimizationOrStart() {
+        if (BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
+            onStartGradeReminder()
+            return
+        }
+        val activity = context.findActivity()
+        if (activity == null) {
+            onGradeReminderPrerequisiteFailed("需要開啟電池最佳化設定，才能準時提醒你。")
+            return
+        }
+        waitingForBatteryOptimizationGrant.value = true
+        if (!BatteryOptimizationHelper.openBatteryOptimizationRequest(activity)) {
+            waitingForBatteryOptimizationGrant.value = false
+            onGradeReminderPrerequisiteFailed("需要開啟電池最佳化設定，才能準時提醒你。")
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver observer@{ _, event ->
+            if (event != Lifecycle.Event.ON_RESUME) {
+                return@observer
+            }
+            if (waitingForNotificationGrant.value) {
+                waitingForNotificationGrant.value = false
+                if (context.arePostNotificationsGranted()) {
+                    onSetNotificationsEnabled(true)
+                    requestBatteryOptimizationOrStart()
+                } else {
+                    onGradeReminderPrerequisiteFailed("未取得通知權限，無法啟用段考提醒")
+                }
+                return@observer
+            }
+            if (waitingForBatteryOptimizationGrant.value) {
+                waitingForBatteryOptimizationGrant.value = false
+                if (BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
+                    onStartGradeReminder()
+                } else {
+                    onGradeReminderPrerequisiteFailed("需要開啟電池最佳化設定，才能準時提醒你。")
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    fun beginGradeReminderEnablement() {
+        if (!context.arePostNotificationsGranted()) {
+            waitingForNotificationGrant.value = true
+            if (!context.openAppNotificationSettings()) {
+                waitingForNotificationGrant.value = false
+                onGradeReminderPrerequisiteFailed("無法開啟通知設定，請手動到系統設定開啟")
+            }
+        } else {
+            onSetNotificationsEnabled(true)
+            requestBatteryOptimizationOrStart()
+        }
+    }
 
     LaunchedEffect(selectedDestination) {
         if (pagerState.currentPage != selectedDestination || pagerState.targetPage != selectedDestination) {
@@ -118,6 +206,12 @@ fun GradesScreen(
     }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    state.gradeReminderChangeSet?.let { changeSet ->
+        GradeReminderChangeDialog(
+            changeSet = changeSet,
+            onDismiss = onDismissGradeReminderChanges,
+        )
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -244,6 +338,15 @@ fun GradesScreen(
                                         trendError = state.trendError,
                                         trend = state.trend,
                                         insights = state.insights,
+                                        gradeReminderState = state.gradeReminderState,
+                                        studentNo = state.studentNo,
+                                        selectedYearValue = state.selectedYearValue,
+                                        selectedExamValue = state.selectedExamValue,
+                                        isStartingGradeReminder = state.isStartingGradeReminder,
+                                        isNotificationPermissionGranted = context.arePostNotificationsGranted(),
+                                        isBatteryOptimizationIgnored = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context),
+                                        onStartGradeReminder = { beginGradeReminderEnablement() },
+                                        onStopGradeReminder = onStopGradeReminder,
                                     )
                                     GradesDestination.Subjects.ordinal -> SubjectsTab(
                                         analyses = analysis.subjects,
@@ -432,10 +535,52 @@ private fun OverviewTab(
     trendError: String?,
     trend: GradeTrend?,
     insights: ScoreInsightSet?,
+    gradeReminderState: GradeReminderState,
+    studentNo: String,
+    selectedYearValue: String?,
+    selectedExamValue: String?,
+    isStartingGradeReminder: Boolean,
+    isNotificationPermissionGranted: Boolean,
+    isBatteryOptimizationIgnored: Boolean,
+    onStartGradeReminder: () -> Unit,
+    onStopGradeReminder: () -> Unit,
 ) {
+    var showGradeReminderDetails by rememberSaveable { mutableStateOf(false) }
+    if (showGradeReminderDetails) {
+        GradeReminderDetailsDialog(
+            reminderState = gradeReminderState,
+            studentNo = studentNo,
+            selectedYearValue = selectedYearValue,
+            selectedExamValue = selectedExamValue,
+            isStarting = isStartingGradeReminder,
+            isNotificationPermissionGranted = isNotificationPermissionGranted,
+            isBatteryOptimizationIgnored = isBatteryOptimizationIgnored,
+            onStart = {
+                showGradeReminderDetails = false
+                onStartGradeReminder()
+            },
+            onStop = {
+                showGradeReminderDetails = false
+                onStopGradeReminder()
+            },
+            onDismiss = { showGradeReminderDetails = false },
+        )
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            HeroCard(report, analysis)
+            val isReminderActiveForSelection = gradeReminderState.isActiveFor(
+                studentNo = studentNo,
+                yearValue = selectedYearValue,
+                examValue = selectedExamValue,
+            )
+            HeroCard(
+                report = report,
+                analysis = analysis,
+                isGradeReminderActive = isReminderActiveForSelection,
+                isStartingGradeReminder = isStartingGradeReminder,
+                onOpenGradeReminder = { showGradeReminderDetails = true },
+            )
             HeroChipRow(report, analysis)
         }
         StrengthWeaknessCard(analysis)
@@ -449,6 +594,157 @@ private fun OverviewTab(
             insights = insights,
         )
     }
+}
+
+@Composable
+private fun GradeReminderDetailsDialog(
+    reminderState: GradeReminderState,
+    studentNo: String,
+    selectedYearValue: String?,
+    selectedExamValue: String?,
+    isStarting: Boolean,
+    isNotificationPermissionGranted: Boolean,
+    isBatteryOptimizationIgnored: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val now = System.currentTimeMillis()
+    val isActiveForSelection = reminderState.isActiveFor(
+        studentNo = studentNo,
+        yearValue = selectedYearValue,
+        examValue = selectedExamValue,
+        nowMillis = now,
+    )
+    val lastCheckedText = reminderState.lastCheckedAtMillis?.let { "上次檢查時間 ${formatReminderTime(it)}" }
+        ?: "尚未檢查"
+    val otherExamName = reminderState.examName.ifBlank { "段考" }
+    val primaryActionLabel = when {
+        isActiveForSelection -> "停止"
+        isStarting -> "啟用中..."
+        !isNotificationPermissionGranted -> "開啟通知設定"
+        isBatteryOptimizationIgnored -> "開始"
+        else -> "開啟電池設定"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("段考更新提醒") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "新成績、排名、五標等會在有變動時通知你。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                when {
+                    isActiveForSelection -> {
+                        InlineStatus(message = "正在監控這次考試，每 15 分鐘會檢查一次更新")
+                        Text(
+                            text = "${formatRemaining(reminderState.expiresAtMillis, now)}後自動停止 · $lastCheckedText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    reminderState.isActive(now) -> {
+                        InlineStatus(message = "目前正在監控其他考試")
+                        Text(
+                            text = otherExamName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    !isNotificationPermissionGranted && !isBatteryOptimizationIgnored -> {
+                        InlineStatus(message = "需要開啟通知和電池最佳化設定")
+                        Text(
+                            text = "通知用來提醒你；電池最佳化設定能讓 app 在背景檢查更新。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    !isNotificationPermissionGranted -> {
+                        InlineStatus(message = "需要開啟通知")
+                        Text(
+                            text = "允許 app 傳送通知，成績資訊更新時才能提醒你。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    !isBatteryOptimizationIgnored -> {
+                        InlineStatus(message = "需要開啟電池最佳化設定")
+                        Text(
+                            text = "允許 app 不受電池最佳化限制，才能在背景檢查更新。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    else -> {
+                        InlineStatus(message = "點擊開始以繼續")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (isActiveForSelection) {
+                TextButton(
+                    enabled = !isStarting,
+                    onClick = onStop,
+                ) {
+                    Text(primaryActionLabel)
+                }
+            } else {
+                TextButton(
+                    enabled = !isStarting,
+                    onClick = onStart,
+                ) {
+                    Text(primaryActionLabel)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("關閉")
+            }
+        },
+    )
+}
+
+@Composable
+private fun GradeReminderChangeDialog(
+    changeSet: GradeChangeSet,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("成績資訊已更新") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = changeSet.examName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                GradeReminderText.detailLines(changeSet).forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("知道了")
+            }
+        },
+    )
 }
 
 @Composable
@@ -494,7 +790,13 @@ private fun AdvancedTab(
 }
 
 @Composable
-private fun HeroCard(report: GradeReport, analysis: GradeAnalysis) {
+private fun HeroCard(
+    report: GradeReport,
+    analysis: GradeAnalysis,
+    isGradeReminderActive: Boolean,
+    isStartingGradeReminder: Boolean,
+    onOpenGradeReminder: () -> Unit,
+) {
     val student = report.studentInfo
     val summary = report.examSummary
     val animatedAverage by animateFloatAsState(
@@ -505,6 +807,12 @@ private fun HeroCard(report: GradeReport, analysis: GradeAnalysis) {
         ?: summary?.totalScoreDisplay?.takeIf { it.isNotBlank() }
         ?: "--"
     val rankLine = heroRankLine(summary, student)
+    val showActiveReminderIcon = isGradeReminderActive || isStartingGradeReminder
+    val reminderIconDescription = when {
+        isStartingGradeReminder -> "段考提醒啟用中"
+        isGradeReminderActive -> "段考提醒監控中"
+        else -> "段考提醒"
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -513,38 +821,58 @@ private fun HeroCard(report: GradeReport, analysis: GradeAnalysis) {
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column {
-                Text(
-                    text = "加權平均",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "%.1f".format(animatedAverage),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
-                        fontWeight = FontWeight.SemiBold,
+                        text = "加權平均",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.labelMedium,
                     )
-                    val deltaText = heroAverageDeltaTextShort(analysis)
-                    if (deltaText != null) {
-                        val deltaColor = diffColor(analysis.comparison?.averageDelta ?: 0.0)
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = deltaColor.copy(alpha = 0.15f),
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        ) {
-                            Text(
-                                text = deltaText,
-                                color = deltaColor,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                fontWeight = FontWeight.SemiBold,
-                            )
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "%.1f".format(animatedAverage),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        val deltaText = heroAverageDeltaTextShort(analysis)
+                        if (deltaText != null) {
+                            val deltaColor = diffColor(analysis.comparison?.averageDelta ?: 0.0)
+                            Surface(
+                                shape = RoundedCornerShape(999.dp),
+                                color = deltaColor.copy(alpha = 0.15f),
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            ) {
+                                Text(
+                                    text = deltaText,
+                                    color = deltaColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
                         }
+                    }
+                }
+                IconButton(onClick = onOpenGradeReminder) {
+                    if (showActiveReminderIcon) {
+                        FilledRoundedSymbol(
+                            icon = "notifications_active",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            contentDescription = reminderIconDescription,
+                        )
+                    } else {
+                        OutlinedRoundedSymbol(
+                            icon = "notifications",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.74f),
+                            contentDescription = reminderIconDescription,
+                        )
                     }
                 }
             }
@@ -811,16 +1139,33 @@ private fun SubjectsTab(
 }
 
 @Composable
-private fun InlineStatus(message: String) {
+private fun InlineStatus(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = message,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f), RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+private fun formatReminderTime(timeMillis: Long): String =
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+
+private fun formatRemaining(expiresAtMillis: Long, nowMillis: Long): String {
+    val remainingMillis = (expiresAtMillis - nowMillis).coerceAtLeast(0L)
+    val hours = TimeUnit.MILLISECONDS.toHours(remainingMillis)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMillis) % 60
+    return when {
+        hours > 0 -> "${hours}小時${minutes}分"
+        minutes > 0 -> "${minutes}分"
+        else -> "不到 1 分鐘"
+    }
 }
 
 @Composable
@@ -878,4 +1223,10 @@ private fun diffColor(diff: Double): Color = when {
     diff > 0.05 -> ScoreTheme.semanticColors.positive
     diff < -0.05 -> ScoreTheme.semanticColors.negative
     else -> ScoreTheme.semanticColors.neutral
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

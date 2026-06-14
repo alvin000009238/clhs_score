@@ -6,11 +6,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.ExamSelection
+import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.GradeExporter
 
 import com.clhs.score.data.GradeAnalysis
+import com.clhs.score.data.GradeChangeSet
+import com.clhs.score.data.GradeReminderRepository
+import com.clhs.score.data.GradeReminderState
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeRepository
+import com.clhs.score.data.GradeReportDiffer
 import com.clhs.score.data.GradeTrend
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.SchoolException
@@ -26,8 +31,11 @@ import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.latestExam
 import com.clhs.score.data.latestYearTerm
+import com.clhs.score.data.parseYearTerm
 import com.clhs.score.data.sameTermHistorySource
 import com.clhs.score.data.simulationHistorySource
+import com.clhs.score.reminders.GradeReminderScheduler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -74,6 +82,10 @@ data class GradesUiState(
     val errorMessage: String? = null,
     val isExporting: Boolean = false,
     val exportResult: String? = null,
+    val gradeReminderState: GradeReminderState = GradeReminderState(),
+    val isStartingGradeReminder: Boolean = false,
+    val gradeReminderError: String? = null,
+    val gradeReminderChangeSet: GradeChangeSet? = null,
 )
 
 data class SubjectTrendUiState(
@@ -87,9 +99,16 @@ data class SubjectTrendUiState(
 class ScoreViewModel(
     private val repository: GradeRepository,
     private val insightProvider: ScoreInsightProvider = LocalScoreInsightProvider(),
+    private val appContext: Context? = null,
+    private val sessionStore: SessionStore? = null,
+    private val gradeReminderRepository: GradeReminderRepository? = null,
+    private val gradeReminderScheduler: GradeReminderScheduler? = null,
 ) : ViewModel() {
     private var session: AuthenticatedSession? = null
     private var gradeRequestId = 0
+    private var subjectTrendRequestId = 0
+    private var pendingReminderTarget: Pair<String, String>? = null
+    private var ensuredGradeReminderWorkKey: String? = null
 
     private val _loginState = MutableStateFlow(LoginUiState())
     val loginState: StateFlow<LoginUiState> = _loginState
@@ -101,7 +120,39 @@ class ScoreViewModel(
     val subjectTrendState: StateFlow<SubjectTrendUiState> = _subjectTrendState
 
     init {
+        observeGradeReminderState()
         restoreSession()
+    }
+
+    private fun observeGradeReminderState() {
+        val reminderRepository = gradeReminderRepository ?: return
+        viewModelScope.launch {
+            reminderRepository.state.collect { reminderState ->
+                val now = System.currentTimeMillis()
+                if (reminderState.enabled && !reminderState.isActive(now)) {
+                    ensuredGradeReminderWorkKey = null
+                    reminderRepository.stop("段考提醒已超過 48 小時")
+                    gradeReminderScheduler?.cancel()
+                    sessionStore?.clearReminderSession()
+                    _gradesState.update {
+                        it.copy(
+                            gradeReminderState = GradeReminderState(stoppedReason = "段考提醒已超過 48 小時"),
+                            gradeReminderChangeSet = null,
+                        )
+                    }
+                    return@collect
+                }
+
+                val activeWorkKey = reminderState.activeWorkKey(now)
+                if (activeWorkKey != null && activeWorkKey != ensuredGradeReminderWorkKey) {
+                    gradeReminderScheduler?.schedule()
+                    ensuredGradeReminderWorkKey = activeWorkKey
+                } else if (activeWorkKey == null) {
+                    ensuredGradeReminderWorkKey = null
+                }
+                _gradesState.update { it.copy(gradeReminderState = reminderState) }
+            }
+        }
     }
 
 
@@ -114,6 +165,8 @@ class ScoreViewModel(
             it.copy(
                 selectedYearValue = value,
                 selectedExamValue = latestExam?.value,
+                isLoadingGrades = false,
+                isLoadingComparison = false,
                 comparisonReport = null,
                 comparisonExamName = null,
                 comparisonError = null,
@@ -125,9 +178,12 @@ class ScoreViewModel(
                 trend = null,
                 simulatorHistoryReports = emptyList(),
                 simulatorHistoryLabel = null,
+                report = null,
+                analysis = null,
                 insights = null,
                 expandedSubjectKeys = emptySet(),
                 errorMessage = null,
+                gradeReminderChangeSet = null,
             )
         }
         if (latestExam != null) {
@@ -155,6 +211,7 @@ class ScoreViewModel(
                 insights = null,
                 expandedSubjectKeys = emptySet(),
                 errorMessage = null,
+                gradeReminderChangeSet = null,
             )
         }
         fetchGrades(yearValue, value)
@@ -202,6 +259,7 @@ class ScoreViewModel(
                     it.copy(isExporting = false, exportResult = "已儲存至 Downloads/$fileName")
                 }
             }.onFailure { error ->
+                error.throwIfCancellation()
                 _gradesState.update {
                     it.copy(
                         isExporting = false,
@@ -218,12 +276,33 @@ class ScoreViewModel(
 
     fun logout() {
         gradeRequestId++
+        ensuredGradeReminderWorkKey = null
+        resetSubjectTrendState()
+        val sessionToClear = session
         viewModelScope.launch {
-            repository.logout()
+            repository.logout(sessionToClear)
+            gradeReminderRepository?.stop("使用者登出")
+            gradeReminderScheduler?.cancel()
+            sessionStore?.clearReminderSession()
         }
         session = null
         _gradesState.value = GradesUiState()
         _loginState.value = LoginUiState()
+    }
+
+    fun getCurrentSession(): AuthenticatedSession? = session
+
+    fun loginWithBiometricSession(restored: AuthenticatedSession) {
+        session = restored
+        _gradesState.update {
+            it.copy(
+                isLoggedIn = true,
+                studentNo = restored.studentNo,
+                errorMessage = null,
+            )
+        }
+        repository.activateSession(restored)
+        loadStructure()
     }
 
     fun loginWithWebViewCookies(studentNo: String, cookieString: String) {
@@ -234,6 +313,7 @@ class ScoreViewModel(
                 if (cookies.isEmpty()) throw SchoolException("未取得有效的登入 cookies")
                 repository.loginWithCookies(studentNo, cookies)
             }.onSuccess { authenticatedSession ->
+                resetSubjectTrendState()
                 session = authenticatedSession
                 _loginState.update {
                     it.copy(isWebViewLoginInProgress = false, errorMessage = null)
@@ -247,6 +327,7 @@ class ScoreViewModel(
                 }
                 loadStructure()
             }.onFailure { error ->
+                error.throwIfCancellation()
                 _loginState.update {
                     it.copy(
                         isWebViewLoginInProgress = false,
@@ -277,6 +358,196 @@ class ScoreViewModel(
         _gradesState.update { it.copy(errorMessage = null) }
     }
 
+    fun clearGradeReminderError() {
+        _gradesState.update { it.copy(gradeReminderError = null) }
+    }
+
+    fun reportGradeReminderPrerequisiteError(message: String) {
+        setGradeReminderError(message)
+    }
+
+    fun dismissGradeReminderChanges() {
+        viewModelScope.launch {
+            gradeReminderRepository?.clearLatestChangeSet()
+        }
+        _gradesState.update { it.copy(gradeReminderChangeSet = null) }
+    }
+
+    fun startGradeReminder() {
+        val currentSession = session ?: run {
+            setGradeReminderError("請先登入後再啟用段考提醒")
+            return
+        }
+        val context = appContext ?: run {
+            setGradeReminderError("目前環境不支援背景段考提醒")
+            return
+        }
+        val reminderRepository = gradeReminderRepository ?: run {
+            setGradeReminderError("目前環境不支援背景段考提醒")
+            return
+        }
+        val scheduler = gradeReminderScheduler ?: run {
+            setGradeReminderError("目前環境不支援背景段考提醒")
+            return
+        }
+        val state = _gradesState.value
+        val yearValue = state.selectedYearValue ?: run {
+            setGradeReminderError("請先選擇學期")
+            return
+        }
+        val examValue = state.selectedExamValue ?: run {
+            setGradeReminderError("請先選擇考試")
+            return
+        }
+        val selectedYear = state.structure.firstOrNull { it.value == yearValue }
+        val selectedExam = selectedYear?.exams?.firstOrNull { it.value == examValue }
+        val requestId = ++gradeRequestId
+        viewModelScope.launch {
+            _gradesState.update {
+                it.copy(
+                    isStartingGradeReminder = true,
+                    isLoadingGrades = true,
+                    gradeReminderError = null,
+                    gradeReminderChangeSet = null,
+                    errorMessage = null,
+                )
+            }
+            runCatching {
+                val cacheStore = GradeCacheStore(context)
+                val oldReport = cacheStore.loadGradeReport(currentSession.studentNo, yearValue, examValue)
+                val report = repository.fetchGrades(currentSession, yearValue, examValue, forceRefresh = true)
+                check(requestId == gradeRequestId) { "提醒啟用請求已過期" }
+                val now = System.currentTimeMillis()
+                val oldSnapshot = oldReport?.let(GradeReportDiffer::snapshot)
+                val newSnapshot = GradeReportDiffer.snapshot(report)
+                val changeSet = oldSnapshot?.let { before ->
+                    GradeReportDiffer.diff(
+                        before = before,
+                        after = newSnapshot,
+                        studentNo = currentSession.studentNo,
+                        yearValue = yearValue,
+                        examValue = examValue,
+                        examName = selectedExam?.text ?: report.examSummary?.examName.orEmpty().ifBlank { "本次考試" },
+                        checkedAtMillis = now,
+                    ).takeIf { it.hasChanges }
+                }
+                val expiresAtMillis = now + GRADE_REMINDER_DURATION_MILLIS
+                sessionStore?.saveReminderSession(currentSession, expiresAtMillis)
+                reminderRepository.saveState(
+                    GradeReminderState(
+                        enabled = true,
+                        studentNo = currentSession.studentNo,
+                        yearValue = yearValue,
+                        yearLabel = selectedYear?.text.orEmpty(),
+                        examValue = examValue,
+                        examName = selectedExam?.text ?: report.examSummary?.examName.orEmpty().ifBlank { "本次考試" },
+                        activatedAtMillis = now,
+                        expiresAtMillis = expiresAtMillis,
+                        lastCheckedAtMillis = now,
+                        snapshot = newSnapshot,
+                        latestChangeSet = changeSet,
+                    ),
+                )
+                scheduler.schedule()
+                ensuredGradeReminderWorkKey = gradeReminderWorkKey(
+                    studentNo = currentSession.studentNo,
+                    yearValue = yearValue,
+                    examValue = examValue,
+                    expiresAtMillis = expiresAtMillis,
+                )
+                report to changeSet
+            }.onSuccess { (report, changeSet) ->
+                if (requestId != gradeRequestId) return@onSuccess
+                applyFetchedReportAndLoadHistory(
+                    requestId = requestId,
+                    currentSession = currentSession,
+                    yearValue = yearValue,
+                    examValue = examValue,
+                    report = report,
+                    forceRefresh = true,
+                    gradeReminderChangeSet = changeSet,
+                )
+                _gradesState.update {
+                    it.copy(
+                        isStartingGradeReminder = false,
+                        gradeReminderError = null,
+                    )
+                }
+            }.onFailure { error ->
+                error.throwIfCancellation()
+                if (requestId != gradeRequestId) return@onFailure
+                _gradesState.update {
+                    it.copy(
+                        isStartingGradeReminder = false,
+                        isLoadingGrades = false,
+                        gradeReminderError = error.message ?: "啟用段考提醒失敗",
+                    )
+                }
+            }
+        }
+    }
+
+    fun stopGradeReminder() {
+        ensuredGradeReminderWorkKey = null
+        viewModelScope.launch {
+            gradeReminderRepository?.stop("使用者關閉")
+            gradeReminderScheduler?.cancel()
+            sessionStore?.clearReminderSession()
+        }
+        _gradesState.update {
+            it.copy(
+                gradeReminderState = GradeReminderState(stoppedReason = "使用者關閉"),
+                gradeReminderChangeSet = null,
+            )
+        }
+    }
+
+    fun openGradeReminderTarget(yearValue: String, examValue: String) {
+        pendingReminderTarget = yearValue to examValue
+        _gradesState.update {
+            it.copy(gradeReminderChangeSet = it.gradeReminderState.latestChangeSet)
+        }
+        openPendingReminderTargetOrLoadStructure(forceRefreshStructure = true)
+    }
+
+    private fun openPendingReminderTargetOrLoadStructure(forceRefreshStructure: Boolean = false) {
+        val target = pendingReminderTarget ?: return
+        val structure = _gradesState.value.structure
+        val year = structure.firstOrNull { it.value == target.first }
+        val exam = year?.exams?.firstOrNull { it.value == target.second }
+        if (year != null && exam != null) {
+            pendingReminderTarget = null
+            gradeRequestId++
+            _gradesState.update {
+                it.copy(
+                    selectedYearValue = year.value,
+                    selectedExamValue = exam.value,
+                    comparisonReport = null,
+                    comparisonExamName = null,
+                    comparisonError = null,
+                    isLoadingTrend = false,
+                    isLoadingSimulatorHistory = false,
+                    trendReports = emptyList(),
+                    trendError = null,
+                    trendHistoryLabel = null,
+                    trend = null,
+                    simulatorHistoryReports = emptyList(),
+                    simulatorHistoryLabel = null,
+                    insights = null,
+                    expandedSubjectKeys = emptySet(),
+                    errorMessage = null,
+                )
+            }
+            fetchGrades(year.value, exam.value, forceRefresh = true)
+        } else {
+            loadStructure(forceRefresh = forceRefreshStructure)
+        }
+    }
+
+    private fun setGradeReminderError(message: String) {
+        _gradesState.update { it.copy(gradeReminderError = message) }
+    }
+
     private fun restoreSession() {
         val restored = repository.restoreSession()
         if (restored == null) {
@@ -295,8 +566,20 @@ class ScoreViewModel(
             _gradesState.update { it.copy(isLoadingStructure = true, errorMessage = null) }
             runCatching { repository.loadStructure(currentSession, forceRefresh) }
                 .onSuccess { structure ->
-                    val selectedYear = structure.latestYearTerm()
-                    val selectedExam = selectedYear?.latestExam()
+                    val pendingTarget = pendingReminderTarget
+                    val pendingYear = pendingTarget?.let { target ->
+                        structure.firstOrNull { it.value == target.first }
+                    }
+                    val pendingExam = if (pendingTarget != null) {
+                        pendingYear?.exams?.firstOrNull { it.value == pendingTarget.second }
+                    } else {
+                        null
+                    }
+                    val selectedYear = pendingYear ?: structure.latestYearTerm()
+                    val selectedExam = pendingExam ?: selectedYear?.latestExam()
+                    if (pendingYear != null && pendingExam != null) {
+                        pendingReminderTarget = null
+                    }
                     _gradesState.update {
                         it.copy(
                             isLoadingStructure = false,
@@ -307,10 +590,15 @@ class ScoreViewModel(
                         )
                     }
                     if (selectedYear != null && selectedExam != null) {
-                        fetchGrades(selectedYear.value, selectedExam.value, forceRefresh)
+                        fetchGrades(
+                            selectedYear.value,
+                            selectedExam.value,
+                            forceRefresh || (pendingYear != null && pendingExam != null),
+                        )
                     }
                 }
                 .onFailure { error ->
+                    error.throwIfCancellation()
                     _gradesState.update {
                         it.copy(
                             isLoadingStructure = false,
@@ -331,6 +619,7 @@ class ScoreViewModel(
                     isLoadingComparison = false,
                     isLoadingTrend = false,
                     isLoadingSimulatorHistory = false,
+                    report = null,
                     comparisonReport = null,
                     comparisonExamName = null,
                     comparisonError = null,
@@ -340,35 +629,16 @@ class ScoreViewModel(
                     trend = null,
                     simulatorHistoryReports = emptyList(),
                     simulatorHistoryLabel = null,
+                    analysis = null,
                     insights = null,
                     errorMessage = null,
                 )
             }
             runCatching { repository.fetchGrades(currentSession, yearValue, examValue, forceRefresh) }
                 .onSuccess { report ->
-                    if (requestId != gradeRequestId) return@onSuccess
-                    val analysis = buildGradeAnalysis(report)
-                    _gradesState.update {
-                        it.copy(
-                            isLoadingGrades = false,
-                            report = report,
-                            comparisonReport = null,
-                            comparisonExamName = null,
-                            comparisonError = null,
-                            trendReports = emptyList(),
-                            trendError = null,
-                            trendHistoryLabel = null,
-                            trend = null,
-                            simulatorHistoryReports = emptyList(),
-                            simulatorHistoryLabel = null,
-                            analysis = analysis,
-                            insights = insightProvider.buildInsights(report, analysis),
-                            errorMessage = null,
-                        )
-                    }
-                    loadHistoricalGrades(
+                    applyFetchedReportAndLoadHistory(
                         requestId = requestId,
-                        session = currentSession,
+                        currentSession = currentSession,
                         yearValue = yearValue,
                         examValue = examValue,
                         report = report,
@@ -376,6 +646,7 @@ class ScoreViewModel(
                     )
                 }
                 .onFailure { error ->
+                    error.throwIfCancellation()
                     if (requestId != gradeRequestId) return@onFailure
                     _gradesState.update {
                         it.copy(
@@ -388,6 +659,46 @@ class ScoreViewModel(
                     }
                 }
         }
+    }
+
+    private fun applyFetchedReportAndLoadHistory(
+        requestId: Int,
+        currentSession: AuthenticatedSession,
+        yearValue: String,
+        examValue: String,
+        report: GradeReport,
+        forceRefresh: Boolean = false,
+        gradeReminderChangeSet: GradeChangeSet? = _gradesState.value.gradeReminderChangeSet,
+    ) {
+        if (requestId != gradeRequestId) return
+        val analysis = buildGradeAnalysis(report)
+        _gradesState.update {
+            it.copy(
+                isLoadingGrades = false,
+                report = report,
+                comparisonReport = null,
+                comparisonExamName = null,
+                comparisonError = null,
+                trendReports = emptyList(),
+                trendError = null,
+                trendHistoryLabel = null,
+                trend = null,
+                simulatorHistoryReports = emptyList(),
+                simulatorHistoryLabel = null,
+                analysis = analysis,
+                insights = insightProvider.buildInsights(report, analysis),
+                errorMessage = null,
+                gradeReminderChangeSet = gradeReminderChangeSet,
+            )
+        }
+        loadHistoricalGrades(
+            requestId = requestId,
+            session = currentSession,
+            yearValue = yearValue,
+            examValue = examValue,
+            report = report,
+            forceRefresh = forceRefresh,
+        )
     }
 
     private fun loadHistoricalGrades(
@@ -491,6 +802,7 @@ class ScoreViewModel(
                     )
                 }
             }.onFailure { error ->
+                error.throwIfCancellation()
                 if (requestId != gradeRequestId) return@onFailure
                 _gradesState.update {
                     val analysis = it.analysis ?: buildGradeAnalysis(report)
@@ -531,9 +843,20 @@ class ScoreViewModel(
 
     fun initSubjectTrend() {
         if (isSubjectTrendInitialized) return
-        isSubjectTrendInitialized = true
-        
+
         val structure = _gradesState.value.structure
+        if (structure.isEmpty()) {
+            _subjectTrendState.update {
+                it.copy(
+                    isLoading = false,
+                    reports = emptyList(),
+                    errorMessage = null,
+                )
+            }
+            return
+        }
+        isSubjectTrendInitialized = true
+
         val allYears = structure.map { it.value }.toSet()
         val defaultSubjects = emptySet<String>()
         _subjectTrendState.update {
@@ -572,10 +895,14 @@ class ScoreViewModel(
         val currentSession = session ?: return
         val structure = _gradesState.value.structure
         val selectedYears = _subjectTrendState.value.selectedYearValues
+        val requestId = ++subjectTrendRequestId
         
         val requests = buildList {
             structure.filter { it.value in selectedYears }
-                .sortedWith(compareBy({ com.clhs.score.data.parseYearTerm(it.value, "0", "0").first.toIntOrNull() ?: 0 }, { com.clhs.score.data.parseYearTerm(it.value, "0", "0").second.toIntOrNull() ?: 0 }))
+                .sortedBy { yt ->
+                    val (y, t) = parseYearTerm(yt.value, "0", "0")
+                    (y.toIntOrNull() ?: 0) * 10 + (t.toIntOrNull() ?: 0)
+                }
                 .forEach { yearTerm ->
                     yearTerm.exams.forEach { exam ->
                         add(HistoricalExamRequest(yearTerm.value, exam.value, exam.text))
@@ -584,12 +911,20 @@ class ScoreViewModel(
         }
         
         if (requests.isEmpty()) {
-            _subjectTrendState.update { it.copy(reports = emptyList(), errorMessage = null) }
+            _subjectTrendState.update {
+                if (requestId != subjectTrendRequestId) {
+                    it
+                } else {
+                    it.copy(isLoading = false, reports = emptyList(), errorMessage = null)
+                }
+            }
             return
         }
 
         viewModelScope.launch {
-            _subjectTrendState.update { it.copy(isLoading = true, errorMessage = null) }
+            _subjectTrendState.update {
+                if (requestId != subjectTrendRequestId) it else it.copy(isLoading = true, errorMessage = null)
+            }
             runCatching {
                 coroutineScope {
                     requests.map { request ->
@@ -599,6 +934,7 @@ class ScoreViewModel(
                     }.awaitAll()
                 }
             }.onSuccess { reports ->
+                if (requestId != subjectTrendRequestId) return@onSuccess
                 _subjectTrendState.update {
                     it.copy(
                         isLoading = false,
@@ -607,6 +943,8 @@ class ScoreViewModel(
                     )
                 }
             }.onFailure { error ->
+                error.throwIfCancellation()
+                if (requestId != subjectTrendRequestId) return@onFailure
                 _subjectTrendState.update {
                     it.copy(
                         isLoading = false,
@@ -618,18 +956,54 @@ class ScoreViewModel(
     }
 
     companion object {
+        private const val GRADE_REMINDER_DURATION_MILLIS = 48L * 60L * 60L * 1000L
+
+        private fun GradeReminderState.activeWorkKey(nowMillis: Long): String? =
+            if (isActive(nowMillis)) {
+                gradeReminderWorkKey(studentNo, yearValue, examValue, expiresAtMillis)
+            } else {
+                null
+            }
+
+        private fun gradeReminderWorkKey(
+            studentNo: String,
+            yearValue: String,
+            examValue: String,
+            expiresAtMillis: Long,
+        ): String = listOf(studentNo, yearValue, examValue, expiresAtMillis).joinToString("|")
+
         fun factory(context: Context, useFakeData: Boolean = false): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val repository = if (useFakeData) {
-                    com.clhs.score.data.FakeGradeRepository()
-                } else {
-                    val cookieJar = com.clhs.score.data.SchoolCookieJar()
-                    val client = SchoolGradeClient(cookieJar = cookieJar)
-                    SchoolGradeRepository(client, SessionStore(context), com.clhs.score.data.GradeCacheStore(context))
+                val appContext = context.applicationContext
+                if (useFakeData) {
+                    return ScoreViewModel(
+                        repository = com.clhs.score.data.FakeGradeRepository(),
+                        appContext = appContext,
+                    ) as T
                 }
-                return ScoreViewModel(repository) as T
+                val sessionStore = SessionStore(appContext)
+                val cookieJar = com.clhs.score.data.SchoolCookieJar()
+                val client = SchoolGradeClient(cookieJar = cookieJar)
+                val repository = SchoolGradeRepository(client, sessionStore, com.clhs.score.data.GradeCacheStore(appContext))
+                return ScoreViewModel(
+                    repository = repository,
+                    appContext = appContext,
+                    sessionStore = sessionStore,
+                    gradeReminderRepository = GradeReminderRepository(appContext),
+                    gradeReminderScheduler = GradeReminderScheduler(appContext),
+                ) as T
             }
         }
+    }
+
+    private fun resetSubjectTrendState() {
+        subjectTrendRequestId++
+        isSubjectTrendInitialized = false
+        _subjectTrendState.value = SubjectTrendUiState()
+    }
+
+    private fun Throwable.throwIfCancellation() {
+        if (this is CancellationException) throw this
     }
 }

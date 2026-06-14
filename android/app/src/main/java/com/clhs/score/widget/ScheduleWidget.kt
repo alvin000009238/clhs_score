@@ -15,6 +15,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.updateAll
 import androidx.glance.appwidget.action.actionStartActivity
@@ -31,7 +32,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.ColorFilter
-import kotlinx.coroutines.delay
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.width
 import androidx.glance.layout.height
@@ -48,7 +48,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.ScheduleItem
-import com.clhs.score.data.SessionStore
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
@@ -61,6 +60,17 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.glance.material3.ColorProviders
 import java.util.Calendar
+
+data class ScheduleWidgetDisplayPreferences(
+    val showTeacher: Boolean,
+    val showClassroom: Boolean,
+    val showTime: Boolean,
+)
+
+private val WidgetIsLoadingKey = booleanPreferencesKey("isLoading")
+private val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
+private val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
+private val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
     val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -97,37 +107,40 @@ class ScheduleWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val sessionStore = SessionStore(context)
         val cacheStore = GradeCacheStore(context)
         val settingsRepository = SettingsRepository(context)
 
-        val session = sessionStore.loadSession()
-        val report = if (session != null) {
-            cacheStore.loadLatestScheduleReport(session.studentNo)
-        } else {
-            null
-        }
+        val report = cacheStore.loadWidgetScheduleReport()
         
         val prefs = cacheStore.getWidgetPreferences()
-        val showTeacher = prefs.first
-        val showClassroom = prefs.second
-        val showTime = prefs.third
+        syncScheduleWidgetState(
+            context = context,
+            glanceId = id,
+            preferences = ScheduleWidgetDisplayPreferences(
+                showTeacher = prefs.first,
+                showClassroom = prefs.second,
+                showTime = prefs.third,
+            ),
+        )
         
         val appSettings = settingsRepository.settings.first()
 
         provideContent {
             val colors = getWidgetColorProviders(context, appSettings)
             GlanceTheme(colors = colors) {
-                ScheduleWidgetContent(report?.items, showTeacher, showClassroom, showTime)
+                ScheduleWidgetContent(report?.items)
             }
         }
     }
 }
 
 @Composable
-fun ScheduleWidgetContent(items: List<ScheduleItem>?, showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
+fun ScheduleWidgetContent(items: List<ScheduleItem>?) {
     val calculatedIconSize = 36.dp
-    val isLoading = currentState(key = booleanPreferencesKey("isLoading")) ?: false
+    val isLoading = currentState(key = WidgetIsLoadingKey) ?: false
+    val showTeacher = currentState(key = WidgetShowTeacherKey) ?: true
+    val showClassroom = currentState(key = WidgetShowClassroomKey) ?: true
+    val showTime = currentState(key = WidgetShowTimeKey) ?: true
     val calendar = Calendar.getInstance()
     val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
     val currentMinute = calendar.get(Calendar.MINUTE)
@@ -184,7 +197,7 @@ fun ScheduleWidgetContent(items: List<ScheduleItem>?, showTeacher: Boolean, show
         context,
         com.clhs.score.MainActivity::class.java
     ).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
     Box(
@@ -311,6 +324,35 @@ fun ScheduleWidgetContent(items: List<ScheduleItem>?, showTeacher: Boolean, show
     }
 }
 
+suspend fun syncScheduleWidgetPreferences(
+    context: Context,
+    preferences: ScheduleWidgetDisplayPreferences,
+) {
+    val appContext = context.applicationContext
+    val widget = ScheduleWidget()
+    val glanceIds = GlanceAppWidgetManager(appContext).getGlanceIds(ScheduleWidget::class.java)
+    glanceIds.forEach { glanceId ->
+        syncScheduleWidgetState(
+            context = appContext,
+            glanceId = glanceId,
+            preferences = preferences,
+        )
+        widget.update(appContext, glanceId)
+    }
+}
+
+private suspend fun syncScheduleWidgetState(
+    context: Context,
+    glanceId: GlanceId,
+    preferences: ScheduleWidgetDisplayPreferences,
+) {
+    updateAppWidgetState(context, glanceId) { prefs ->
+        prefs[WidgetShowTeacherKey] = preferences.showTeacher
+        prefs[WidgetShowClassroomKey] = preferences.showClassroom
+        prefs[WidgetShowTimeKey] = preferences.showTime
+    }
+}
+
 class RefreshActionCallback : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -318,14 +360,12 @@ class RefreshActionCallback : ActionCallback {
         parameters: ActionParameters
     ) {
         updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[booleanPreferencesKey("isLoading")] = true
+            prefs[WidgetIsLoadingKey] = true
         }
         ScheduleWidget().update(context, glanceId)
-        
-        delay(800)
-        
+
         updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[booleanPreferencesKey("isLoading")] = false
+            prefs[WidgetIsLoadingKey] = false
         }
         ScheduleWidget().updateAll(context)
         WidgetUpdateReceiver.scheduleNextUpdate(context)

@@ -6,10 +6,12 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -188,6 +190,7 @@ private fun WebViewContent(
     onLoginSuccess: (studentNo: String, cookieString: String) -> Unit,
 ) {
     var loginHandled by remember { mutableStateOf(false) }
+    var isTrustedLoginPage by remember { mutableStateOf(false) }
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -219,7 +222,7 @@ private fun WebViewContent(
                 cookieManager.setAcceptThirdPartyCookies(this, true)
 
                 val jsInterface = LoginJsInterface { studentNo ->
-                    if (loginHandled) return@LoginJsInterface
+                    if (loginHandled || !isTrustedLoginPage) return@LoginJsInterface
                     loginHandled = true
                     val cookieString = CookieManager.getInstance()
                         .getCookie("https://$SCHOOL_DOMAIN") ?: ""
@@ -228,15 +231,25 @@ private fun WebViewContent(
                 addJavascriptInterface(jsInterface, "AndroidLogin")
 
                 webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                    ): Boolean {
+                        val url = request?.url?.toString() ?: return true
+                        return !isTrustedSchoolUrl(url)
+                    }
+
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
+                        isTrustedLoginPage = false
                         onPageStarted()
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         onPageFinished()
-                        if (url?.contains("Auth/Auth/CloudLogin") == true) {
+                        isTrustedLoginPage = isTrustedSchoolLoginUrl(url)
+                        if (isTrustedLoginPage) {
                             loginHandled = false
                             view?.evaluateJavascript(LOGIN_HOOK_JS, null)
                         }
@@ -254,6 +267,17 @@ private fun WebViewContent(
             }
         },
     )
+}
+
+private fun isTrustedSchoolUrl(url: String?): Boolean {
+    val uri = runCatching { url?.toUri() }.getOrNull() ?: return false
+    return uri.scheme == "https" && uri.host.equals(SCHOOL_DOMAIN, ignoreCase = true)
+}
+
+private fun isTrustedSchoolLoginUrl(url: String?): Boolean {
+    val uri = runCatching { url?.toUri() }.getOrNull() ?: return false
+    return isTrustedSchoolUrl(url) &&
+        uri.encodedPath.orEmpty().contains("/CLHSTYC/Auth/Auth/CloudLogin")
 }
 
 private fun WebView.clearLoginWebData(clearCookies: Boolean) {

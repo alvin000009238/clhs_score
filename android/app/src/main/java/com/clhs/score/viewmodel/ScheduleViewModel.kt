@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.FakeScheduleRepository
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.NetworkScheduleRepository
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 import com.clhs.score.data.ScheduleClassOption
@@ -39,6 +42,7 @@ data class ScheduleUiState(
 class ScheduleViewModel(
     private val repository: ScheduleRepository
 ) : ViewModel() {
+    private var scheduleRequestId = 0
 
     private val _uiState = MutableStateFlow(ScheduleUiState())
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
@@ -64,13 +68,14 @@ class ScheduleViewModel(
                     loadYears()
                 }
             } catch (e: Exception) {
+                e.throwIfCancellation()
                 _uiState.update { it.copy(isInitialLoading = false) }
                 loadYears()
             }
         }
     }
 
-    fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
+    fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean): Job =
         viewModelScope.launch {
             repository.saveWidgetPreferences(showTeacher, showClassroom, showTime)
             _uiState.update {
@@ -81,9 +86,9 @@ class ScheduleViewModel(
                 )
             }
         }
-    }
 
     fun clearSelection() {
+        scheduleRequestId++
         _uiState.update { it.copy(report = null) }
         if (_uiState.value.availableYears.isEmpty()) {
             loadYears()
@@ -91,10 +96,12 @@ class ScheduleViewModel(
     }
 
     private fun loadYears() {
+        val requestId = ++scheduleRequestId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false) }
             try {
                 val years = repository.getScheduleYears()
+                if (requestId != scheduleRequestId) return@launch
                 val selected = years.firstOrNull()?.value
                 _uiState.update { 
                     it.copy(
@@ -108,6 +115,8 @@ class ScheduleViewModel(
                     _uiState.update { it.copy(isLoading = false) }
                 }
             } catch (e: Exception) {
+                e.throwIfCancellation()
+                if (requestId != scheduleRequestId) return@launch
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -121,7 +130,14 @@ class ScheduleViewModel(
 
     fun selectYear(yearValue: String) {
         if (_uiState.value.selectedYearValue == yearValue) return
-        _uiState.update { it.copy(selectedYearValue = yearValue, availableClasses = emptyList(), selectedClassValue = null) }
+        _uiState.update {
+            it.copy(
+                selectedYearValue = yearValue,
+                availableClasses = emptyList(),
+                selectedClassValue = null,
+                report = null,
+            )
+        }
         loadClasses(yearValue)
     }
     
@@ -137,12 +153,14 @@ class ScheduleViewModel(
     }
 
     private fun loadClasses(yearValue: String) {
+        val requestId = ++scheduleRequestId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false) }
             try {
                 val (year, term) = parseYearTerm(yearValue)
                 
                 val classes = repository.getScheduleClasses(year, term)
+                if (requestId != scheduleRequestId) return@launch
                 val selected = classes.firstOrNull()?.value
                 _uiState.update {
                     it.copy(
@@ -152,6 +170,8 @@ class ScheduleViewModel(
                     )
                 }
             } catch (e: Exception) {
+                e.throwIfCancellation()
+                if (requestId != scheduleRequestId) return@launch
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -164,12 +184,14 @@ class ScheduleViewModel(
     }
 
     private fun loadSchedule(yearValue: String, classNo: String) {
+        val requestId = ++scheduleRequestId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false) }
             try {
                 val (year, term) = parseYearTerm(yearValue)
                 
                 val report = repository.fetchSchedule(yearValue, year, term, classNo)
+                if (requestId != scheduleRequestId) return@launch
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -177,6 +199,8 @@ class ScheduleViewModel(
                     )
                 }
             } catch (e: Exception) {
+                e.throwIfCancellation()
+                if (requestId != scheduleRequestId) return@launch
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -201,17 +225,27 @@ class ScheduleViewModel(
         }
     }
 
+    private fun Throwable.throwIfCancellation() {
+        if (this is CancellationException) throw this
+    }
+
     companion object {
-        fun factory(context: Context, useFakeData: Boolean): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(
+            context: Context,
+            useFakeData: Boolean,
+            activeSessionProvider: () -> AuthenticatedSession? = { null },
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val appContext = context.applicationContext
                 val repository = if (useFakeData) {
                     FakeScheduleRepository()
                 } else {
                     NetworkScheduleRepository(
                         SchoolGradeClient(),
-                        SessionStore(context),
-                        GradeCacheStore(context),
+                        SessionStore(appContext),
+                        GradeCacheStore(appContext),
+                        activeSessionProvider = activeSessionProvider,
                     )
                 }
                 return ScheduleViewModel(repository) as T

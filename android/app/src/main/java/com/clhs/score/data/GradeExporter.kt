@@ -72,13 +72,22 @@ object GradeExporter {
             put(MediaStore.Downloads.DISPLAY_NAME, fileName)
             put(MediaStore.Downloads.MIME_TYPE, "text/csv")
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             values,
         ) ?: throw IllegalStateException("無法建立檔案")
-        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-            ?: throw IllegalStateException("無法寫入檔案")
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                ?: throw IllegalStateException("無法寫入檔案")
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+        } catch (error: Exception) {
+            context.contentResolver.delete(uri, null, null)
+            throw error
+        }
         fileName
     }
 

@@ -55,9 +55,12 @@ fun UpdateResultDialog(
                     TextButton(onClick = {
                         val url = result.apkDownloadUrl ?: result.htmlUrl
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                            context.startActivity(intent)
-                        } catch (_: android.content.ActivityNotFoundException) {
+                            val uri = url.toUri()
+                            if (uri.scheme !in listOf("http", "https")) {
+                                error("unsupported update URL")
+                            }
+                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        } catch (_: Exception) {
                             Toast.makeText(context, "無法開啟連結", Toast.LENGTH_SHORT).show()
                         }
                         onDismiss()

@@ -264,6 +264,10 @@ class FakeGradeRepository : GradeRepository {
 
     override fun restoreSession(): AuthenticatedSession? = activeSession
 
+    override fun activateSession(session: AuthenticatedSession) {
+        activeSession = session
+    }
+
     override suspend fun loadStructure(session: AuthenticatedSession, forceRefresh: Boolean): List<YearTermOption> = FakeData.structure
 
     override suspend fun fetchGrades(
@@ -273,7 +277,7 @@ class FakeGradeRepository : GradeRepository {
         forceRefresh: Boolean,
     ): GradeReport = FakeData.reportFor(yearValue, examValue)
 
-    override suspend fun logout() {
+    override suspend fun logout(currentSession: AuthenticatedSession?) {
         activeSession = null
     }
 

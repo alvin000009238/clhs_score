@@ -28,6 +28,7 @@ class SettingsRepository(context: Context) {
             notificationPromptDismissed = prefs[KEY_NOTIFICATION_PROMPT_DISMISSED] ?: false,
             developerEnabled = prefs[KEY_DEVELOPER_ENABLED] ?: false,
             demoMode = prefs[KEY_DEMO_MODE] ?: false,
+            biometricEnabled = prefs[KEY_BIOMETRIC_ENABLED] ?: false,
         )
     }
 
@@ -59,6 +60,10 @@ class SettingsRepository(context: Context) {
         dataStore.edit { it[KEY_DEMO_MODE] = enabled }
     }
 
+    suspend fun setBiometricEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_BIOMETRIC_ENABLED] = enabled }
+    }
+
     private companion object {
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
@@ -67,5 +72,6 @@ class SettingsRepository(context: Context) {
         val KEY_NOTIFICATION_PROMPT_DISMISSED = booleanPreferencesKey("notification_prompt_dismissed")
         val KEY_DEVELOPER_ENABLED = booleanPreferencesKey("developer_enabled")
         val KEY_DEMO_MODE = booleanPreferencesKey("demo_mode")
+        val KEY_BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
     }
 }
