@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "6.4.2"
+    "vite": "8.0.16"
   },
   "dependencies": {
     "animejs": "3.2.2"
