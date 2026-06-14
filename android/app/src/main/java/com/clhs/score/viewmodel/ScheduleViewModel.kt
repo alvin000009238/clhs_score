@@ -4,6 +4,12 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
+import com.clhs.score.analytics.FirebaseAnalyticsLogger
+import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.FakeScheduleRepository
 import com.clhs.score.data.GradeCacheStore
@@ -40,7 +46,8 @@ data class ScheduleUiState(
 )
 
 class ScheduleViewModel(
-    private val repository: ScheduleRepository
+    private val repository: ScheduleRepository,
+    private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
 ) : ViewModel() {
     private var scheduleRequestId = 0
 
@@ -78,6 +85,14 @@ class ScheduleViewModel(
     fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean): Job =
         viewModelScope.launch {
             repository.saveWidgetPreferences(showTeacher, showClassroom, showTime)
+            analyticsLogger.logEvent(
+                AnalyticsEvents.SCHEDULE_WIDGET_SETTINGS_SAVE,
+                mapOf(
+                    AnalyticsParams.SHOW_TEACHER to showTeacher,
+                    AnalyticsParams.SHOW_CLASSROOM to showClassroom,
+                    AnalyticsParams.SHOW_TIME to showTime,
+                ),
+            )
             _uiState.update {
                 it.copy(
                     widgetShowTeacher = showTeacher,
@@ -192,6 +207,13 @@ class ScheduleViewModel(
                 
                 val report = repository.fetchSchedule(yearValue, year, term, classNo)
                 if (requestId != scheduleRequestId) return@launch
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.SCHEDULE_QUERY,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                        AnalyticsParams.MODE to AnalyticsValues.MODE_CLASS,
+                    ),
+                )
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -201,6 +223,13 @@ class ScheduleViewModel(
             } catch (e: Exception) {
                 e.throwIfCancellation()
                 if (requestId != scheduleRequestId) return@launch
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.SCHEDULE_QUERY,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                        AnalyticsParams.MODE to AnalyticsValues.MODE_CLASS,
+                    ),
+                )
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -248,7 +277,7 @@ class ScheduleViewModel(
                         activeSessionProvider = activeSessionProvider,
                     )
                 }
-                return ScheduleViewModel(repository) as T
+                return ScheduleViewModel(repository, FirebaseAnalyticsLogger(appContext)) as T
             }
         }
     }

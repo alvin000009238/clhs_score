@@ -1,5 +1,8 @@
 package com.clhs.score.viewmodel
 
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParams
 import com.clhs.score.data.ScheduleClassOption
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleRepository
@@ -14,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 
@@ -70,6 +74,23 @@ class ScheduleViewModelTest {
         assertEquals("202", viewModel.uiState.value.selectedClassValue)
     }
 
+    @Test
+    fun savingWidgetPreferencesLogsAnonymousAnalytics() = runTest(dispatcher) {
+        val repository = ControllableScheduleRepository()
+        val analytics = RecordingAnalyticsLogger()
+        val viewModel = ScheduleViewModel(repository, analytics)
+        runCurrent()
+
+        viewModel.saveWidgetPreferences(showTeacher = false, showClassroom = true, showTime = false)
+        runCurrent()
+
+        val event = analytics.events.single { it.name == AnalyticsEvents.SCHEDULE_WIDGET_SETTINGS_SAVE }
+        assertEquals(false, event.parameters[AnalyticsParams.SHOW_TEACHER])
+        assertEquals(true, event.parameters[AnalyticsParams.SHOW_CLASSROOM])
+        assertEquals(false, event.parameters[AnalyticsParams.SHOW_TIME])
+        assertFalse(analytics.containsSensitiveKey())
+    }
+
     private class ControllableScheduleRepository : ScheduleRepository {
         val yearsDeferred = CompletableDeferred<List<ScheduleYearTermOption>>()
         private val classes = mutableMapOf<Pair<String, String>, CompletableDeferred<List<ScheduleClassOption>>>()
@@ -94,6 +115,24 @@ class ScheduleViewModelTest {
 
         fun completeClasses(year: String, term: String, classes: List<ScheduleClassOption>) {
             this.classes.getOrPut(year to term) { CompletableDeferred() }.complete(classes)
+        }
+    }
+
+    private data class AnalyticsEventRecord(
+        val name: String,
+        val parameters: Map<String, Any?>,
+    )
+
+    private class RecordingAnalyticsLogger : AnalyticsLogger {
+        val events = mutableListOf<AnalyticsEventRecord>()
+
+        override fun logEvent(name: String, parameters: Map<String, Any?>) {
+            events += AnalyticsEventRecord(name, parameters)
+        }
+
+        fun containsSensitiveKey(): Boolean {
+            val forbidden = setOf("studentNo", "classNo", "cookies", "apiToken", "rawResult", "url")
+            return events.any { event -> event.parameters.keys.any { it in forbidden } }
         }
     }
 }

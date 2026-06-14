@@ -55,6 +55,12 @@
 - 系統通知權限與 App 內通知開關的同步由 `ScoreApp` 根層處理；不要只放在設定頁，否則使用者從系統設定封鎖通知後，其他入口回 App 時狀態會不一致。
 - 發送 app 更新通知時使用 `app_updates` topic，一般公告使用 `general` topic。可在 FCM data payload 帶 `url`，使用者點通知時會開啟該網址。
 
+## Android Firebase Analytics
+
+- Firebase Analytics 事件經由 `com.clhs.score.analytics.AnalyticsLogger` 與 `FirebaseAnalyticsLogger` 集中記錄；不要在 UI、ViewModel 或 service 內直接呼叫 Firebase `logEvent`，避免事件名稱與隱私規則分散。
+- Analytics 採嚴格匿名策略：不得呼叫 `setUserId`，不得送學號、姓名、班級、座號、成績、排名、科目名稱、考試名稱、URL、cookie、token、rawResult 或錯誤原文。事件參數只允許 enum 字串、布林、計數與 bucket。
+- 新增事件或參數時，先更新 `AnalyticsEvents.kt` / `AnalyticsParameterSanitizer.kt` 的常數與白名單，並補 `AnalyticsParameterSanitizerTest` 或 `ArchitectureBoundaryTest`，確保敏感欄位不會被送出。
+
 ## Android 段考資訊變更提醒
 
 - 段考提醒是本機背景功能，不使用 FCM topic，也不要把 session、cookie 或成績送到伺服器。

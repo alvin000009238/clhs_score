@@ -173,6 +173,32 @@ class ArchitectureBoundaryTest {
         assertTrue(source.contains("syncScheduleWidgetPreferences"))
     }
 
+    @Test
+    fun analyticsLayerDoesNotDefineSensitiveParameters() {
+        val sources = listOf(
+            "app/src/main/java/com/clhs/score/analytics/AnalyticsEvents.kt",
+            "app/src/main/java/com/clhs/score/analytics/AnalyticsLogger.kt",
+            "app/src/main/java/com/clhs/score/analytics/AnalyticsParameterSanitizer.kt",
+            "app/src/main/java/com/clhs/score/analytics/FirebaseAnalyticsLogger.kt",
+        ).joinToString("\n") { path -> readSource(path) }
+
+        val forbiddenTerms = listOf(
+            "setUserId",
+            "studentNo",
+            "studentName",
+            "className",
+            "seatNo",
+            "apiToken",
+            "cookies",
+            "rawResult",
+            "scoreValue",
+            "url",
+        )
+        forbiddenTerms.forEach { term ->
+            assertFalse("Analytics layer must not expose sensitive data: $term", sources.contains(term))
+        }
+    }
+
     private fun readSource(relativePath: String): String {
         val root = findAndroidRoot()
         return Files.readString(root.resolve(relativePath))

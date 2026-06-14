@@ -4,6 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParameterSanitizer
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
+import com.clhs.score.analytics.FirebaseAnalyticsLogger
+import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.GradeCacheStore
@@ -103,6 +110,7 @@ class ScoreViewModel(
     private val sessionStore: SessionStore? = null,
     private val gradeReminderRepository: GradeReminderRepository? = null,
     private val gradeReminderScheduler: GradeReminderScheduler? = null,
+    private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
 ) : ViewModel() {
     private var session: AuthenticatedSession? = null
     private var gradeRequestId = 0
@@ -187,7 +195,7 @@ class ScoreViewModel(
             )
         }
         if (latestExam != null) {
-            fetchGrades(value, latestExam.value)
+            fetchGrades(value, latestExam.value, analyticsTrigger = AnalyticsValues.TRIGGER_YEAR_SELECT)
         }
     }
 
@@ -214,7 +222,7 @@ class ScoreViewModel(
                 gradeReminderChangeSet = null,
             )
         }
-        fetchGrades(yearValue, value)
+        fetchGrades(yearValue, value, analyticsTrigger = AnalyticsValues.TRIGGER_EXAM_SELECT)
     }
 
     fun toggleSubjectExpanded(subjectName: String) {
@@ -255,11 +263,25 @@ class ScoreViewModel(
                     studentNo = currentSession.studentNo,
                 ).getOrThrow()
             }.onSuccess { fileName ->
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.EXPORT_GRADES,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                        AnalyticsParams.SELECTION_COUNT_BUCKET to AnalyticsParameterSanitizer.countBucket(selections.size),
+                    ),
+                )
                 _gradesState.update {
                     it.copy(isExporting = false, exportResult = "已儲存至 Downloads/$fileName")
                 }
             }.onFailure { error ->
                 error.throwIfCancellation()
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.EXPORT_GRADES,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                        AnalyticsParams.SELECTION_COUNT_BUCKET to AnalyticsParameterSanitizer.countBucket(selections.size),
+                    ),
+                )
                 _gradesState.update {
                     it.copy(
                         isExporting = false,
@@ -274,7 +296,11 @@ class ScoreViewModel(
         _gradesState.update { it.copy(exportResult = null) }
     }
 
-    fun logout() {
+    fun logout(source: String = AnalyticsValues.SOURCE_SETTINGS) {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.LOGOUT,
+            mapOf(AnalyticsParams.SOURCE to source),
+        )
         gradeRequestId++
         ensuredGradeReminderWorkKey = null
         resetSubjectTrendState()
@@ -294,6 +320,13 @@ class ScoreViewModel(
 
     fun loginWithBiometricSession(restored: AuthenticatedSession) {
         session = restored
+        analyticsLogger.logEvent(
+            AnalyticsEvents.LOGIN_RESULT,
+            mapOf(
+                AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+            ),
+        )
         _gradesState.update {
             it.copy(
                 isLoggedIn = true,
@@ -306,6 +339,15 @@ class ScoreViewModel(
     }
 
     fun loginWithWebViewCookies(studentNo: String, cookieString: String) {
+        val method = if (cookieString == "fake=cookie") {
+            AnalyticsValues.METHOD_DEMO
+        } else {
+            AnalyticsValues.METHOD_WEBVIEW
+        }
+        analyticsLogger.logEvent(
+            AnalyticsEvents.LOGIN_START,
+            mapOf(AnalyticsParams.METHOD to method),
+        )
         viewModelScope.launch {
             _loginState.update { it.copy(isWebViewLoginInProgress = true, errorMessage = null) }
             runCatching {
@@ -326,8 +368,23 @@ class ScoreViewModel(
                     )
                 }
                 loadStructure()
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.LOGIN_RESULT,
+                    mapOf(
+                        AnalyticsParams.METHOD to method,
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                    ),
+                )
             }.onFailure { error ->
                 error.throwIfCancellation()
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.LOGIN_RESULT,
+                    mapOf(
+                        AnalyticsParams.METHOD to method,
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                        AnalyticsParams.ERROR_TYPE to error.toLoginErrorType(),
+                    ),
+                )
                 _loginState.update {
                     it.copy(
                         isWebViewLoginInProgress = false,
@@ -363,6 +420,13 @@ class ScoreViewModel(
     }
 
     fun reportGradeReminderPrerequisiteError(message: String) {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.GRADE_REMINDER_START,
+            mapOf(
+                AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                AnalyticsParams.FAILURE_REASON to message.toGradeReminderFailureReason(),
+            ),
+        )
         setGradeReminderError(message)
     }
 
@@ -375,27 +439,33 @@ class ScoreViewModel(
 
     fun startGradeReminder() {
         val currentSession = session ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_UNKNOWN)
             setGradeReminderError("請先登入後再啟用段考提醒")
             return
         }
         val context = appContext ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_UNKNOWN)
             setGradeReminderError("目前環境不支援背景段考提醒")
             return
         }
         val reminderRepository = gradeReminderRepository ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_UNKNOWN)
             setGradeReminderError("目前環境不支援背景段考提醒")
             return
         }
         val scheduler = gradeReminderScheduler ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_UNKNOWN)
             setGradeReminderError("目前環境不支援背景段考提醒")
             return
         }
         val state = _gradesState.value
         val yearValue = state.selectedYearValue ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_NO_EXAM)
             setGradeReminderError("請先選擇學期")
             return
         }
         val examValue = state.selectedExamValue ?: run {
+            logGradeReminderStartFailure(AnalyticsValues.REASON_NO_EXAM)
             setGradeReminderError("請先選擇考試")
             return
         }
@@ -458,6 +528,10 @@ class ScoreViewModel(
                 report to changeSet
             }.onSuccess { (report, changeSet) ->
                 if (requestId != gradeRequestId) return@onSuccess
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.GRADE_REMINDER_START,
+                    mapOf(AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS),
+                )
                 applyFetchedReportAndLoadHistory(
                     requestId = requestId,
                     currentSession = currentSession,
@@ -476,6 +550,7 @@ class ScoreViewModel(
             }.onFailure { error ->
                 error.throwIfCancellation()
                 if (requestId != gradeRequestId) return@onFailure
+                logGradeReminderStartFailure(AnalyticsValues.REASON_UNKNOWN)
                 _gradesState.update {
                     it.copy(
                         isStartingGradeReminder = false,
@@ -488,6 +563,10 @@ class ScoreViewModel(
     }
 
     fun stopGradeReminder() {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.GRADE_REMINDER_STOP,
+            mapOf(AnalyticsParams.REASON to AnalyticsValues.REASON_USER),
+        )
         ensuredGradeReminderWorkKey = null
         viewModelScope.launch {
             gradeReminderRepository?.stop("使用者關閉")
@@ -503,6 +582,7 @@ class ScoreViewModel(
     }
 
     fun openGradeReminderTarget(yearValue: String, examValue: String) {
+        analyticsLogger.logEvent(AnalyticsEvents.GRADE_REMINDER_NOTIFICATION_OPEN)
         pendingReminderTarget = yearValue to examValue
         _gradesState.update {
             it.copy(gradeReminderChangeSet = it.gradeReminderState.latestChangeSet)
@@ -538,7 +618,12 @@ class ScoreViewModel(
                     errorMessage = null,
                 )
             }
-            fetchGrades(year.value, exam.value, forceRefresh = true)
+            fetchGrades(
+                year.value,
+                exam.value,
+                forceRefresh = true,
+                analyticsTrigger = AnalyticsValues.TRIGGER_REMINDER_TARGET,
+            )
         } else {
             loadStructure(forceRefresh = forceRefreshStructure)
         }
@@ -566,6 +651,16 @@ class ScoreViewModel(
             _gradesState.update { it.copy(isLoadingStructure = true, errorMessage = null) }
             runCatching { repository.loadStructure(currentSession, forceRefresh) }
                 .onSuccess { structure ->
+                    analyticsLogger.logEvent(
+                        AnalyticsEvents.GRADE_STRUCTURE_LOAD,
+                        mapOf(
+                            AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                            AnalyticsParams.YEAR_COUNT to structure.size,
+                            AnalyticsParams.EXAM_COUNT_BUCKET to AnalyticsParameterSanitizer.countBucket(
+                                structure.sumOf { it.exams.size },
+                            ),
+                        ),
+                    )
                     val pendingTarget = pendingReminderTarget
                     val pendingYear = pendingTarget?.let { target ->
                         structure.firstOrNull { it.value == target.first }
@@ -590,15 +685,25 @@ class ScoreViewModel(
                         )
                     }
                     if (selectedYear != null && selectedExam != null) {
+                        val trigger = when {
+                            pendingYear != null && pendingExam != null -> AnalyticsValues.TRIGGER_REMINDER_TARGET
+                            forceRefresh -> AnalyticsValues.TRIGGER_REFRESH
+                            else -> AnalyticsValues.TRIGGER_INITIAL
+                        }
                         fetchGrades(
                             selectedYear.value,
                             selectedExam.value,
                             forceRefresh || (pendingYear != null && pendingExam != null),
+                            analyticsTrigger = trigger,
                         )
                     }
                 }
                 .onFailure { error ->
                     error.throwIfCancellation()
+                    analyticsLogger.logEvent(
+                        AnalyticsEvents.GRADE_STRUCTURE_LOAD,
+                        mapOf(AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE),
+                    )
                     _gradesState.update {
                         it.copy(
                             isLoadingStructure = false,
@@ -609,7 +714,16 @@ class ScoreViewModel(
         }
     }
 
-    private fun fetchGrades(yearValue: String, examValue: String, forceRefresh: Boolean = false) {
+    private fun fetchGrades(
+        yearValue: String,
+        examValue: String,
+        forceRefresh: Boolean = false,
+        analyticsTrigger: String = if (forceRefresh) {
+            AnalyticsValues.TRIGGER_REFRESH
+        } else {
+            AnalyticsValues.TRIGGER_INITIAL
+        },
+    ) {
         val currentSession = session ?: return
         val requestId = ++gradeRequestId
         viewModelScope.launch {
@@ -643,11 +757,20 @@ class ScoreViewModel(
                         examValue = examValue,
                         report = report,
                         forceRefresh = forceRefresh,
+                        analyticsTrigger = analyticsTrigger,
                     )
                 }
                 .onFailure { error ->
                     error.throwIfCancellation()
                     if (requestId != gradeRequestId) return@onFailure
+                    analyticsLogger.logEvent(
+                        AnalyticsEvents.GRADE_QUERY,
+                        mapOf(
+                            AnalyticsParams.TRIGGER to analyticsTrigger,
+                            AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                            AnalyticsParams.CACHED to !forceRefresh,
+                        ),
+                    )
                     _gradesState.update {
                         it.copy(
                             isLoadingGrades = false,
@@ -669,8 +792,22 @@ class ScoreViewModel(
         report: GradeReport,
         forceRefresh: Boolean = false,
         gradeReminderChangeSet: GradeChangeSet? = _gradesState.value.gradeReminderChangeSet,
+        analyticsTrigger: String = if (forceRefresh) {
+            AnalyticsValues.TRIGGER_REFRESH
+        } else {
+            AnalyticsValues.TRIGGER_INITIAL
+        },
     ) {
         if (requestId != gradeRequestId) return
+        analyticsLogger.logEvent(
+            AnalyticsEvents.GRADE_QUERY,
+            mapOf(
+                AnalyticsParams.TRIGGER to analyticsTrigger,
+                AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                AnalyticsParams.CACHED to !forceRefresh,
+                AnalyticsParams.SUBJECT_COUNT_BUCKET to AnalyticsParameterSanitizer.countBucket(report.subjects.size),
+            ),
+        )
         val analysis = buildGradeAnalysis(report)
         _gradesState.update {
             it.copy(
@@ -911,6 +1048,14 @@ class ScoreViewModel(
         }
         
         if (requests.isEmpty()) {
+            analyticsLogger.logEvent(
+                AnalyticsEvents.SUBJECT_TREND_LOAD,
+                mapOf(
+                    AnalyticsParams.RESULT to AnalyticsValues.RESULT_EMPTY,
+                    AnalyticsParams.YEAR_COUNT to selectedYears.size,
+                    AnalyticsParams.SUBJECT_COUNT to _subjectTrendState.value.selectedSubjectKeys.size,
+                ),
+            )
             _subjectTrendState.update {
                 if (requestId != subjectTrendRequestId) {
                     it
@@ -935,6 +1080,14 @@ class ScoreViewModel(
                 }
             }.onSuccess { reports ->
                 if (requestId != subjectTrendRequestId) return@onSuccess
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.SUBJECT_TREND_LOAD,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                        AnalyticsParams.YEAR_COUNT to selectedYears.size,
+                        AnalyticsParams.SUBJECT_COUNT to _subjectTrendState.value.selectedSubjectKeys.size,
+                    ),
+                )
                 _subjectTrendState.update {
                     it.copy(
                         isLoading = false,
@@ -945,6 +1098,14 @@ class ScoreViewModel(
             }.onFailure { error ->
                 error.throwIfCancellation()
                 if (requestId != subjectTrendRequestId) return@onFailure
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.SUBJECT_TREND_LOAD,
+                    mapOf(
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                        AnalyticsParams.YEAR_COUNT to selectedYears.size,
+                        AnalyticsParams.SUBJECT_COUNT to _subjectTrendState.value.selectedSubjectKeys.size,
+                    ),
+                )
                 _subjectTrendState.update {
                     it.copy(
                         isLoading = false,
@@ -980,6 +1141,7 @@ class ScoreViewModel(
                     return ScoreViewModel(
                         repository = com.clhs.score.data.FakeGradeRepository(),
                         appContext = appContext,
+                        analyticsLogger = FirebaseAnalyticsLogger(appContext),
                     ) as T
                 }
                 val sessionStore = SessionStore(appContext)
@@ -992,6 +1154,7 @@ class ScoreViewModel(
                     sessionStore = sessionStore,
                     gradeReminderRepository = GradeReminderRepository(appContext),
                     gradeReminderScheduler = GradeReminderScheduler(appContext),
+                    analyticsLogger = FirebaseAnalyticsLogger(appContext),
                 ) as T
             }
         }
@@ -1001,6 +1164,28 @@ class ScoreViewModel(
         subjectTrendRequestId++
         isSubjectTrendInitialized = false
         _subjectTrendState.value = SubjectTrendUiState()
+    }
+
+    private fun logGradeReminderStartFailure(reason: String) {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.GRADE_REMINDER_START,
+            mapOf(
+                AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                AnalyticsParams.FAILURE_REASON to reason,
+            ),
+        )
+    }
+
+    private fun Throwable.toLoginErrorType(): String = when (this) {
+        is SchoolException -> AnalyticsValues.RESULT_ERROR
+        else -> AnalyticsValues.REASON_UNKNOWN
+    }
+
+    private fun String.toGradeReminderFailureReason(): String = when {
+        contains("通知") -> AnalyticsValues.REASON_PERMISSION
+        contains("電池") -> AnalyticsValues.REASON_BATTERY
+        contains("考試") || contains("學期") -> AnalyticsValues.REASON_NO_EXAM
+        else -> AnalyticsValues.REASON_UNKNOWN
     }
 
     private fun Throwable.throwIfCancellation() {

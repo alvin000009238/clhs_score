@@ -17,6 +17,11 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
+import com.clhs.score.analytics.FirebaseAnalyticsLogger
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.GradeCacheStore
@@ -34,7 +39,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
-    private val checkUpdateChannel = Channel<Unit>(Channel.BUFFERED)
+    private val checkUpdateChannel = Channel<String>(Channel.BUFFERED)
     private val gradeReminderOpenChannel = Channel<Pair<String, String>>(Channel.BUFFERED)
     private val pendingScheduleOpen = mutableStateOf(false)
     private val isAppLocked = mutableStateOf(false)
@@ -44,10 +49,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private var shouldLockOnInitialReady = false
     private var isBiometricPromptShowing = false
     private lateinit var sessionStore: SessionStore
+    private lateinit var analyticsLogger: AnalyticsLogger
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(applicationContext)
+        analyticsLogger = FirebaseAnalyticsLogger(applicationContext)
         val hasBiometricSession = sessionStore.hasBiometricSession()
         isAppLocked.value = savedInstanceState?.getBoolean(KEY_APP_LOCKED, false) == true &&
             hasBiometricSession
@@ -86,8 +93,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             val isReady by settingsVm.isReady.collectAsStateWithLifecycle()
 
             LaunchedEffect(Unit) {
-                checkUpdateChannel.receiveAsFlow().collect {
-                    settingsVm.checkUpdate()
+                checkUpdateChannel.receiveAsFlow().collect { trigger ->
+                    settingsVm.checkUpdate(trigger)
                 }
             }
 
@@ -156,6 +163,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             val session = sessionStore.loadSessionWithPin(pin)
                             if (session != null) {
                                 scoreVm.loginWithBiometricSession(session)
+                                analyticsLogger.logEvent(
+                                    AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                                    mapOf(
+                                        AnalyticsParams.METHOD to AnalyticsValues.METHOD_PIN,
+                                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                                    ),
+                                )
                                 isAppLocked.value = false
                                 if (isBiometricInvalidated.value) {
                                     isBiometricInvalidated.value = false
@@ -167,13 +181,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                                     )
                                 }
                             } else {
+                                analyticsLogger.logEvent(
+                                    AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                                    mapOf(
+                                        AnalyticsParams.METHOD to AnalyticsValues.METHOD_PIN,
+                                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                                    ),
+                                )
                                 Toast.makeText(this@MainActivity, "密碼錯誤", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onLogout = {
                             android.webkit.CookieManager.getInstance().removeAllCookies(null)
                             android.webkit.CookieManager.getInstance().flush()
-                            scoreVm.logout()
+                            scoreVm.logout(AnalyticsValues.SOURCE_LOCK_SCREEN)
                             clearWidgetScheduleCache()
                             sessionStore.clearBiometricSession()
                             settingsVm.setBiometricEnabled(false)
@@ -213,7 +234,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         onSetDynamicColor = settingsVm::setDynamicColor,
                         onSetAmoledBlack = settingsVm::setAmoledBlack,
                         onSetNotificationsEnabled = settingsVm::setNotificationsEnabled,
-                        onCheckUpdate = settingsVm::checkUpdate,
+                        onCheckUpdate = { settingsVm.checkUpdate() },
                         onDismissUpdateResult = settingsVm::dismissUpdateResult,
                         onVersionTap = settingsVm::onVersionTap,
                         onDismissDeveloperToast = settingsVm::dismissDeveloperToast,
@@ -222,6 +243,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         onDismissNotificationPrompt = settingsVm::dismissNotificationPrompt,
                         onExportGrades = { selections -> scoreVm.exportGrades(selections, applicationContext) },
                         onDismissExportResult = scoreVm::dismissExportResult,
+                        analyticsLogger = analyticsLogger,
                         onSetBiometricEnabled = { enabled, pin ->
                             if (enabled && pin != null) {
                                 val currentSession = scoreVm.getCurrentSession()
@@ -261,6 +283,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
+        var routeSource: String? = null
 
         val isUpdateTopic = intent.getStringExtra("from") == "/topics/app_updates" ||
             intent.getStringExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE) == "true" ||
@@ -268,7 +291,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             intent.getBooleanExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE, false)
 
         if (isUpdateTopic) {
-            checkUpdateChannel.trySend(Unit)
+            routeSource = AnalyticsValues.SOURCE_NOTIFICATION_UPDATE
+            checkUpdateChannel.trySend(AnalyticsValues.TRIGGER_NOTIFICATION)
             intent.removeExtra("from")
             intent.removeExtra("action")
             intent.removeExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE)
@@ -279,6 +303,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             false,
         )
         if (isGradeReminderOpen) {
+            routeSource = AnalyticsValues.SOURCE_GRADE_REMINDER
             val yearValue = intent.getStringExtra(GradeReminderNotifier.EXTRA_YEAR_VALUE).orEmpty()
             val examValue = intent.getStringExtra(GradeReminderNotifier.EXTRA_EXAM_VALUE).orEmpty()
             if (yearValue.isNotBlank() && examValue.isNotBlank()) {
@@ -291,8 +316,26 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
         val data = intent.data
         if (data?.scheme == "scoreapp" && data.host == "schedule") {
+            routeSource = AnalyticsValues.SOURCE_WIDGET_SCHEDULE
             pendingScheduleOpen.value = true
             intent.data = null
+        }
+
+        if (routeSource == null &&
+            intent.action == Intent.ACTION_MAIN &&
+            intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+        ) {
+            routeSource = AnalyticsValues.SOURCE_LAUNCHER
+        }
+
+        routeSource?.let { source ->
+            analyticsLogger.logEvent(
+                AnalyticsEvents.APP_OPEN_ROUTE,
+                mapOf(
+                    AnalyticsParams.SOURCE to source,
+                    AnalyticsParams.LOCKED to (isAppLocked.value || sessionStore.hasBiometricSession()),
+                ),
+            )
         }
     }
 
@@ -312,6 +355,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         } catch (e: Exception) {
             if (BiometricHelper.isKeyPermanentlyInvalidated(e)) {
                 isBiometricInvalidated.value = true
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                    mapOf(
+                        AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                        AnalyticsParams.RESULT to AnalyticsValues.RESULT_INVALIDATED,
+                    ),
+                )
             } else {
                 handleKeyInvalidated(scoreVm, settingsVm, "初始化安全金鑰失敗，請重新登入")
             }
@@ -323,6 +373,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 super.onAuthenticationError(errorCode, errString)
                 isBiometricPromptShowing = false
+                analyticsLogger.logEvent(
+                    AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                    mapOf(
+                        AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                        AnalyticsParams.RESULT to if (
+                            errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                            errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                        ) {
+                            AnalyticsValues.RESULT_CANCELLED
+                        } else {
+                            AnalyticsValues.RESULT_FAILURE
+                        },
+                    ),
+                )
                 if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
                     Toast.makeText(this@MainActivity, "驗證錯誤: $errString", Toast.LENGTH_SHORT).show()
                 }
@@ -336,8 +400,22 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     val session = sessionStore.loadBiometricSession(decryptCipher)
                     if (session != null) {
                         scoreVm.loginWithBiometricSession(session)
+                        analyticsLogger.logEvent(
+                            AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                            mapOf(
+                                AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                                AnalyticsParams.RESULT to AnalyticsValues.RESULT_SUCCESS,
+                            ),
+                        )
                         isAppLocked.value = false
                     } else {
+                        analyticsLogger.logEvent(
+                            AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                            mapOf(
+                                AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                                AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                            ),
+                        )
                         handleKeyInvalidated(scoreVm, settingsVm, "解析登入資訊失敗，請重新登入")
                     }
                 }
@@ -357,6 +435,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
         }.onFailure { error ->
             isBiometricPromptShowing = false
+            analyticsLogger.logEvent(
+                AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
+                mapOf(
+                    AnalyticsParams.METHOD to AnalyticsValues.METHOD_BIOMETRIC,
+                    AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
+                ),
+            )
             Toast.makeText(this, "啟動生物識別失敗: ${error.message ?: "未知錯誤"}", Toast.LENGTH_SHORT).show()
         }
     }
@@ -442,7 +527,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         sessionStore.clearBiometricSession()
         sessionStore.clearNormalSession()
         settingsVm.setBiometricEnabled(false)
-        scoreVm.logout()
+        scoreVm.logout(AnalyticsValues.SOURCE_LOCK_SCREEN)
         clearWidgetScheduleCache()
         isAppLocked.value = false
     }

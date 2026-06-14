@@ -28,6 +28,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParameterSanitizer
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
+import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
@@ -81,6 +87,7 @@ fun ScoreApp(
     onDismissNotificationPrompt: () -> Unit,
     onExportGrades: (List<ExamSelection>) -> Unit,
     onDismissExportResult: () -> Unit,
+    analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
     onSetBiometricEnabled: (Boolean, String?) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -89,6 +96,7 @@ fun ScoreApp(
     SystemNotificationPermissionSync(
         settings = settings,
         onSetNotificationsEnabled = onSetNotificationsEnabled,
+        analyticsLogger = analyticsLogger,
     )
 
     LaunchedEffect(loginState.errorMessage) {
@@ -126,6 +134,10 @@ fun ScoreApp(
             val navController = rememberNavController()
             LaunchedEffect(openScheduleRequested, navController) {
                 if (openScheduleRequested) {
+                    analyticsLogger.logEvent(
+                        AnalyticsEvents.SCHEDULE_OPEN,
+                        mapOf(AnalyticsParams.SOURCE to AnalyticsValues.SOURCE_WIDGET_SCHEDULE),
+                    )
                     if (navController.currentDestination?.route != ScheduleRoute) {
                         navController.navigate(ScheduleRoute) {
                             launchSingleTop = true
@@ -148,6 +160,12 @@ fun ScoreApp(
                         NotificationPromptDialog(
                             settings = settings,
                             onEnableNotifications = onSetNotificationsEnabled,
+                            onOpenSettings = {
+                                analyticsLogger.logEvent(
+                                    AnalyticsEvents.NOTIFICATION_PROMPT_ACTION,
+                                    mapOf(AnalyticsParams.ACTION to AnalyticsValues.ACTION_OPEN_SETTINGS),
+                                )
+                            },
                             onDismiss = onDismissNotificationPrompt,
                         )
                     }
@@ -163,12 +181,38 @@ fun ScoreApp(
                         onSetNotificationsEnabled = onSetNotificationsEnabled,
                         onGradeReminderPrerequisiteFailed = onGradeReminderPrerequisiteFailed,
                         onDismissGradeReminderChanges = onDismissGradeReminderChanges,
-                        onOpenScoreSimulator = { navController.navigate(ScoreSimulatorRoute) },
-                        onOpenSchedule = { navController.navigate(ScheduleRoute) },
+                        onOpenScoreSimulator = {
+                            analyticsLogger.logEvent(
+                                AnalyticsEvents.SCORE_SIMULATOR_USED,
+                                mapOf(
+                                    AnalyticsParams.SUBJECT_COUNT_BUCKET to AnalyticsParameterSanitizer.countBucket(
+                                        gradesState.report?.subjects.orEmpty().size,
+                                    ),
+                                ),
+                            )
+                            navController.navigate(ScoreSimulatorRoute)
+                        },
+                        onOpenSchedule = {
+                            analyticsLogger.logEvent(
+                                AnalyticsEvents.SCHEDULE_OPEN,
+                                mapOf(AnalyticsParams.SOURCE to AnalyticsValues.SOURCE_TAB),
+                            )
+                            navController.navigate(ScheduleRoute)
+                        },
                         onOpenSubjectTrend = {
+                            analyticsLogger.logEvent(
+                                AnalyticsEvents.FEATURE_OPEN,
+                                mapOf(AnalyticsParams.FEATURE to AnalyticsValues.FEATURE_SUBJECT_TREND),
+                            )
                             navController.navigate(SubjectTrendRoute)
                         },
-                        onOpenSettings = { navController.navigate(SettingsRoute) },
+                        onOpenSettings = {
+                            analyticsLogger.logEvent(
+                                AnalyticsEvents.FEATURE_OPEN,
+                                mapOf(AnalyticsParams.FEATURE to AnalyticsValues.FEATURE_SETTINGS),
+                            )
+                            navController.navigate(SettingsRoute)
+                        },
                     )
                 }
                 composable(ScoreSimulatorRoute) {
@@ -302,6 +346,7 @@ fun ScoreApp(
 private fun SystemNotificationPermissionSync(
     settings: AppSettings,
     onSetNotificationsEnabled: (Boolean) -> Unit,
+    analyticsLogger: AnalyticsLogger,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -310,6 +355,10 @@ private fun SystemNotificationPermissionSync(
 
     fun syncIfNeeded() {
         if (notificationsEnabled && !context.arePostNotificationsGranted()) {
+            analyticsLogger.logEvent(
+                AnalyticsEvents.NOTIFICATION_PROMPT_ACTION,
+                mapOf(AnalyticsParams.ACTION to AnalyticsValues.ACTION_AUTO_DISABLED),
+            )
             currentOnSetNotificationsEnabled(false)
         }
     }

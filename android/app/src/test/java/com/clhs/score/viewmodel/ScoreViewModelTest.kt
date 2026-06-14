@@ -1,5 +1,9 @@
 package com.clhs.score.viewmodel
 
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.ExamOption
 import com.clhs.score.data.FakeData
@@ -16,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 
@@ -184,6 +189,51 @@ class ScoreViewModelTest {
         assertEquals(emptySet<String>(), viewModel.subjectTrendState.value.selectedYearValues)
     }
 
+    @Test
+    fun loginWithWebViewCookiesLogsAnonymousAnalytics() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val analytics = RecordingAnalyticsLogger()
+        val viewModel = ScoreViewModel(repository, analyticsLogger = analytics)
+        runCurrent()
+
+        viewModel.loginWithWebViewCookies("SENSITIVE-STUDENT", "SESSION_ID=secret")
+        runCurrent()
+
+        val startEvent = analytics.events.first { it.name == AnalyticsEvents.LOGIN_START }
+        val resultEvent = analytics.events.first { it.name == AnalyticsEvents.LOGIN_RESULT }
+
+        assertEquals(AnalyticsValues.METHOD_WEBVIEW, startEvent.parameters[AnalyticsParams.METHOD])
+        assertEquals(AnalyticsValues.RESULT_SUCCESS, resultEvent.parameters[AnalyticsParams.RESULT])
+        assertFalse(analytics.containsSensitiveKey())
+    }
+
+    @Test
+    fun gradeQuerySuccessLogsTriggerAndSubjectBucket() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val analytics = RecordingAnalyticsLogger()
+        val viewModel = ScoreViewModel(repository, analyticsLogger = analytics)
+        runCurrent()
+
+        repository.structureDeferred.complete(
+            listOf(
+                YearTermOption(
+                    text = "114 學年度 第 1 學期",
+                    value = "114_1",
+                    exams = listOf(ExamOption("期末考", "114_1_E4")),
+                ),
+            ),
+        )
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        val gradeEvent = analytics.events.first { it.name == AnalyticsEvents.GRADE_QUERY }
+        assertEquals(AnalyticsValues.RESULT_SUCCESS, gradeEvent.parameters[AnalyticsParams.RESULT])
+        assertEquals(AnalyticsValues.TRIGGER_INITIAL, gradeEvent.parameters[AnalyticsParams.TRIGGER])
+        assertEquals("7_10", gradeEvent.parameters[AnalyticsParams.SUBJECT_COUNT_BUCKET])
+        assertFalse(analytics.containsSensitiveKey())
+    }
+
     private class ControllableGradeRepository : GradeRepository {
         val structureDeferred = CompletableDeferred<List<YearTermOption>>()
         var loggedOutSession: AuthenticatedSession? = null
@@ -219,6 +269,24 @@ class ScoreViewModelTest {
             val matchingKey = fetches.keys.firstOrNull { it.second == examValue }
             val key = matchingKey ?: ("" to examValue)
             fetches.getOrPut(key) { CompletableDeferred() }.complete(report)
+        }
+    }
+
+    private data class AnalyticsEventRecord(
+        val name: String,
+        val parameters: Map<String, Any?>,
+    )
+
+    private class RecordingAnalyticsLogger : AnalyticsLogger {
+        val events = mutableListOf<AnalyticsEventRecord>()
+
+        override fun logEvent(name: String, parameters: Map<String, Any?>) {
+            events += AnalyticsEventRecord(name, parameters)
+        }
+
+        fun containsSensitiveKey(): Boolean {
+            val forbidden = setOf("studentNo", "cookies", "apiToken", "rawResult", "scoreValue", "url")
+            return events.any { event -> event.parameters.keys.any { it in forbidden } }
         }
     }
 }

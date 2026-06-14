@@ -5,6 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.clhs.score.BuildConfig
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsLogger
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.AnalyticsValues
+import com.clhs.score.analytics.FirebaseAnalyticsLogger
+import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
@@ -29,6 +35,7 @@ class SettingsViewModel(
     private val repository: SettingsRepository,
     private val updateChecker: UpdateChecker,
     private val notificationTopicManager: NotificationTopicManager,
+    private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
 ) : ViewModel() {
     private var lastNotificationsEnabled: Boolean? = null
 
@@ -69,18 +76,33 @@ class SettingsViewModel(
     }
 
     fun setNotificationsEnabled(enabled: Boolean) {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.NOTIFICATION_TOGGLE,
+            mapOf(AnalyticsParams.ENABLED to enabled),
+        )
         viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
     }
 
     fun dismissNotificationPrompt() {
+        analyticsLogger.logEvent(
+            AnalyticsEvents.NOTIFICATION_PROMPT_ACTION,
+            mapOf(AnalyticsParams.ACTION to AnalyticsValues.ACTION_DISMISS),
+        )
         viewModelScope.launch { repository.setNotificationPromptDismissed(true) }
     }
 
-    fun checkUpdate() {
+    fun checkUpdate(trigger: String = AnalyticsValues.TRIGGER_MANUAL) {
         if (_uiState.value.isCheckingUpdate) return
         viewModelScope.launch {
             _uiState.update { it.copy(isCheckingUpdate = true, updateResult = null) }
             val result = updateChecker.check(BuildConfig.VERSION_NAME)
+            analyticsLogger.logEvent(
+                AnalyticsEvents.UPDATE_CHECK,
+                mapOf(
+                    AnalyticsParams.TRIGGER to trigger,
+                    AnalyticsParams.RESULT to result.toAnalyticsResult(),
+                ),
+            )
             _uiState.update { it.copy(isCheckingUpdate = false, updateResult = result) }
         }
     }
@@ -134,8 +156,19 @@ class SettingsViewModel(
                     val appContext = context.applicationContext
                     val repo = SettingsRepository(appContext)
                     val checker = UpdateChecker()
-                    return SettingsViewModel(repo, checker, NotificationTopicManager()) as T
+                    return SettingsViewModel(
+                        repo,
+                        checker,
+                        NotificationTopicManager(),
+                        FirebaseAnalyticsLogger(appContext),
+                    ) as T
                 }
             }
+    }
+
+    private fun UpdateResult.toAnalyticsResult(): String = when (this) {
+        is UpdateResult.NewVersion -> AnalyticsValues.RESULT_AVAILABLE
+        is UpdateResult.UpToDate -> AnalyticsValues.RESULT_NOT_AVAILABLE
+        is UpdateResult.Error -> AnalyticsValues.RESULT_ERROR
     }
 }

@@ -31,11 +31,13 @@ import com.clhs.score.data.AppSettings
 fun NotificationPromptDialog(
     settings: AppSettings,
     onEnableNotifications: (Boolean) -> Unit,
+    onOpenSettings: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnEnableNotifications by rememberUpdatedState(onEnableNotifications)
+    val currentOnOpenSettings by rememberUpdatedState(onOpenSettings)
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
     val needsPermission = !context.arePostNotificationsGranted()
@@ -87,6 +89,7 @@ fun NotificationPromptDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    currentOnOpenSettings()
                     awaitingNotificationSettings = true
                     if (!context.openAppNotificationSettings()) {
                         awaitingNotificationSettings = false
