@@ -96,10 +96,17 @@ object GradeExporter {
     }
 
     private fun csvEscape(value: String): String {
-        return if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-            "\"${value.replace("\"", "\"\"")}\""
+        // Prevent CSV Injection (Formula Injection)
+        var safeValue = value
+        if (safeValue.startsWith("=") || safeValue.startsWith("+") ||
+            safeValue.startsWith("-") || safeValue.startsWith("@")) {
+            safeValue = "'$safeValue"
+        }
+
+        return if (safeValue.contains(',') || safeValue.contains('"') || safeValue.contains('\n')) {
+            "\"${safeValue.replace("\"", "\"\"")}\""
         } else {
-            value
+            safeValue
         }
     }
 }
