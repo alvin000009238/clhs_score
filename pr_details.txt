@@ -1,0 +1,7 @@
+Title: 🔒 [security fix] Fix WebView JavascriptInterface vulnerability
+Description:
+🎯 **What:** Replaced insecure `addJavascriptInterface` with secure `WebViewCompat.addWebMessageListener`.
+
+⚠️ **Risk:** Any site loaded in the WebView (via open redirect, ad injection, etc.) could potentially invoke Android code through the JavaScript interface if it has XSS or is malicious, as it is indiscriminately available to all origins loaded in the WebView. `addJavascriptInterface` does not allow specifying an origin, making it inherently vulnerable.
+
+🛡️ **Solution:** Used `WebViewCompat.addWebMessageListener` from `androidx.webkit:webkit`. This modern API restricts access to the injected JavaScript object only to the specific, trusted origins ("https://shcloud2.k12ea.gov.tw"). The JavaScript payload was updated to use `window.AndroidLogin.postMessage` to communicate securely.

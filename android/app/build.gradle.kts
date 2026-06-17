@@ -126,6 +126,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.navigation:navigation-compose:2.9.8")
     implementation("androidx.security:security-crypto:1.1.0")
+    implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.firebase:firebase-analytics")

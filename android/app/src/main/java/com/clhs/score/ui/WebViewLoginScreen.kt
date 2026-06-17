@@ -4,13 +4,14 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.view.View
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -221,14 +222,22 @@ private fun WebViewContent(
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
 
-                val jsInterface = LoginJsInterface { studentNo ->
-                    if (loginHandled || !isTrustedLoginPage) return@LoginJsInterface
-                    loginHandled = true
-                    val cookieString = CookieManager.getInstance()
-                        .getCookie("https://$SCHOOL_DOMAIN") ?: ""
-                    post { onLoginSuccess(studentNo, cookieString) }
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                    WebViewCompat.addWebMessageListener(
+                        this,
+                        "AndroidLogin",
+                        setOf("https://$SCHOOL_DOMAIN"),
+                    ) { _, message, _, _, _ ->
+                        val studentNo = message.data
+                        if (studentNo != null) {
+                            if (loginHandled || !isTrustedLoginPage) return@addWebMessageListener
+                            loginHandled = true
+                            val cookieString = CookieManager.getInstance()
+                                .getCookie("https://$SCHOOL_DOMAIN") ?: ""
+                            post { onLoginSuccess(studentNo, cookieString) }
+                        }
+                    }
                 }
-                addJavascriptInterface(jsInterface, "AndroidLogin")
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
@@ -292,15 +301,6 @@ private fun WebView.clearLoginWebData(clearCookies: Boolean) {
     }
 }
 
-private class LoginJsInterface(
-    private val onSuccess: (studentNo: String) -> Unit,
-) {
-    @JavascriptInterface
-    fun onLoginSuccess(loginId: String) {
-        onSuccess(loginId)
-    }
-}
-
 private val LOGIN_HOOK_JS = """
 (function() {
     if (window.__loginHooked) return;
@@ -336,7 +336,7 @@ private val LOGIN_HOOK_JS = """
                     var resp = JSON.parse(self.responseText);
                     if (resp && resp.Result && resp.Result.IsLoginSuccess === true) {
                         if (window.AndroidLogin) {
-                            window.AndroidLogin.onLoginSuccess(loginId);
+                            window.AndroidLogin.postMessage(loginId);
                         }
                     }
                 } catch(e) {}
