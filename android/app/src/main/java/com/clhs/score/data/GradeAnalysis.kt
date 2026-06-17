@@ -485,7 +485,7 @@ private fun summaryText(
         .plus("。")
 }
 
-private fun performanceLevel(topPercent: Int): String = when {
+internal fun performanceLevel(topPercent: Int): String = when {
     topPercent <= 25 -> "班級前段"
     topPercent <= 50 -> "中上"
     topPercent <= 75 -> "中段"
