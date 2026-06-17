@@ -14,6 +14,26 @@ class GradeAnalysisTest {
     }
 
     @Test
+    fun percentileReturnsNullForInvalidOrMissingInputs() {
+        assertNull(percentile(null, 37))
+        assertNull(percentile(13.0, null))
+        assertNull(percentile(13.0, 0))
+        assertNull(percentile(13.0, -5))
+        assertNull(percentile(0.0, 37))
+        assertNull(percentile(-5.0, 37))
+    }
+
+    @Test
+    fun percentileCoercesToValidRangeWhenRankExceedsCount() {
+        assertEquals(100, percentile(40.0, 37)?.topPercent)
+    }
+
+    @Test
+    fun percentileCoercesToValidRangeForTopRank() {
+        assertEquals(1, percentile(1.0, 1000)?.topPercent)
+    }
+
+    @Test
     fun strengthAndWeaknessAreSortedByClassAverageDiff() {
         val analysis = buildGradeAnalysis(MockGradeSystem.generateReport(StudentScenario.NORMAL))
 
