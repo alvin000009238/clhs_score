@@ -132,9 +132,12 @@ fun shortenSubjectName(name: String): String {
     return cleaned.substringBefore("-").trim().ifEmpty { cleaned }
 }
 
+// Optimization: Cache Regex at file level to avoid recompilation overhead in getSubjectBaseName
+private val subjectSuffixRegex = Regex("([A-Z甲乙]|I{1,3}|IV|V)\\$")
+
 fun getSubjectBaseName(name: String): String {
     return name.replace("選修", "")
-        .replace(Regex("([A-Z甲乙]|I{1,3}|IV|V)\$"), "")
+        .replace(subjectSuffixRegex, "")
         .trim()
 }
 
