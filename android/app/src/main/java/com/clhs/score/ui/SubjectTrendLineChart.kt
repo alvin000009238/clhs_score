@@ -45,7 +45,8 @@ private data class ChartData(
     val yLabels: List<Int>,
     val groupedSubjects: Map<String, List<String>>,
     val allPointsMap: Map<String, List<Triple<Int, Double, String>>>,
-    val dashedLines: Map<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>
+    val dashedLines: Map<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>,
+    val allPointsByIndexAndBaseName: Map<String, Pair<List<Int>, java.util.SortedMap<Int, List<Triple<Int, Double, String>>>>>
 )
 
 @Composable
@@ -111,6 +112,7 @@ fun SubjectTrendLineChart(
         val groupedSubjects = subjectPoints.keys.groupBy { getSubjectBaseName(it) }
         val allPointsMap = mutableMapOf<String, List<Triple<Int, Double, String>>>()
         val dashedLines = mutableMapOf<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>()
+        val allPointsByIndexAndBaseName = mutableMapOf<String, Pair<List<Int>, java.util.SortedMap<Int, List<Triple<Int, Double, String>>>>>()
 
         groupedSubjects.forEach { (baseName, keys) ->
             val allPoints = mutableListOf<Triple<Int, Double, String>>()
@@ -129,6 +131,9 @@ fun SubjectTrendLineChart(
                 
                 val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
                 val indices = pointsByIndex.keys.toList()
+
+                allPointsByIndexAndBaseName[baseName] = Pair(indices, pointsByIndex)
+
                 val dashed = mutableListOf<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>()
                 
                 for (i in 0 until indices.size - 1) {
@@ -153,7 +158,7 @@ fun SubjectTrendLineChart(
             }
         }
         
-        ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, dashedLines)
+        ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, dashedLines, allPointsByIndexAndBaseName)
     }
 
     val minSpacing = 80.dp
@@ -213,8 +218,8 @@ fun SubjectTrendLineChart(
                         }
                         
                         // Pass 2: Find closest line segment
-                        val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
-                        val indices = pointsByIndex.keys.toList()
+                        // [Performance Optimization] Retrieve precomputed indices and map to avoid reallocation
+                        val (indices, pointsByIndex) = chartData.allPointsByIndexAndBaseName[baseName] ?: Pair(emptyList(), sortedMapOf())
                         for (i in 0 until indices.size - 1) {
                             val currentPoints = pointsByIndex[indices[i]]!!
                             val nextPoints = pointsByIndex[indices[i+1]]!!

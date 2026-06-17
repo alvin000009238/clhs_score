@@ -1,0 +1,3 @@
+## 2024-05-18 - Precompute pointer gesture map calculations
+**Learning:** In Compose, pointer gesture closures (like `onTap` in `detectTapGestures`) run synchronously on the UI thread for every touch event. Placing expensive collection operations (like `.groupBy { ... }.toSortedMap()`) directly inside these gesture callbacks forces unnecessary blocking and object allocations per event.
+**Action:** Moved the map grouping and sorting logic up into a cached `remember` block (the `ChartData` state) which only updates when the underlying data changes, mapping indices and points ahead of time and significantly reducing CPU and GC pressure during tap detection.
