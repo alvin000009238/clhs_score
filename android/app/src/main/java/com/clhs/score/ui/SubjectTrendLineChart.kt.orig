@@ -63,7 +63,7 @@ fun SubjectTrendLineChart(
     }
 
     var selectedPoint by remember { mutableStateOf<SelectedPoint?>(null) }
-    
+
     androidx.compose.runtime.LaunchedEffect(selectedBaseName) {
         if (selectedBaseName != selectedPoint?.subject?.let { getSubjectBaseName(it) }) {
             selectedPoint = null
@@ -76,16 +76,16 @@ fun SubjectTrendLineChart(
 
     // Pre-calculate data points and mapping structures to avoid recomposition/drawing overhead
     val chartData = remember(reports, selectedSubjectKeys, subjectColors) {
-        val exams = reports.map { 
+        val exams = reports.map {
             val year = it.examSummary?.year?.toString().orEmpty()
             val term = it.examSummary?.termText.orEmpty()
-            Pair("$year-$term", it.examSummary?.examName.orEmpty()) 
+            Pair("$year-$term", it.examSummary?.examName.orEmpty())
         }
-        
+
         var minScore = 100.0
         var maxScore = 0.0
         val subjectPoints = mutableMapOf<String, List<Double?>>()
-        
+
         selectedSubjectKeys.forEach { subjectKey ->
             val points = reports.map { report ->
                 val subject = report.subjects.find { cleanSubjectName(it.subjectName).substringBefore("-") == subjectKey }
@@ -128,24 +128,24 @@ fun SubjectTrendLineChart(
             if (allPoints.isNotEmpty()) {
                 val firstKey = allPoints.minByOrNull { it.first }?.third ?: keys.first()
                 val groupColor = subjectColors[firstKey] ?: Color.Black
-                
+
                 val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
                 pointsByIndexMap[baseName] = pointsByIndex
                 val indices = pointsByIndex.keys.toList()
                 val dashed = mutableListOf<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>()
-                
+
                 for (i in 0 until indices.size - 1) {
                     val currentPoints = pointsByIndex[indices[i]]!!
                     val nextPoints = pointsByIndex[indices[i+1]]!!
-                    
+
                     currentPoints.forEach { p1 ->
                         nextPoints.forEach { p2 ->
                             val p1HasSuccessor = nextPoints.any { it.third == p1.third }
                             val p2HasPredecessor = currentPoints.any { it.third == p2.third }
-                            
+
                             val isDifferentSubjectConnection = (!p1HasSuccessor || !p2HasPredecessor) && p1.third != p2.third
                             val isSameSubjectGap = p1.third == p2.third && (p2.first - p1.first > 1)
-                            
+
                             if (isDifferentSubjectConnection || isSameSubjectGap) {
                                 dashed.add(Triple(p1, p2, groupColor))
                             }
@@ -155,7 +155,7 @@ fun SubjectTrendLineChart(
                 dashedLines[baseName] = dashed
             }
         }
-        
+
         ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, dashedLines, pointsByIndexMap)
     }
 
@@ -198,37 +198,37 @@ fun SubjectTrendLineChart(
                         if (allPoints.isEmpty()) return@forEach
                         val firstKey = allPoints.minByOrNull { it.first }?.third ?: keys.first()
                         val groupColor = subjectColors[firstKey] ?: Color.Black
-                        
+
                         // Pass 1: Find closest point
                         allPoints.forEach { (index, score, key) ->
                             val px = paddingLeft + stepX * index
                             val py = paddingTop + chartHeight * (1f - ((score - chartData.minScore) / (chartData.maxScore - chartData.minScore)).toFloat())
-                            
+
                             val dx = offset.x - px
                             val dy = offset.y - py
                             val distance = dx * dx + dy * dy
-                            
+
                             // Use <= to ensure that elements rendered later (on top) win in case of an overlap
                             if (distance <= minPointDistance) {
                                 minPointDistance = distance
                                 closestPoint = SelectedPoint(px, py, score, key, groupColor, true)
                             }
                         }
-                        
+
                         // Pass 2: Find closest line segment
-                        val pointsByIndex = chartData.pointsByIndexMap[baseName] ?: return@forEach
+                        val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
                         val indices = pointsByIndex.keys.toList()
                         for (i in 0 until indices.size - 1) {
                             val currentPoints = pointsByIndex[indices[i]]!!
                             val nextPoints = pointsByIndex[indices[i+1]]!!
-                            
+
                             currentPoints.forEach { p1 ->
                                 nextPoints.forEach { p2 ->
                                     val px1 = paddingLeft + stepX * p1.first
                                     val py1 = paddingTop + chartHeight * (1f - (p1.second - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
                                     val px2 = paddingLeft + stepX * p2.first
                                     val py2 = paddingTop + chartHeight * (1f - (p2.second - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
-                                    
+
                                     val l2 = (px1 - px2) * (px1 - px2) + (py1 - py2) * (py1 - py2)
                                     val distance = if (l2 == 0f) {
                                         (offset.x - px1) * (offset.x - px1) + (offset.y - py1) * (offset.y - py1)
@@ -239,7 +239,7 @@ fun SubjectTrendLineChart(
                                         val projY = py1 + clampedT * (py2 - py1)
                                         (offset.x - projX) * (offset.x - projX) + (offset.y - projY) * (offset.y - projY)
                                     }
-                                    
+
                                     // Use <= to ensure that elements rendered later (on top) win in case of an overlap
                                     if (distance <= minLineDistance) {
                                         minLineDistance = distance
@@ -255,10 +255,10 @@ fun SubjectTrendLineChart(
                             }
                         }
                     }
-                    
+
                     val pointTolerance = 20.dp.toPx()
                     val lineTolerance = 28.dp.toPx()
-                    
+
                     selectedPoint = if (minPointDistance < pointTolerance * pointTolerance) {
                         closestPoint
                     } else if (minLineDistance < lineTolerance * lineTolerance) {
@@ -287,11 +287,11 @@ fun SubjectTrendLineChart(
                     surfaceVariant.copy(alpha = 0.5f),
                     Color.Transparent
                 )
-                
+
                 for (i in 0..chartData.exams.size) {
                     val isLast = i == chartData.exams.size
                     val isNewSemester = !isLast && i > 0 && chartData.exams[i].first != chartData.exams[i - 1].first
-                    
+
                     if (isNewSemester || isLast) {
                         val startX = paddingLeft + stepX * (currentSemesterStartIdx - 0.5f)
                         val endX = if (isLast) {
@@ -299,7 +299,7 @@ fun SubjectTrendLineChart(
                         } else {
                             paddingLeft + stepX * (i - 0.5f)
                         }
-                        
+
                         val rectWidth = (endX - startX).coerceAtLeast(0f)
                         if (rectWidth > 0) {
                             drawRect(
@@ -308,7 +308,7 @@ fun SubjectTrendLineChart(
                                 size = androidx.compose.ui.geometry.Size(rectWidth, chartHeight)
                             )
                         }
-                        
+
                         currentSemesterStartIdx = i
                         semesterColorIndex++
                     }
@@ -339,7 +339,7 @@ fun SubjectTrendLineChart(
                 chartData.exams.forEachIndexed { index, examNode ->
                     val examName = examNode.second
                     val x = paddingLeft + stepX * index
-                    
+
                     // Draw semester vertical divider
                     if (index > 0 && examNode.first != chartData.exams[index - 1].first) {
                         val dividerX = paddingLeft + stepX * (index - 0.5f)
@@ -350,7 +350,7 @@ fun SubjectTrendLineChart(
                             strokeWidth = 1.dp.toPx()
                         )
                     }
-                    
+
                     // Draw semester label at the top
                     if (index == 0 || examNode.first != chartData.exams[index - 1].first) {
                         drawText(
@@ -366,7 +366,7 @@ fun SubjectTrendLineChart(
                         text = examName,
                         style = TextStyle(color = onSurfaceVariant, fontSize = 10.sp)
                     )
-                    
+
                     withTransform({
                         rotate(-45f, pivot = labelPivot)
                     }) {
@@ -388,22 +388,22 @@ fun SubjectTrendLineChart(
                 if (allPoints.isEmpty()) return@forEach
                 val firstKey = allPoints.minByOrNull { it.first }?.third ?: keys.first()
                 val groupColor = subjectColors[firstKey] ?: Color.Black
-                
+
                 val isSelected = baseName == currentSelectedBaseName
                 val strokeWidth = if (isSelected) 4.dp.toPx() else 2.dp.toPx()
                 val dotRadius = if (isSelected) 6.dp.toPx() else 4.dp.toPx()
-                
+
                 // Draw solid lines
                 keys.forEach { subjectKey ->
                     val path = Path()
                     var isFirstPoint = true
                     val points = chartData.subjectPoints[subjectKey] ?: emptyList()
-                    
+
                     points.forEachIndexed { index, score ->
                         if (score != null) {
                             val x = paddingLeft + stepX * index
                             val y = paddingTop + chartHeight * (1f - (score - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
-                            
+
                             if (isFirstPoint) {
                                 path.moveTo(x, y)
                                 isFirstPoint = false
@@ -416,22 +416,22 @@ fun SubjectTrendLineChart(
                             }
                         }
                     }
-                    
+
                     drawPath(
                         path = path,
                         color = groupColor,
                         style = Stroke(width = strokeWidth)
                     )
                 }
-                
+
                 // Draw dashed lines
                 chartData.dashedLines[baseName]?.forEach { (p1, p2, color) ->
                     val x1 = paddingLeft + stepX * p1.first
                     val y1 = paddingTop + chartHeight * (1f - (p1.second - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
-                    
+
                     val x2 = paddingLeft + stepX * p2.first
                     val y2 = paddingTop + chartHeight * (1f - (p2.second - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
-                    
+
                     drawLine(
                         color = color.copy(alpha = 0.5f),
                         start = Offset(x1, y1),
@@ -440,16 +440,16 @@ fun SubjectTrendLineChart(
                         pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
                 }
-                
+
                 // Draw dots
                 keys.forEach { subjectKey ->
                     val points = chartData.subjectPoints[subjectKey] ?: emptyList()
-                    
+
                     points.forEachIndexed { index, score ->
                         if (score != null) {
                             val x = paddingLeft + stepX * index
                             val y = paddingTop + chartHeight * (1f - (score - chartData.minScore).toFloat() / (chartData.maxScore - chartData.minScore).toFloat())
-                            
+
                             drawCircle(
                                 color = groupColor,
                                 radius = dotRadius,
@@ -459,7 +459,7 @@ fun SubjectTrendLineChart(
                     }
                 }
             }
-            
+
             // Draw tooltip
             selectedPoint?.let { point ->
                 if (point.isPointClick) {
@@ -467,21 +467,21 @@ fun SubjectTrendLineChart(
                         text = "${shortenSubjectName(point.subject)}: ${point.score}",
                         style = TextStyle(color = Color.White, fontSize = 12.sp)
                     )
-                    
+
                     val tooltipPadding = 8.dp.toPx()
                     val tooltipWidth = textLayoutResult.size.width + tooltipPadding * 2
                     val tooltipHeight = textLayoutResult.size.height + tooltipPadding * 2
-                    
+
                     val tooltipX = (point.x - tooltipWidth / 2).coerceIn(0f, size.width - tooltipWidth)
                     val tooltipY = (point.y - tooltipHeight - 12.dp.toPx()).coerceAtLeast(0f)
-                    
+
                     drawRoundRect(
                         color = point.color,
                         topLeft = Offset(tooltipX, tooltipY),
                         size = androidx.compose.ui.geometry.Size(tooltipWidth, tooltipHeight),
                         cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
                     )
-                    
+
                     drawText(
                         textLayoutResult = textLayoutResult,
                         color = Color.White,
