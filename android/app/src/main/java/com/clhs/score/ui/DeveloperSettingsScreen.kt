@@ -572,10 +572,21 @@ private fun Context.copyText(label: String, text: String) {
 
 private fun Context.shareText(text: String): Boolean =
     runCatching {
+        val cachePath = java.io.File(cacheDir, "diagnostics").apply { mkdirs() }
+        val file = java.io.File(cachePath, "diagnostic_report.txt")
+        file.writeText(text)
+
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this,
+            "${packageName}.fileprovider",
+            file
+        )
+
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, "CLHS Score 診斷包")
-            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "分享診斷包"))
     }.isSuccess
