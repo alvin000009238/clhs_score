@@ -227,7 +227,7 @@ function initScrollAnimations() {
         }
       });
     },
-    { threshold: 0.15 }
+    { threshold: 0 }
   );
 
   document.querySelectorAll('.fade-in').forEach((el) => {
