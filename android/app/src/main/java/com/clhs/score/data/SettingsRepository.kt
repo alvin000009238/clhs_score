@@ -14,8 +14,8 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
     name = "app_settings",
 )
 
-class SettingsRepository(context: Context) {
-    private val dataStore = context.applicationContext.settingsDataStore
+class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+    constructor(context: Context) : this(context.applicationContext.settingsDataStore)
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
         AppSettings(
