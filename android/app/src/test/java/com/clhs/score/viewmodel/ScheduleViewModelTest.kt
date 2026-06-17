@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -72,6 +73,21 @@ class ScheduleViewModelTest {
         assertEquals("113_2", viewModel.uiState.value.selectedYearValue)
         assertEquals(listOf(ScheduleClassOption(text = "二年乙班", value = "202")), viewModel.uiState.value.availableClasses)
         assertEquals("202", viewModel.uiState.value.selectedClassValue)
+    }
+
+    @Test
+    fun loadYearsErrorUpdatesState() = runTest(dispatcher) {
+        val repository = ControllableScheduleRepository()
+        val viewModel = ScheduleViewModel(repository)
+        runCurrent()
+
+        repository.yearsDeferred.completeExceptionally(RuntimeException("Network error"))
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.isError)
+        assertEquals("Network error", state.errorMessage)
     }
 
     @Test
