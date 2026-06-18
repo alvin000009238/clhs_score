@@ -91,14 +91,6 @@ object GradeExporter {
         fileName
     }
 
-    private fun Double.formatScore(): String {
-        return if (this == kotlin.math.floor(this) && !this.isInfinite()) {
-            this.toInt().toString()
-        } else {
-            "%.1f".format(this)
-        }
-    }
-
     private fun formatExportRank(rank: Int?, count: Int?): String {
         if (rank == null) return ""
         return if (count != null && count > 0) "$rank/$count" else "$rank"

@@ -292,23 +292,6 @@ object GradeReportDiffer {
         )
     }
 
-    private fun String.canonicalDisplayValue(): String? {
-        val trimmed = trim()
-        if (trimmed.isBlank()) return null
-        return trimmed.toDoubleOrNull()?.canonicalNumberValue() ?: trimmed
-    }
-
-    private fun Double?.canonicalNumberValue(): String? = this?.canonicalNumberValue()
-
-    private fun Double.canonicalNumberValue(): String {
-        if (abs(this - round(this)) < 0.0001) {
-            return String.format(Locale.US, "%.0f", this)
-        }
-        return String.format(Locale.US, "%.2f", this)
-            .trimEnd('0')
-            .trimEnd('.')
-    }
-
     private fun Boolean.yesNo(): String = if (this) "是" else "否"
 
     private const val SUMMARY_TARGET = "總覽"
