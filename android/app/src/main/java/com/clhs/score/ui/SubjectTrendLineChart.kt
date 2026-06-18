@@ -45,6 +45,7 @@ private data class ChartData(
     val yLabels: List<Int>,
     val groupedSubjects: Map<String, List<String>>,
     val allPointsMap: Map<String, List<Triple<Int, Double, String>>>,
+    val pointGroupsByIndex: Map<String, List<List<Triple<Int, Double, String>>>>,
     val dashedLines: Map<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>
 )
 
@@ -110,6 +111,7 @@ fun SubjectTrendLineChart(
 
         val groupedSubjects = subjectPoints.keys.groupBy { getSubjectBaseName(it) }
         val allPointsMap = mutableMapOf<String, List<Triple<Int, Double, String>>>()
+        val pointGroupsByIndex = mutableMapOf<String, List<List<Triple<Int, Double, String>>>>()
         val dashedLines = mutableMapOf<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>()
 
         groupedSubjects.forEach { (baseName, keys) ->
@@ -128,12 +130,13 @@ fun SubjectTrendLineChart(
                 val groupColor = subjectColors[firstKey] ?: Color.Black
                 
                 val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
-                val indices = pointsByIndex.keys.toList()
+                val orderedPointGroups = pointsByIndex.values.toList()
+                pointGroupsByIndex[baseName] = orderedPointGroups
                 val dashed = mutableListOf<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>()
                 
-                for (i in 0 until indices.size - 1) {
-                    val currentPoints = pointsByIndex[indices[i]]!!
-                    val nextPoints = pointsByIndex[indices[i+1]]!!
+                for (i in 0 until orderedPointGroups.size - 1) {
+                    val currentPoints = orderedPointGroups[i]
+                    val nextPoints = orderedPointGroups[i + 1]
                     
                     currentPoints.forEach { p1 ->
                         nextPoints.forEach { p2 ->
@@ -153,7 +156,7 @@ fun SubjectTrendLineChart(
             }
         }
         
-        ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, dashedLines)
+        ChartData(exams, subjectPoints, minScore, maxScore, yLabels, groupedSubjects, allPointsMap, pointGroupsByIndex, dashedLines)
     }
 
     val minSpacing = 80.dp
@@ -213,11 +216,10 @@ fun SubjectTrendLineChart(
                         }
                         
                         // Pass 2: Find closest line segment
-                        val pointsByIndex = allPoints.groupBy { it.first }.toSortedMap()
-                        val indices = pointsByIndex.keys.toList()
-                        for (i in 0 until indices.size - 1) {
-                            val currentPoints = pointsByIndex[indices[i]]!!
-                            val nextPoints = pointsByIndex[indices[i+1]]!!
+                        val pointGroups = chartData.pointGroupsByIndex[baseName] ?: return@forEach
+                        for (i in 0 until pointGroups.size - 1) {
+                            val currentPoints = pointGroups[i]
+                            val nextPoints = pointGroups[i + 1]
                             
                             currentPoints.forEach { p1 ->
                                 nextPoints.forEach { p2 ->
