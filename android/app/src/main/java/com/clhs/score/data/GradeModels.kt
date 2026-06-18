@@ -138,10 +138,11 @@ fun getSubjectBaseName(name: String): String {
         .trim()
 }
 
+private val SUBJECT_WEIGHTS = mapOf("國語文" to 4, "英語文" to 4, "數學" to 4)
+
 fun subjectWeight(subjectName: String): Int {
-    val weights = mapOf("國語文" to 4, "英語文" to 4, "數學" to 4)
-    weights[subjectName]?.let { return it }
-    return weights.entries.firstOrNull { (key, _) ->
+    SUBJECT_WEIGHTS[subjectName]?.let { return it }
+    return SUBJECT_WEIGHTS.entries.firstOrNull { (key, _) ->
         subjectName.contains(key) || key.contains(subjectName)
     }?.value ?: 2
 }
