@@ -113,13 +113,12 @@ fun SubjectTrendLineChart(
         val dashedLines = mutableMapOf<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>()
 
         groupedSubjects.forEach { (baseName, keys) ->
-            val allPoints = mutableListOf<Triple<Int, Double, String>>()
-            keys.forEach { key ->
-                subjectPoints[key]?.forEachIndexed { index, score ->
-                    if (score != null) {
-                        allPoints.add(Triple(index, score, key))
-                    }
-                }
+            // Optimization: Replace manual mutable list initialization and nested iteration
+            // with a single flatMap step to improve parsing performance and reduce memory allocations
+            val allPoints = keys.flatMap { key ->
+                subjectPoints[key]?.mapIndexedNotNull { index, score ->
+                    if (score != null) Triple(index, score, key) else null
+                } ?: emptyList()
             }
             allPointsMap[baseName] = allPoints
 
