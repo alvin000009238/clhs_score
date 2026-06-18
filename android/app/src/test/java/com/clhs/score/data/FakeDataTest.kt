@@ -31,7 +31,7 @@ class FakeDataTest {
         val session = repository.loginWithCookies("DEMO-000", emptyMap())
 
         assertNotNull(session)
-        val structure = repository.loadStructure(session!!)
+        val structure = repository.loadStructure(session)
         val report = repository.fetchGrades(session, FakeData.currentYearValue, FakeData.currentExamValue)
 
         assertTrue(structure.isNotEmpty())
