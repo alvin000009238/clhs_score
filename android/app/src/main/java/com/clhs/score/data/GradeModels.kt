@@ -134,9 +134,11 @@ fun shortenSubjectName(name: String): String {
 
 fun getSubjectBaseName(name: String): String {
     return name.replace("選修", "")
-        .replace(Regex("([A-Z甲乙]|I{1,3}|IV|V)\$"), "")
+        .replace(SubjectSuffixRegex, "")
         .trim()
 }
+
+private val SubjectSuffixRegex = Regex("([A-Z甲乙]|I{1,3}|IV|V)\$")
 
 private val SUBJECT_WEIGHTS = mapOf("國語文" to 4, "英語文" to 4, "數學" to 4)
 
