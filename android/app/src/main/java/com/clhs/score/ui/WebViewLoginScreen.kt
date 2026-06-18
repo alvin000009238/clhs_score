@@ -322,13 +322,17 @@ private val LOGIN_HOOK_JS = """
             try {
                 var loginField = document.querySelector('input[name="LoginId"]');
                 if (loginField) loginId = loginField.value || '';
-            } catch(e) {}
+            } catch(e) {
+                console.error('Error reading LoginId field:', e);
+            }
 
             if (!loginId && body) {
                 try {
                     var params = new URLSearchParams(body);
                     loginId = params.get('LoginId') || '';
-                } catch(e) {}
+                } catch(e) {
+                    console.error('Error parsing body for LoginId:', e);
+                }
             }
 
             self.addEventListener('load', function() {
@@ -339,7 +343,9 @@ private val LOGIN_HOOK_JS = """
                             window.AndroidLogin.onLoginSuccess(loginId);
                         }
                     }
-                } catch(e) {}
+                } catch(e) {
+                    console.error('Error parsing login response:', e);
+                }
             });
         }
         return origSend.apply(this, arguments);
