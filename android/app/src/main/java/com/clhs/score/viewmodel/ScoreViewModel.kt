@@ -1034,18 +1034,17 @@ class ScoreViewModel(
         val selectedYears = _subjectTrendState.value.selectedYearValues
         val requestId = ++subjectTrendRequestId
         
-        val requests = buildList {
-            structure.filter { it.value in selectedYears }
-                .sortedBy { yt ->
-                    val (y, t) = parseYearTerm(yt.value, "0", "0")
-                    (y.toIntOrNull() ?: 0) * 10 + (t.toIntOrNull() ?: 0)
+        // Optimization: Use flatMap over nested forEach in buildList to reduce intermediate allocations and avoid capacity resizing overhead
+        val requests = structure.filter { it.value in selectedYears }
+            .sortedBy { yt ->
+                val (y, t) = parseYearTerm(yt.value, "0", "0")
+                (y.toIntOrNull() ?: 0) * 10 + (t.toIntOrNull() ?: 0)
+            }
+            .flatMap { yearTerm ->
+                yearTerm.exams.map { exam ->
+                    HistoricalExamRequest(yearTerm.value, exam.value, exam.text)
                 }
-                .forEach { yearTerm ->
-                    yearTerm.exams.forEach { exam ->
-                        add(HistoricalExamRequest(yearTerm.value, exam.value, exam.text))
-                    }
-                }
-        }
+            }
         
         if (requests.isEmpty()) {
             analyticsLogger.logEvent(
