@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -29,7 +28,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -154,11 +152,6 @@ fun DeveloperSettingsScreen(
             onCopy = {
                 context.copyText("CLHS Score 診斷包", report)
                 Toast.makeText(context, "診斷包已複製", Toast.LENGTH_SHORT).show()
-            },
-            onShare = {
-                if (!context.shareText(report)) {
-                    Toast.makeText(context, "無法分享診斷包", Toast.LENGTH_SHORT).show()
-                }
             },
             onDismiss = { diagnosticReport = null },
         )
@@ -533,7 +526,6 @@ private fun StorageEntryRow(
 private fun DiagnosticReportDialog(
     report: String,
     onCopy: () -> Unit,
-    onShare: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -547,19 +539,13 @@ private fun DiagnosticReportDialog(
             )
         },
         confirmButton = {
-            Button(onClick = onShare) {
-                Text("分享")
+            OutlinedButton(onClick = onCopy) {
+                Text("複製")
             }
         },
         dismissButton = {
-            Row {
-                OutlinedButton(onClick = onCopy) {
-                    Text("複製")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("關閉")
-                }
+            TextButton(onClick = onDismiss) {
+                Text("關閉")
             }
         },
     )
@@ -569,13 +555,3 @@ private fun Context.copyText(label: String, text: String) {
     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
-
-private fun Context.shareText(text: String): Boolean =
-    runCatching {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "CLHS Score 診斷包")
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        startActivity(Intent.createChooser(intent, "分享診斷包"))
-    }.isSuccess
