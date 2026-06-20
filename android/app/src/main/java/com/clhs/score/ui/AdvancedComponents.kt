@@ -277,12 +277,21 @@ internal fun ScoreSimulatorScreen(
     }
 
     val historyMaxMin = remember(allHistory, report) {
+        val reportSubjectKeys = report.subjects
+            .mapTo(mutableSetOf()) { cleanSubjectName(it.subjectName) }
         val map = mutableMapOf<String, Pair<Double, Double>>()
-        report.subjects.forEach { subject ->
-            val key = cleanSubjectName(subject.subjectName)
-            val scores = allHistory.mapNotNull { r -> r.subjects.find { cleanSubjectName(it.subjectName) == key }?.scoreValue }
-            if (scores.isNotEmpty()) {
-                map[key] = scores.min() to scores.max()
+        allHistory.forEach { historyReport ->
+            historyReport.subjects.forEach { subject ->
+                val key = cleanSubjectName(subject.subjectName)
+                if (key in reportSubjectKeys) {
+                    val score = subject.scoreValue
+                    val range = map[key]
+                    map[key] = if (range == null) {
+                        score to score
+                    } else {
+                        minOf(range.first, score) to maxOf(range.second, score)
+                    }
+                }
             }
         }
         map
