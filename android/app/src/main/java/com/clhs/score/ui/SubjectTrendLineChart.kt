@@ -137,11 +137,13 @@ fun SubjectTrendLineChart(
                 for (i in 0 until orderedPointGroups.size - 1) {
                     val currentPoints = orderedPointGroups[i]
                     val nextPoints = orderedPointGroups[i + 1]
+                    val currentSubjectKeys = currentPoints.map { it.third }.toSet()
+                    val nextSubjectKeys = nextPoints.map { it.third }.toSet()
                     
                     currentPoints.forEach { p1 ->
                         nextPoints.forEach { p2 ->
-                            val p1HasSuccessor = nextPoints.any { it.third == p1.third }
-                            val p2HasPredecessor = currentPoints.any { it.third == p2.third }
+                            val p1HasSuccessor = p1.third in nextSubjectKeys
+                            val p2HasPredecessor = p2.third in currentSubjectKeys
                             
                             val isDifferentSubjectConnection = (!p1HasSuccessor || !p2HasPredecessor) && p1.third != p2.third
                             val isSameSubjectGap = p1.third == p2.third && (p2.first - p1.first > 1)
