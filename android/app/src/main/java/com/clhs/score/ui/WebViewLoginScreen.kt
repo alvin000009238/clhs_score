@@ -2,8 +2,10 @@ package com.clhs.score.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -47,6 +49,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 
 private const val LOGIN_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC/Auth/Auth/CloudLogin"
 private const val SCHOOL_DOMAIN = "shcloud2.k12ea.gov.tw"
+private const val LOGIN_HOOK_LOG_PREFIX = "[ScoreLoginHook]"
+private const val WEB_VIEW_LOGIN_TAG = "WebViewLogin"
 
 @Composable
 fun WebViewLoginScreen(
@@ -260,6 +264,15 @@ private fun WebViewContent(
                     override fun onProgressChanged(view: WebView?, newProgress: Int) {
                         onProgressChanged(newProgress)
                     }
+
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                        val message = consoleMessage?.message().orEmpty()
+                        if (message.startsWith(LOGIN_HOOK_LOG_PREFIX)) {
+                            Log.w(WEB_VIEW_LOGIN_TAG, message)
+                            return true
+                        }
+                        return super.onConsoleMessage(consoleMessage)
+                    }
                 }
 
                 onWebViewCreated(this)
@@ -322,13 +335,17 @@ private val LOGIN_HOOK_JS = """
             try {
                 var loginField = document.querySelector('input[name="LoginId"]');
                 if (loginField) loginId = loginField.value || '';
-            } catch(e) {}
+            } catch(e) {
+                console.warn('$LOGIN_HOOK_LOG_PREFIX LoginId field lookup failed: ' + (e && e.message ? e.message : e));
+            }
 
             if (!loginId && body) {
                 try {
                     var params = new URLSearchParams(body);
                     loginId = params.get('LoginId') || '';
-                } catch(e) {}
+                } catch(e) {
+                    console.warn('$LOGIN_HOOK_LOG_PREFIX LoginId body parse failed: ' + (e && e.message ? e.message : e));
+                }
             }
 
             self.addEventListener('load', function() {
@@ -339,7 +356,9 @@ private val LOGIN_HOOK_JS = """
                             window.AndroidLogin.onLoginSuccess(loginId);
                         }
                     }
-                } catch(e) {}
+                } catch(e) {
+                    console.warn('$LOGIN_HOOK_LOG_PREFIX Login response handling failed: ' + (e && e.message ? e.message : e));
+                }
             });
         }
         return origSend.apply(this, arguments);
