@@ -1,14 +1,19 @@
 package com.clhs.score.ui.theme
 
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.ThemeMode
@@ -155,6 +160,7 @@ fun ScoreTheme(
     if (!view.isInEditMode) {
         androidx.compose.runtime.SideEffect {
             val window = (view.context as android.app.Activity).window
+            window.setBackgroundDrawable(ColorDrawable(colorScheme.background.toArgb()))
             androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDark
             androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !useDark
         }
@@ -168,7 +174,12 @@ fun ScoreTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             shapes = ScoreShapes,
-            content = content,
-        )
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = colorScheme.background,
+                content = content,
+            )
+        }
     }
 }
