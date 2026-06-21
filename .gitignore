@@ -39,6 +39,7 @@ venv.bak/
 
 # Application Data & Temporary Files
 .agent/skills/
+.codex/
 grades_raw.json
 shared_grades/
 *.json
