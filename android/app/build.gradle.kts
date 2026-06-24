@@ -141,6 +141,10 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.2.1")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.4.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.mockito:mockito-core:5.8.0")
+    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation("androidx.test.ext:junit-ktx:1.1.5")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
