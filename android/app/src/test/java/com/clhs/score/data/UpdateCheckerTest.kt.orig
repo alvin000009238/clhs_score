@@ -148,20 +148,6 @@ class UpdateCheckerTest {
         assertEquals(UpdateResult.Error("HTTP 404"), checker().check("1.1.9"))
     }
 
-    @Test
-    fun networkExceptionWithoutMessageReturnsDefaultError() = runTest {
-        val exceptionClient = OkHttpClient.Builder()
-            .addInterceptor { chain -> throw java.io.IOException() }
-            .build()
-
-        val checker = UpdateChecker(
-            client = exceptionClient,
-            latestReleaseUrl = server.url("/release/latest").toString(),
-        )
-
-        assertEquals(UpdateResult.Error("未知錯誤"), checker.check("1.1.9"))
-    }
-
     private fun checker(): UpdateChecker =
         UpdateChecker(
             client = OkHttpClient(),

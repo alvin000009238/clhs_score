@@ -1,0 +1,28 @@
+--- UpdateCheckerTest.kt
++++ UpdateCheckerTest.kt
+@@ -137,14 +137,14 @@
+             latestReleaseUrl = server.url("/release/latest").toString(),
+         )
+
+-        assertEquals(UpdateResult.Error("Network failed"), checker.check("1.1.9"))
++        assertNull(checker.check("1.1.9"))
+     }
+
+     @Test
+     fun nonSuccessfulHttpResponseReturnsError() = runTest {
+         server.enqueue(MockResponse().setResponseCode(404))
+
+-        assertEquals(UpdateResult.Error("HTTP 404"), checker().check("1.1.9"))
++        assertNull(checker().check("1.1.9"))
+     }
+
+     @Test
+@@ -158,7 +158,7 @@
+             latestReleaseUrl = server.url("/release/latest").toString(),
+         )
+
+-        assertEquals(UpdateResult.Error("未知錯誤"), checker.check("1.1.9"))
++        assertNull(checker.check("1.1.9"))
+     }
+
+     private fun checker(): UpdateChecker =
