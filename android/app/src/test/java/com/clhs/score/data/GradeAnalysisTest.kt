@@ -358,6 +358,18 @@ class GradeAnalysisTest {
     }
 
     @Test
+    fun performanceLevelMapsTopPercentCorrectly() {
+        assertEquals("班級前段", performanceLevel(1))
+        assertEquals("班級前段", performanceLevel(25))
+        assertEquals("中上", performanceLevel(26))
+        assertEquals("中上", performanceLevel(50))
+        assertEquals("中段", performanceLevel(51))
+        assertEquals("中段", performanceLevel(75))
+        assertEquals("需要加強", performanceLevel(76))
+        assertEquals("需要加強", performanceLevel(100))
+    }
+
+    @Test
     fun localInsightsDoNotEstimateRankWhenRankDataMissing() {
         val current = MockGradeSystem.generateReport(customClassRank = null)
         val reportWithNullClassCount = current.copy(examSummary = current.examSummary?.copy(classCount = null))
