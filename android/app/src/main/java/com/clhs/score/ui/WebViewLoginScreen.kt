@@ -223,7 +223,7 @@ private fun WebViewContent(
 
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
-                cookieManager.setAcceptThirdPartyCookies(this, true)
+                cookieManager.setAcceptThirdPartyCookies(this, false)
 
                 val jsInterface = LoginJsInterface { studentNo ->
                     if (loginHandled || !isTrustedLoginPage) return@LoginJsInterface
