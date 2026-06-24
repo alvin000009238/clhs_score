@@ -19,7 +19,35 @@
 
 ```mermaid
 flowchart TB
-    App["Android App"] --> School["學校系統 API"]
+
+    %% ===== External Systems =====
+    subgraph EXT["External Systems"]
+        API["School System API<br/>(shcloud2.k12ea.gov.tw)"]
+    end
+
+    %% ===== Data Layer =====
+    subgraph DATA["Data Layer (Natural)"]
+        CLIENT["SchoolGradeClient<br/>(OkHttp + Jsoup)"]
+        REPO["GradeRepository"]
+        CACHE["GradeCacheStore<br/>(DataStore)"]
+
+        CLIENT --> REPO
+        REPO <--> CACHE
+    end
+
+    %% ===== Logic & UI =====
+    subgraph UI["Logic & UI (Code Entity Space)"]
+        VM["ScoreViewModel"]
+        ANALYSIS["GradeAnalysis.kt"]
+        SCREEN["Compose UI<br/>(GradesScreen)"]
+
+        VM <--> ANALYSIS
+        VM --> SCREEN
+    end
+
+    %% ===== Connections =====
+    CLIENT <--> |HTTPS/JSON| API
+    REPO --> VM
 ```
 
 ## 專案結構
