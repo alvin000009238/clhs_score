@@ -11,31 +11,17 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.action.clickable
-import androidx.glance.action.ActionParameters
-import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.updateAll
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
-import androidx.glance.currentState
-import androidx.glance.state.PreferencesGlanceStateDefinition
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.glance.Image
-import androidx.glance.ImageProvider
-import androidx.glance.ColorFilter
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.width
 import androidx.glance.layout.height
-import androidx.glance.layout.size
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -66,11 +52,6 @@ data class ScheduleWidgetDisplayPreferences(
     val showClassroom: Boolean,
     val showTime: Boolean,
 )
-
-private val WidgetIsLoadingKey = booleanPreferencesKey("isLoading")
-private val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
-private val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
-private val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
     val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -103,7 +84,6 @@ fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
 }
 
 class ScheduleWidget : GlanceAppWidget() {
-    override val stateDefinition = PreferencesGlanceStateDefinition
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -111,36 +91,35 @@ class ScheduleWidget : GlanceAppWidget() {
         val settingsRepository = SettingsRepository(context)
 
         val report = cacheStore.loadWidgetScheduleReport()
-        
         val prefs = cacheStore.getWidgetPreferences()
-        syncScheduleWidgetState(
-            context = context,
-            glanceId = id,
-            preferences = ScheduleWidgetDisplayPreferences(
-                showTeacher = prefs.first,
-                showClassroom = prefs.second,
-                showTime = prefs.third,
-            ),
+        val displayPreferences = ScheduleWidgetDisplayPreferences(
+            showTeacher = prefs.first,
+            showClassroom = prefs.second,
+            showTime = prefs.third,
         )
-        
         val appSettings = settingsRepository.settings.first()
 
         provideContent {
             val colors = getWidgetColorProviders(context, appSettings)
             GlanceTheme(colors = colors) {
-                ScheduleWidgetContent(report?.items)
+                ScheduleWidgetContent(report?.items, displayPreferences)
             }
         }
     }
 }
 
 @Composable
-fun ScheduleWidgetContent(items: List<ScheduleItem>?) {
-    val calculatedIconSize = 36.dp
-    val isLoading = currentState(key = WidgetIsLoadingKey) ?: false
-    val showTeacher = currentState(key = WidgetShowTeacherKey) ?: true
-    val showClassroom = currentState(key = WidgetShowClassroomKey) ?: true
-    val showTime = currentState(key = WidgetShowTimeKey) ?: true
+fun ScheduleWidgetContent(
+    items: List<ScheduleItem>?,
+    preferences: ScheduleWidgetDisplayPreferences = ScheduleWidgetDisplayPreferences(
+        showTeacher = true,
+        showClassroom = true,
+        showTime = true,
+    ),
+) {
+    val showTeacher = preferences.showTeacher
+    val showClassroom = preferences.showClassroom
+    val showTime = preferences.showTime
     val calendar = Calendar.getInstance()
     val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
     val currentMinute = calendar.get(Calendar.MINUTE)
@@ -206,7 +185,6 @@ fun ScheduleWidgetContent(items: List<ScheduleItem>?) {
             .background(GlanceTheme.colors.background)
             .padding(16.dp)
             .clickable(actionStartActivity(intent)),
-        contentAlignment = Alignment.BottomEnd
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             Row(
@@ -296,78 +274,7 @@ fun ScheduleWidgetContent(items: List<ScheduleItem>?) {
                 }
             }
         } // End of Column
-
-        // FAB for refresh
-        Box(
-            modifier = GlanceModifier
-                .background(GlanceTheme.colors.primaryContainer)
-                .cornerRadius(100.dp)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = GlanceModifier.size(calculatedIconSize).padding(8.dp),
-                    color = GlanceTheme.colors.onPrimaryContainer
-                )
-            } else {
-                Image(
-                    provider = ImageProvider(com.clhs.score.R.drawable.ic_refresh),
-                    contentDescription = "重新整理",
-                    colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimaryContainer),
-                    modifier = GlanceModifier
-                        .size(calculatedIconSize)
-                        .cornerRadius(100.dp)
-                        .clickable(actionRunCallback<RefreshActionCallback>())
-                        .padding(8.dp)
-                )
-            }
-        }
     }
 }
 
-suspend fun syncScheduleWidgetPreferences(
-    context: Context,
-    preferences: ScheduleWidgetDisplayPreferences,
-) {
-    val appContext = context.applicationContext
-    val widget = ScheduleWidget()
-    val glanceIds = GlanceAppWidgetManager(appContext).getGlanceIds(ScheduleWidget::class.java)
-    glanceIds.forEach { glanceId ->
-        syncScheduleWidgetState(
-            context = appContext,
-            glanceId = glanceId,
-            preferences = preferences,
-        )
-        widget.update(appContext, glanceId)
-    }
-}
 
-private suspend fun syncScheduleWidgetState(
-    context: Context,
-    glanceId: GlanceId,
-    preferences: ScheduleWidgetDisplayPreferences,
-) {
-    updateAppWidgetState(context, glanceId) { prefs ->
-        prefs[WidgetShowTeacherKey] = preferences.showTeacher
-        prefs[WidgetShowClassroomKey] = preferences.showClassroom
-        prefs[WidgetShowTimeKey] = preferences.showTime
-    }
-}
-
-class RefreshActionCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters
-    ) {
-        updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[WidgetIsLoadingKey] = true
-        }
-        ScheduleWidget().update(context, glanceId)
-
-        updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[WidgetIsLoadingKey] = false
-        }
-        ScheduleWidget().updateAll(context)
-        WidgetUpdateReceiver.scheduleNextUpdate(context)
-    }
-}

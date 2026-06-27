@@ -154,23 +154,21 @@ class ArchitectureBoundaryTest {
 
         val saveIndex = saveBlock.indexOf("val saveJob = viewModel.saveWidgetPreferences")
         val joinIndex = saveBlock.indexOf("saveJob.join()")
-        val syncIndex = saveBlock.indexOf("syncScheduleWidgetPreferences")
+        val updateIndex = saveBlock.indexOf("updateAll(context)")
 
         assertTrue("Widget preferences must be saved before requesting a widget refresh", saveIndex >= 0)
         assertTrue("Widget refresh must wait for the preference save job", joinIndex > saveIndex)
-        assertTrue("Existing widgets must receive fresh Glance state after the new preferences are durable", syncIndex > joinIndex)
+        assertTrue("All widgets must be refreshed after the new preferences are durable", updateIndex > joinIndex)
     }
 
     @Test
-    fun scheduleWidgetDisplayPreferencesUseGlanceStateForExistingWidgets() {
+    fun scheduleWidgetReadsPreferencesFromDataStoreDirectly() {
         val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
 
-        assertTrue(source.contains("GlanceAppWidgetManager"))
-        assertTrue(source.contains("updateAppWidgetState(context, glanceId)"))
-        assertTrue(source.contains("currentState(key = WidgetShowTeacherKey)"))
-        assertTrue(source.contains("currentState(key = WidgetShowClassroomKey)"))
-        assertTrue(source.contains("currentState(key = WidgetShowTimeKey)"))
-        assertTrue(source.contains("syncScheduleWidgetPreferences"))
+        assertTrue("Widget must read preferences via GradeCacheStore", source.contains("cacheStore.getWidgetPreferences()"))
+        assertTrue("Widget must pass preferences as parameter to content", source.contains("ScheduleWidgetContent(report?.items, displayPreferences)"))
+        assertFalse("Widget must NOT use per-widget Glance state for preferences", source.contains("currentState(key ="))
+        assertFalse("Widget must NOT write preferences to Glance state", source.contains("updateAppWidgetState"))
     }
 
     @Test

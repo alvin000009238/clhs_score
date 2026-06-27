@@ -41,8 +41,8 @@ import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.ScheduleViewModel
 import com.clhs.score.viewmodel.SettingsUiState
-import com.clhs.score.widget.ScheduleWidgetDisplayPreferences
-import com.clhs.score.widget.syncScheduleWidgetPreferences
+import com.clhs.score.widget.ScheduleWidget
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.launch
 
 private const val GradesRoute = "grades"
@@ -266,14 +266,7 @@ fun ScoreApp(
                                     showTime = showTime,
                                 )
                                 saveJob.join()
-                                syncScheduleWidgetPreferences(
-                                    context = context,
-                                    preferences = ScheduleWidgetDisplayPreferences(
-                                        showTeacher = showTeacher,
-                                        showClassroom = showClassroom,
-                                        showTime = showTime,
-                                    ),
-                                )
+                                ScheduleWidget().updateAll(context)
                             }
                         }
                     )
