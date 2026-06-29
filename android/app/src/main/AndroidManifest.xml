@@ -20,6 +20,7 @@
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTask"
+            android:theme="@style/Theme.Score.Starting"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,7 +46,7 @@
 
         <activity
             android:name=".widget.WidgetConfigurationActivity"
-            android:theme="@style/Theme.Score.WidgetConfigure"
+            android:theme="@style/Theme.Score.Starting"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />

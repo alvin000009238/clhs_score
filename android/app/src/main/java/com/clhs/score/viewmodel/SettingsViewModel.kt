@@ -36,10 +36,11 @@ class SettingsViewModel(
     private val updateChecker: UpdateChecker,
     private val notificationTopicManager: NotificationTopicManager,
     private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
+    initialSettings: AppSettings = AppSettings(),
 ) : ViewModel() {
     private var lastNotificationsEnabled: Boolean? = null
 
-    private val _settings = MutableStateFlow(AppSettings())
+    private val _settings = MutableStateFlow(initialSettings)
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -149,7 +150,10 @@ class SettingsViewModel(
     companion object {
         private const val DEVELOPER_TAP_THRESHOLD = 10
 
-        fun factory(context: Context): ViewModelProvider.Factory =
+        fun factory(
+            context: Context,
+            initialSettings: AppSettings = AppSettings(),
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -161,6 +165,7 @@ class SettingsViewModel(
                         checker,
                         NotificationTopicManager(),
                         FirebaseAnalyticsLogger(appContext),
+                        initialSettings,
                     ) as T
                 }
             }

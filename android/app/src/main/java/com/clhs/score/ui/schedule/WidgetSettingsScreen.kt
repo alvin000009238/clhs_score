@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,13 +40,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.glance.appwidget.updateAll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.ScheduleItem
-import com.clhs.score.widget.ScheduleWidget
 import com.clhs.score.widget.syncAllScheduleWidgets
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,33 +55,40 @@ import java.util.Calendar
 fun WidgetSettingsScreen(
     isFromLauncher: Boolean,
     onDismiss: () -> Unit,
-    onSaveCompleted: () -> Unit = {}
+    onSaveCompleted: suspend () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val cacheStore = remember { GradeCacheStore(context) }
+    val savedPrefs by cacheStore.widgetPreferencesFlow().collectAsStateWithLifecycle(
+        initialValue = Triple(true, true, true)
+    )
+    val scheduleReport by cacheStore.widgetScheduleReportFlow().collectAsStateWithLifecycle(
+        initialValue = null
+    )
 
-    var isLoading by remember { mutableStateOf(true) }
     var showTeacher by remember { mutableStateOf(true) }
     var showClassroom by remember { mutableStateOf(true) }
     var showTime by remember { mutableStateOf(true) }
-    var scheduleItems by remember { mutableStateOf<List<ScheduleItem>?>(null) }
 
-    LaunchedEffect(Unit) {
-        val prefs = cacheStore.getWidgetPreferences()
-        showTeacher = prefs.first
-        showClassroom = prefs.second
-        showTime = prefs.third
-
-        val report = cacheStore.loadWidgetScheduleReport()
-        scheduleItems = report?.items
-        isLoading = false
+    LaunchedEffect(savedPrefs) {
+        showTeacher = savedPrefs.first
+        showClassroom = savedPrefs.second
+        showTime = savedPrefs.third
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("Widget 顯示設定") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                ),
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -91,8 +99,9 @@ fun WidgetSettingsScreen(
                         Button(
                             onClick = {
                                 coroutineScope.launch {
-                                    cacheStore.saveWidgetPreferences(showTeacher, showClassroom, showTime)
-                                    syncAllScheduleWidgets(context)
+                                    withContext(Dispatchers.IO) {
+                                        cacheStore.saveWidgetPreferences(showTeacher, showClassroom, showTime)
+                                    }
                                     onSaveCompleted()
                                 }
                             },
@@ -105,79 +114,75 @@ fun WidgetSettingsScreen(
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = "預覽效果",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Mock Widget Preview
+            MockScheduleWidgetPreview(
+                items = scheduleReport?.items,
+                showTeacher = showTeacher,
+                showClassroom = showClassroom,
+                showTime = showTime,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    text = "預覽效果",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .padding(16.dp)
+            )
 
-                // Mock Widget Preview
-                MockScheduleWidgetPreview(
-                    items = scheduleItems,
-                    showTeacher = showTeacher,
-                    showClassroom = showClassroom,
-                    showTime = showTime,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .padding(16.dp)
-                )
+            Spacer(modifier = Modifier.height(24.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "顯示設定",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
 
-                Text(
-                    text = "顯示設定",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                fun updatePrefs(teacher: Boolean, classroom: Boolean, time: Boolean) {
-                    showTeacher = teacher
-                    showClassroom = classroom
-                    showTime = time
-                    coroutineScope.launch {
+            fun updatePrefs(teacher: Boolean, classroom: Boolean, time: Boolean) {
+                showTeacher = teacher
+                showClassroom = classroom
+                showTime = time
+                coroutineScope.launch {
+                    withContext(Dispatchers.IO) {
                         cacheStore.saveWidgetPreferences(teacher, classroom, time)
                         syncAllScheduleWidgets(context)
                     }
                 }
+            }
 
-                SettingSwitchRow(
-                    title = "顯示任課教師",
-                    checked = showTeacher,
-                    onCheckedChange = { updatePrefs(it, showClassroom, showTime) }
+            SettingSwitchRow(
+                title = "顯示任課教師",
+                checked = showTeacher,
+                onCheckedChange = { updatePrefs(it, showClassroom, showTime) }
+            )
+            SettingSwitchRow(
+                title = "顯示上課地點",
+                checked = showClassroom,
+                onCheckedChange = { updatePrefs(showTeacher, it, showTime) }
+            )
+            SettingSwitchRow(
+                title = "顯示上課時間",
+                checked = showTime,
+                onCheckedChange = { updatePrefs(showTeacher, showClassroom, it) }
+            )
+
+            if (!isFromLauncher) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "設定變更會自動儲存並更新桌面上的小工具。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                SettingSwitchRow(
-                    title = "顯示上課地點",
-                    checked = showClassroom,
-                    onCheckedChange = { updatePrefs(showTeacher, it, showTime) }
-                )
-                SettingSwitchRow(
-                    title = "顯示上課時間",
-                    checked = showTime,
-                    onCheckedChange = { updatePrefs(showTeacher, showClassroom, it) }
-                )
-                
-                if (!isFromLauncher) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "設定變更會自動儲存並更新桌面上的小工具。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
@@ -226,7 +231,7 @@ fun MockScheduleWidgetPreview(
             ScheduleItem(dayOfWeek = displayDay, period = 4, subjectName = "物理", teacherName = "林老師", classroom = "實驗室")
         )
     } else {
-        items!!
+        items
     }
 
     var todayItems = sourceItems.filter { it.dayOfWeek == dayOfWeek }.sortedBy { it.period }

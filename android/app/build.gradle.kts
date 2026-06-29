@@ -111,6 +111,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.core:core-splashscreen:1.0.0")
     implementation("androidx.compose.foundation:foundation")
 
     implementation("androidx.compose.material:material-icons-core")

@@ -38,10 +38,10 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.flow.firstOrNull
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
@@ -62,6 +62,7 @@ val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
 val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
 val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
 val WidgetScheduleReportKey = stringPreferencesKey("widget_schedule_report")
+private val WidgetJson = Json { ignoreUnknownKeys = true }
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
     val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -103,18 +104,10 @@ class ScheduleWidget : GlanceAppWidget() {
 
         val prefs = cacheStore.getWidgetPreferences()
         val report = cacheStore.loadWidgetScheduleReport()
-        val reportStr = report?.let { Json.encodeToString(it) }
+        val reportStr = report?.let { WidgetJson.encodeToString(it) }
 
-        // Sync initial state to avoid race condition on first render
         updateAppWidgetState(context, id) { state ->
-            state[WidgetShowTeacherKey] = prefs.first
-            state[WidgetShowClassroomKey] = prefs.second
-            state[WidgetShowTimeKey] = prefs.third
-            if (reportStr != null) {
-                state[WidgetScheduleReportKey] = reportStr
-            } else {
-                state.remove(WidgetScheduleReportKey)
-            }
+            state.syncScheduleWidgetState(prefs, reportStr)
         }
 
         val appSettings = settingsRepository.settings.first()
@@ -132,21 +125,41 @@ suspend fun syncAllScheduleWidgets(context: Context) {
     val cacheStore = GradeCacheStore(context)
     val prefs = cacheStore.getWidgetPreferences()
     val report = cacheStore.loadWidgetScheduleReport()
-    val reportStr = report?.let { Json.encodeToString(it) }
+    val reportStr = report?.let { WidgetJson.encodeToString(it) }
 
     val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(ScheduleWidget::class.java)
     glanceIds.forEach { glanceId ->
         updateAppWidgetState(context, glanceId) { state ->
-            state[WidgetShowTeacherKey] = prefs.first
-            state[WidgetShowClassroomKey] = prefs.second
-            state[WidgetShowTimeKey] = prefs.third
-            if (reportStr != null) {
-                state[WidgetScheduleReportKey] = reportStr
-            } else {
-                state.remove(WidgetScheduleReportKey)
-            }
+            state.syncScheduleWidgetState(prefs, reportStr)
         }
         ScheduleWidget().update(context, glanceId)
+    }
+}
+
+suspend fun syncScheduleWidget(context: Context, appWidgetId: Int) {
+    val cacheStore = GradeCacheStore(context)
+    val prefs = cacheStore.getWidgetPreferences()
+    val report = cacheStore.loadWidgetScheduleReport()
+    val reportStr = report?.let { WidgetJson.encodeToString(it) }
+    val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+
+    updateAppWidgetState(context, glanceId) { state ->
+        state.syncScheduleWidgetState(prefs, reportStr)
+    }
+    ScheduleWidget().update(context, glanceId)
+}
+
+private fun MutablePreferences.syncScheduleWidgetState(
+    prefs: Triple<Boolean, Boolean, Boolean>,
+    reportStr: String?
+) {
+    this[WidgetShowTeacherKey] = prefs.first
+    this[WidgetShowClassroomKey] = prefs.second
+    this[WidgetShowTimeKey] = prefs.third
+    if (reportStr != null) {
+        this[WidgetScheduleReportKey] = reportStr
+    } else {
+        remove(WidgetScheduleReportKey)
     }
 }
 
@@ -157,7 +170,7 @@ fun ScheduleWidgetContent() {
     val showTime = currentState(key = WidgetShowTimeKey) ?: true
     val reportStr = currentState(key = WidgetScheduleReportKey)
     val items = reportStr?.let { 
-        try { Json { ignoreUnknownKeys = true }.decodeFromString<ScheduleReport>(it).items } 
+        try { WidgetJson.decodeFromString<ScheduleReport>(it).items }
         catch(e: Exception) { null } 
     }
     val calendar = Calendar.getInstance()
@@ -302,11 +315,11 @@ fun ScheduleWidgetContent() {
                                 }
                                 
                                 val secondaryTextElements = mutableListOf<String>()
-                                if (showClassroom && item.classroom.isNotBlank() && item.classroom != "null") {
-                                    secondaryTextElements.add(item.classroom)
-                                }
                                 if (showTeacher && item.teacherName.isNotBlank() && item.teacherName != "null") {
                                     secondaryTextElements.add(item.teacherName)
+                                }
+                                if (showClassroom && item.classroom.isNotBlank() && item.classroom != "null") {
+                                    secondaryTextElements.add(item.classroom)
                                 }
                                 val secondaryText = secondaryTextElements.joinToString(" • ")
 

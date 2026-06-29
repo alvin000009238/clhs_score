@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import androidx.glance.appwidget.updateAll
 import com.clhs.score.data.PERIOD_TIMES
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -4,7 +4,10 @@
         <item name="android:fontFamily">sans</item>
     </style>
 
-    <style name="Theme.Score.WidgetConfigure" parent="Theme.Score">
-        <!-- Re-use the main app theme so the settings page is a full-screen window -->
+    <style name="Theme.Score.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/score_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Score</item>
     </style>
+
 </resources>

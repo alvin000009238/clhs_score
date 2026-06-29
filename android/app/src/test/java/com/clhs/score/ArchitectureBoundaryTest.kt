@@ -148,12 +148,82 @@ class ArchitectureBoundaryTest {
     @Test
     fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
-        
-        val saveIndex = source.indexOf("cacheStore.saveWidgetPreferences")
-        val updateIndex = source.indexOf("syncAllScheduleWidgets(context)")
+
+        val saveIndex = source.indexOf("cacheStore.saveWidgetPreferences(teacher, classroom, time)")
+        val updateIndex = source.indexOf("syncAllScheduleWidgets(context)", saveIndex)
 
         assertTrue("Widget preferences must be saved before requesting a widget refresh", saveIndex >= 0)
         assertTrue("All widgets must be refreshed after the new preferences are saved", updateIndex > saveIndex)
+    }
+
+    @Test
+    fun widgetConfigurationUsesTargetedGlanceUpdateWithoutBlockingComposition() {
+        val activitySource = readSource("app/src/main/java/com/clhs/score/widget/WidgetConfigurationActivity.kt")
+        val widgetSource = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+
+        val setContentBlock = activitySource.substringAfter("setContent {")
+        assertTrue("Widget configuration must use the Android SplashScreen API while loading settings", activitySource.contains("installSplashScreen()"))
+        assertTrue(activitySource.contains("splashScreen.setKeepOnScreenCondition { launchSettings.value == null }"))
+        assertTrue(activitySource.contains("splashScreen.setOnExitAnimationListener"))
+        assertTrue(activitySource.contains("val iconView = runCatching { splashScreenView.iconView }.getOrNull()"))
+        assertTrue(activitySource.contains("if (iconView == null)"))
+        assertFalse(activitySource.contains("splashScreenView.iconView.animate()"))
+        assertFalse("Splash exit must not fade the whole splash window over app content", activitySource.contains("splashScreenView.view.animate()"))
+        assertTrue(activitySource.contains(".alpha(0f)"))
+        assertTrue(activitySource.contains(".scaleX(0.96f)"))
+        assertTrue(activitySource.contains(".scaleY(0.96f)"))
+        assertTrue(activitySource.contains(".setDuration(200L)"))
+        assertTrue(activitySource.contains("DecelerateInterpolator()"))
+        assertTrue(activitySource.contains(".withEndAction { splashScreenView.remove() }"))
+        assertFalse("Widget configuration must not block inside composition", setContentBlock.contains("runBlocking"))
+        assertFalse("Widget configuration must not block the main thread while loading settings", activitySource.contains("runBlocking"))
+        assertTrue(activitySource.contains("lifecycleScope.launch"))
+        assertTrue(activitySource.contains("collectAsStateWithLifecycle"))
+        assertFalse("Widget configuration must not render the first frame with a guessed default theme", activitySource.contains("initialValue = AppSettings()"))
+        assertTrue(activitySource.contains("initialValue = initialSettings"))
+        assertTrue(activitySource.contains("syncScheduleWidget(applicationContext, appWidgetId)"))
+        assertTrue(widgetSource.contains("getGlanceIdBy(appWidgetId)"))
+        assertTrue(widgetSource.contains("ScheduleWidget().update(context, glanceId)"))
+    }
+
+    @Test
+    fun appThemeChangesRefreshScheduleWidgets() {
+        val source = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
+
+        assertTrue(source.contains("LaunchedEffect(appSettings.themeMode, appSettings.dynamicColor, appSettings.amoledBlack)"))
+        assertTrue(source.contains("com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)"))
+    }
+
+    @Test
+    fun mainActivityUsesRealSettingsForFirstFrameTheme() {
+        val activitySource = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
+        val settingsViewModelSource = readSource("app/src/main/java/com/clhs/score/viewmodel/SettingsViewModel.kt")
+
+        val setContentIndex = activitySource.indexOf("setContent {")
+        val scoreThemeIndex = activitySource.indexOf("ScoreTheme(")
+        val readyGateIndex = activitySource.indexOf("if (!isReady)", scoreThemeIndex)
+
+        assertTrue("MainActivity must use the Android SplashScreen API while loading settings", activitySource.contains("installSplashScreen()"))
+        assertTrue(activitySource.contains("splashScreen.setKeepOnScreenCondition { launchSettings.value == null }"))
+        assertTrue(activitySource.contains("splashScreen.setOnExitAnimationListener"))
+        assertTrue(activitySource.contains("val iconView = runCatching { splashScreenView.iconView }.getOrNull()"))
+        assertTrue(activitySource.contains("if (iconView == null)"))
+        assertFalse(activitySource.contains("splashScreenView.iconView.animate()"))
+        assertFalse("Splash exit must not fade the whole splash window over app content", activitySource.contains("splashScreenView.view.animate()"))
+        assertTrue(activitySource.contains(".alpha(0f)"))
+        assertTrue(activitySource.contains(".scaleX(0.96f)"))
+        assertTrue(activitySource.contains(".scaleY(0.96f)"))
+        assertTrue(activitySource.contains(".setDuration(200L)"))
+        assertTrue(activitySource.contains("DecelerateInterpolator()"))
+        assertTrue(activitySource.contains(".withEndAction { splashScreenView.remove() }"))
+        assertTrue("MainActivity must load persisted settings asynchronously", activitySource.contains("lifecycleScope.launch"))
+        assertTrue("MainActivity must not block the main thread while loading settings", !activitySource.contains("runBlocking"))
+        assertTrue("MainActivity must wait for persisted settings before creating app content", setContentIndex < scoreThemeIndex)
+        assertTrue(activitySource.contains("val initialSettings = launchSettings.value ?: return@setContent"))
+        assertTrue(activitySource.contains("SettingsViewModel.factory(applicationContext, initialSettings)"))
+        assertTrue("Readiness gate must be inside ScoreTheme so the window does not flash the manifest light theme", scoreThemeIndex in 0 until readyGateIndex)
+        assertTrue(settingsViewModelSource.contains("initialSettings: AppSettings = AppSettings()"))
+        assertTrue(settingsViewModelSource.contains("private val _settings = MutableStateFlow(initialSettings)"))
     }
 
     @Test

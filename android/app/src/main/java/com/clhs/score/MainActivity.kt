@@ -3,6 +3,7 @@ package com.clhs.score
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,6 +11,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.content.ContextCompat
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -22,10 +24,12 @@ import com.clhs.score.analytics.AnalyticsLogger
 import com.clhs.score.analytics.AnalyticsParams
 import com.clhs.score.analytics.AnalyticsValues
 import com.clhs.score.analytics.FirebaseAnalyticsLogger
+import com.clhs.score.data.AppSettings
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.SessionStore
+import com.clhs.score.data.SettingsRepository
 import com.clhs.score.notifications.NotificationChannels
 import com.clhs.score.notifications.ScoreFirebaseMessagingService
 import com.clhs.score.reminders.GradeReminderNotifier
@@ -35,6 +39,7 @@ import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.ScoreViewModel
 import com.clhs.score.viewmodel.SettingsViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -45,6 +50,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val isAppLocked = mutableStateOf(false)
     private val isBiometricInvalidated = mutableStateOf(false)
     private val isInitialLockResolved = mutableStateOf(false)
+    private val launchSettings = mutableStateOf<AppSettings?>(null)
     private var wasInBackground = false
     private var shouldLockOnInitialReady = false
     private var isBiometricPromptShowing = false
@@ -52,6 +58,24 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private lateinit var analyticsLogger: AnalyticsLogger
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { launchSettings.value == null }
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            val iconView = runCatching { splashScreenView.iconView }.getOrNull()
+            if (iconView == null) {
+                splashScreenView.remove()
+                return@setOnExitAnimationListener
+            }
+            iconView.animate()
+                .alpha(0f)
+                .scaleX(0.96f)
+                .scaleY(0.96f)
+                .setDuration(200L)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction { splashScreenView.remove() }
+                .start()
+        }
+
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(applicationContext)
         analyticsLogger = FirebaseAnalyticsLogger(applicationContext)
@@ -84,9 +108,14 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }
         })
 
+        lifecycleScope.launch {
+            launchSettings.value = SettingsRepository(applicationContext).settings.first()
+        }
+
         setContent {
+            val initialSettings = launchSettings.value ?: return@setContent
             val settingsVm: SettingsViewModel = viewModel(
-                factory = SettingsViewModel.factory(applicationContext),
+                factory = SettingsViewModel.factory(applicationContext, initialSettings),
             )
             val appSettings by settingsVm.settings.collectAsStateWithLifecycle()
             val settingsUi by settingsVm.uiState.collectAsStateWithLifecycle()
@@ -98,38 +127,42 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 }
             }
 
-            if (!isReady) {
-                return@setContent
-            }
-
-            // Avoid briefly showing the login intro before the biometric lock decision is applied.
-            LaunchedEffect(isReady) {
-                if (!isInitialLockResolved.value) {
-                    if (shouldLockOnInitialReady &&
-                        sessionStore.hasBiometricSession()
-                    ) {
-                        isAppLocked.value = true
-                    }
-                    shouldLockOnInitialReady = false
-                    isInitialLockResolved.value = true
-                }
-            }
-            if (!isInitialLockResolved.value) {
-                return@setContent
-            }
-
-            val shouldSecureWindow = appSettings.biometricEnabled ||
-                isAppLocked.value ||
-                sessionStore.hasBiometricSession()
-            LaunchedEffect(shouldSecureWindow) {
-                applySecureWindowPolicy(shouldSecureWindow)
-            }
-
             ScoreTheme(
                 themeMode = appSettings.themeMode,
                 dynamicColor = appSettings.dynamicColor,
                 amoledBlack = appSettings.amoledBlack,
             ) {
+                if (!isReady) {
+                    return@ScoreTheme
+                }
+
+                // Avoid briefly showing the login intro before the biometric lock decision is applied.
+                LaunchedEffect(isReady) {
+                    if (!isInitialLockResolved.value) {
+                        if (shouldLockOnInitialReady &&
+                            sessionStore.hasBiometricSession()
+                        ) {
+                            isAppLocked.value = true
+                        }
+                        shouldLockOnInitialReady = false
+                        isInitialLockResolved.value = true
+                    }
+                }
+                if (!isInitialLockResolved.value) {
+                    return@ScoreTheme
+                }
+
+                val shouldSecureWindow = appSettings.biometricEnabled ||
+                    isAppLocked.value ||
+                    sessionStore.hasBiometricSession()
+                LaunchedEffect(shouldSecureWindow) {
+                    applySecureWindowPolicy(shouldSecureWindow)
+                }
+
+                LaunchedEffect(appSettings.themeMode, appSettings.dynamicColor, appSettings.amoledBlack) {
+                    com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)
+                }
+
                 val useFakeData = BuildConfig.USE_FAKE_DATA || appSettings.demoMode
                 val scoreVm: ScoreViewModel = viewModel(
                     factory = ScoreViewModel.factory(
