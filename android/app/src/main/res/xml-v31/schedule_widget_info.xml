@@ -7,5 +7,7 @@
     android:updatePeriodMillis="0"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:initialLayout="@layout/glance_default_loading_layout">
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:configure="com.clhs.score.widget.WidgetConfigurationActivity"
+    android:widgetFeatures="reconfigurable">
 </appwidget-provider>

@@ -147,28 +147,22 @@ class ArchitectureBoundaryTest {
 
     @Test
     fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
-        val source = readSource("app/src/main/java/com/clhs/score/ui/ScoreApp.kt")
-        val saveBlock = source
-            .substringAfter("onSaveWidgetPreferences = { showTeacher, showClassroom, showTime ->")
-            .substringBefore("}\n                        }")
-
-        val saveIndex = saveBlock.indexOf("val saveJob = viewModel.saveWidgetPreferences")
-        val joinIndex = saveBlock.indexOf("saveJob.join()")
-        val updateIndex = saveBlock.indexOf("updateAll(context)")
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
+        
+        val saveIndex = source.indexOf("cacheStore.saveWidgetPreferences")
+        val updateIndex = source.indexOf("syncAllScheduleWidgets(context)")
 
         assertTrue("Widget preferences must be saved before requesting a widget refresh", saveIndex >= 0)
-        assertTrue("Widget refresh must wait for the preference save job", joinIndex > saveIndex)
-        assertTrue("All widgets must be refreshed after the new preferences are durable", updateIndex > joinIndex)
+        assertTrue("All widgets must be refreshed after the new preferences are saved", updateIndex > saveIndex)
     }
 
     @Test
-    fun scheduleWidgetReadsPreferencesFromDataStoreDirectly() {
+    fun scheduleWidgetReadsPreferencesFromGlanceState() {
         val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
 
-        assertTrue("Widget must read preferences via GradeCacheStore", source.contains("cacheStore.getWidgetPreferences()"))
-        assertTrue("Widget must pass preferences as parameter to content", source.contains("ScheduleWidgetContent(report?.items, displayPreferences)"))
-        assertFalse("Widget must NOT use per-widget Glance state for preferences", source.contains("currentState(key ="))
-        assertFalse("Widget must NOT write preferences to Glance state", source.contains("updateAppWidgetState"))
+        assertTrue("Widget must read preferences via GradeCacheStore initially", source.contains("cacheStore.getWidgetPreferences()"))
+        assertTrue("Widget must sync data to Glance State to support reactive updates", source.contains("updateAppWidgetState"))
+        assertTrue("Widget content must read preferences using currentState", source.contains("currentState(key ="))
     }
 
     @Test

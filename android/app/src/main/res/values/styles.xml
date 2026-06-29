@@ -3,4 +3,8 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:fontFamily">sans</item>
     </style>
+
+    <style name="Theme.Score.WidgetConfigure" parent="Theme.Score">
+        <!-- Re-use the main app theme so the settings page is a full-screen window -->
+    </style>
 </resources>

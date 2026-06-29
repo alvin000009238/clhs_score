@@ -32,8 +32,19 @@ import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.compose.ui.unit.sp
+import androidx.glance.currentState
+import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.firstOrNull
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.ScheduleItem
+import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
@@ -47,11 +58,10 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.glance.material3.ColorProviders
 import java.util.Calendar
 
-data class ScheduleWidgetDisplayPreferences(
-    val showTeacher: Boolean,
-    val showClassroom: Boolean,
-    val showTime: Boolean,
-)
+val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
+val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
+val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
+val WidgetScheduleReportKey = stringPreferencesKey("widget_schedule_report")
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
     val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -84,42 +94,72 @@ fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
 }
 
 class ScheduleWidget : GlanceAppWidget() {
+    override val stateDefinition = PreferencesGlanceStateDefinition
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val cacheStore = GradeCacheStore(context)
         val settingsRepository = SettingsRepository(context)
 
-        val report = cacheStore.loadWidgetScheduleReport()
         val prefs = cacheStore.getWidgetPreferences()
-        val displayPreferences = ScheduleWidgetDisplayPreferences(
-            showTeacher = prefs.first,
-            showClassroom = prefs.second,
-            showTime = prefs.third,
-        )
+        val report = cacheStore.loadWidgetScheduleReport()
+        val reportStr = report?.let { Json.encodeToString(it) }
+
+        // Sync initial state to avoid race condition on first render
+        updateAppWidgetState(context, id) { state ->
+            state[WidgetShowTeacherKey] = prefs.first
+            state[WidgetShowClassroomKey] = prefs.second
+            state[WidgetShowTimeKey] = prefs.third
+            if (reportStr != null) {
+                state[WidgetScheduleReportKey] = reportStr
+            } else {
+                state.remove(WidgetScheduleReportKey)
+            }
+        }
+
         val appSettings = settingsRepository.settings.first()
 
         provideContent {
             val colors = getWidgetColorProviders(context, appSettings)
             GlanceTheme(colors = colors) {
-                ScheduleWidgetContent(report?.items, displayPreferences)
+                ScheduleWidgetContent()
             }
         }
     }
 }
 
+suspend fun syncAllScheduleWidgets(context: Context) {
+    val cacheStore = GradeCacheStore(context)
+    val prefs = cacheStore.getWidgetPreferences()
+    val report = cacheStore.loadWidgetScheduleReport()
+    val reportStr = report?.let { Json.encodeToString(it) }
+
+    val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(ScheduleWidget::class.java)
+    glanceIds.forEach { glanceId ->
+        updateAppWidgetState(context, glanceId) { state ->
+            state[WidgetShowTeacherKey] = prefs.first
+            state[WidgetShowClassroomKey] = prefs.second
+            state[WidgetShowTimeKey] = prefs.third
+            if (reportStr != null) {
+                state[WidgetScheduleReportKey] = reportStr
+            } else {
+                state.remove(WidgetScheduleReportKey)
+            }
+        }
+        ScheduleWidget().update(context, glanceId)
+    }
+}
+
 @Composable
-fun ScheduleWidgetContent(
-    items: List<ScheduleItem>?,
-    preferences: ScheduleWidgetDisplayPreferences = ScheduleWidgetDisplayPreferences(
-        showTeacher = true,
-        showClassroom = true,
-        showTime = true,
-    ),
-) {
-    val showTeacher = preferences.showTeacher
-    val showClassroom = preferences.showClassroom
-    val showTime = preferences.showTime
+fun ScheduleWidgetContent() {
+    val showTeacher = currentState(key = WidgetShowTeacherKey) ?: true
+    val showClassroom = currentState(key = WidgetShowClassroomKey) ?: true
+    val showTime = currentState(key = WidgetShowTimeKey) ?: true
+    val reportStr = currentState(key = WidgetScheduleReportKey)
+    val items = reportStr?.let { 
+        try { Json { ignoreUnknownKeys = true }.decodeFromString<ScheduleReport>(it).items } 
+        catch(e: Exception) { null } 
+    }
     val calendar = Calendar.getInstance()
     val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
     val currentMinute = calendar.get(Calendar.MINUTE)
@@ -253,19 +293,31 @@ fun ScheduleWidgetContent(
                                 if (item.subjectName.isNotBlank() && item.subjectName != "null") {
                                     Text(
                                         text = item.subjectName,
-                                        style = TextStyle(color = GlanceTheme.colors.onBackground)
+                                        style = TextStyle(
+                                            color = GlanceTheme.colors.onBackground,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
                                     )
+                                }
+                                
+                                val secondaryTextElements = mutableListOf<String>()
+                                if (showClassroom && item.classroom.isNotBlank() && item.classroom != "null") {
+                                    secondaryTextElements.add(item.classroom)
                                 }
                                 if (showTeacher && item.teacherName.isNotBlank() && item.teacherName != "null") {
-                                    Text(
-                                        text = item.teacherName,
-                                        style = TextStyle(color = GlanceTheme.colors.onBackground)
-                                    )
+                                    secondaryTextElements.add(item.teacherName)
                                 }
-                                if (showClassroom && item.classroom.isNotBlank() && item.classroom != "null") {
+                                val secondaryText = secondaryTextElements.joinToString(" • ")
+
+                                if (secondaryText.isNotEmpty()) {
                                     Text(
-                                        text = item.classroom,
-                                        style = TextStyle(color = GlanceTheme.colors.onBackground)
+                                        text = secondaryText,
+                                        style = TextStyle(
+                                            color = GlanceTheme.colors.onSurfaceVariant,
+                                            fontSize = 12.sp
+                                        ),
+                                        modifier = GlanceModifier.padding(top = 2.dp)
                                     )
                                 }
                             }

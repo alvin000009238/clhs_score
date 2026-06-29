@@ -43,6 +43,15 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="score_updates" />
 
+        <activity
+            android:name=".widget.WidgetConfigurationActivity"
+            android:theme="@style/Theme.Score.WidgetConfigure"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.ScheduleWidgetReceiver"
             android:exported="true">

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -175,6 +176,21 @@ class GradeCacheStore(context: Context) {
         }
 
         return Triple(showTeacher, showClassroom, showTime)
+    }
+
+    fun widgetPreferencesFlow() = appContext.gradeDataStore.data.map { prefs ->
+        Triple(
+            prefs[PREF_WIDGET_SHOW_TEACHER] ?: true,
+            prefs[PREF_WIDGET_SHOW_CLASSROOM] ?: true,
+            prefs[PREF_WIDGET_SHOW_TIME] ?: true
+        )
+    }
+
+    fun widgetScheduleReportFlow() = appContext.gradeDataStore.data.map { prefs ->
+        val serialized = prefs[PREF_WIDGET_SCHEDULE_REPORT] ?: return@map null
+        runCatching {
+            json.decodeFromString<ScheduleReport>(serialized)
+        }.getOrNull()
     }
 
     private fun decodeCachedGradeReport(serialized: String): GradeReport? =

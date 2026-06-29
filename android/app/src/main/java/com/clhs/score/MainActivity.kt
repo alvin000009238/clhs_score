@@ -557,7 +557,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         lifecycleScope.launch {
             runCatching {
                 GradeCacheStore(applicationContext).clearWidgetScheduleReport()
-                com.clhs.score.widget.ScheduleWidget().updateAll(applicationContext)
+                com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)
             }
         }
     }

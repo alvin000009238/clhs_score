@@ -20,7 +20,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    ScheduleWidget().updateAll(context)
+                    syncAllScheduleWidgets(context)
                 } catch (e: Exception) {
                     Log.e("WidgetUpdateReceiver", "Failed to update widget", e)
                 } finally {

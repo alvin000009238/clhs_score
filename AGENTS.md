@@ -84,6 +84,7 @@
 - 從 Widget 或 `scoreapp://schedule` deep link 進入 app 時，不得繞過生物識別鎖；若存在 biometric session，`MainActivity` 必須先顯示 `BiometricLockScreen`。課表頁網路 repository 要優先使用已解鎖的 in-memory active session；存在 biometric session 時不得 fallback 到一般 `SessionStore`，避免繞過鎖或誤顯示未登入。
 - Widget 本體不得讀取一般 session、biometric session、cookie 或 token；只能讀 `GradeCacheStore` 的 widget 專用課表快照。課表查詢成功或從舊的學生課表快取載入成功時，要同步寫入 widget 快照；登出、學生快取清除或生物識別資料失效時要清掉該快照並刷新 widget。
 - `ArchitectureBoundaryTest` 會防止 Widget 重新依賴登入狀態，並檢查 PIN 解鎖必須先 activate in-memory session 再解除鎖定；修改 widget、課表或生物識別流程時要保留這些邊界。
+- Widget 的設定由 Android 原生的 Widget 配置活動（Configuration Activity）即 `WidgetConfigurationActivity` 進行。它支援在新增 Widget 時跳出設定，且在 `schedule_widget_info.xml` 宣告為 `widgetFeatures="reconfigurable"`，使得使用者長按 Widget 時可以重新設定。設定項目會透過 `GradeCacheStore` 持久化，並呼叫 `ScheduleWidget().updateAll(...)` 即時更新。
 
 ## Android 成績匯出
 

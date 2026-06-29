@@ -49,6 +49,7 @@ private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
 private const val SubjectTrendRoute = "subject-trend"
 private const val ScheduleRoute = "schedule"
+private const val WidgetSettingsRoute = "widget_settings"
 private const val SettingsRoute = "settings"
 private const val DeveloperSettingsRoute = "developer-settings"
 
@@ -247,7 +248,7 @@ fun ScoreApp(
                     val coroutineScope = rememberCoroutineScope()
                     LaunchedEffect(uiState.report) {
                         if (uiState.report != null) {
-                            com.clhs.score.widget.ScheduleWidget().updateAll(context)
+                            com.clhs.score.widget.syncAllScheduleWidgets(context)
                         }
                     }
                     com.clhs.score.ui.schedule.ScheduleScreen(
@@ -258,17 +259,13 @@ fun ScoreApp(
                         onClassSelected = { viewModel.selectClass(it) },
                         onConfirmSelection = { viewModel.confirmSelection() },
                         onClearSelection = { viewModel.clearSelection() },
-                        onSaveWidgetPreferences = { showTeacher, showClassroom, showTime ->
-                            coroutineScope.launch {
-                                val saveJob = viewModel.saveWidgetPreferences(
-                                    showTeacher = showTeacher,
-                                    showClassroom = showClassroom,
-                                    showTime = showTime,
-                                )
-                                saveJob.join()
-                                ScheduleWidget().updateAll(context)
-                            }
-                        }
+                        onOpenWidgetSettings = { navController.navigate(WidgetSettingsRoute) }
+                    )
+                }
+                composable(WidgetSettingsRoute) {
+                    com.clhs.score.ui.schedule.WidgetSettingsScreen(
+                        isFromLauncher = false,
+                        onDismiss = { navController.popBackStack() }
                     )
                 }
                 composable(SettingsRoute) {

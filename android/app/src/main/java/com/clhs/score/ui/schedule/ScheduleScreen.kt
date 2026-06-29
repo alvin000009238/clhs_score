@@ -94,13 +94,12 @@ fun ScheduleScreen(
     onClassSelected: (String) -> Unit,
     onConfirmSelection: () -> Unit,
     onClearSelection: () -> Unit,
-    onSaveWidgetPreferences: (Boolean, Boolean, Boolean) -> Unit
+    onOpenWidgetSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showMoreMenu by remember { mutableStateOf(false) }
     var captureView: View? by remember { mutableStateOf(null) }
-    var showWidgetSettings by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -167,7 +166,7 @@ fun ScheduleScreen(
                             DropdownMenuItem(
                                 text = { Text("Widget 設定") },
                                 onClick = {
-                                    showWidgetSettings = true
+                                    onOpenWidgetSettings()
                                     showMoreMenu = false
                                 }
                             )
@@ -177,19 +176,6 @@ fun ScheduleScreen(
             )
         }
     ) { padding ->
-        if (showWidgetSettings) {
-            WidgetSettingsDialog(
-                initialShowTeacher = uiState.widgetShowTeacher,
-                initialShowClassroom = uiState.widgetShowClassroom,
-                initialShowTime = uiState.widgetShowTime,
-                onDismiss = { showWidgetSettings = false },
-                onSave = { teacher, classroom, time ->
-                    onSaveWidgetPreferences(teacher, classroom, time)
-                    showWidgetSettings = false
-                    Toast.makeText(context, "已更新 Widget 設定", Toast.LENGTH_SHORT).show()
-                }
-            )
-        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -615,57 +601,4 @@ private fun ScheduleDetailRow(
             )
         }
     }
-}
-
-@Composable
-fun WidgetSettingsDialog(
-    initialShowTeacher: Boolean,
-    initialShowClassroom: Boolean,
-    initialShowTime: Boolean,
-    onDismiss: () -> Unit,
-    onSave: (Boolean, Boolean, Boolean) -> Unit
-) {
-    var showTeacher by remember { mutableStateOf(initialShowTeacher) }
-    var showClassroom by remember { mutableStateOf(initialShowClassroom) }
-    var showTime by remember { mutableStateOf(initialShowTime) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Widget 顯示設定") },
-        text = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showTeacher = !showTeacher }.padding(vertical = 4.dp).fillMaxWidth()
-                ) {
-                    Checkbox(checked = showTeacher, onCheckedChange = { showTeacher = it })
-                    Text("顯示老師名稱", modifier = Modifier.padding(start = 8.dp))
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showClassroom = !showClassroom }.padding(vertical = 4.dp).fillMaxWidth()
-                ) {
-                    Checkbox(checked = showClassroom, onCheckedChange = { showClassroom = it })
-                    Text("顯示教室", modifier = Modifier.padding(start = 8.dp))
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showTime = !showTime }.padding(vertical = 4.dp).fillMaxWidth()
-                ) {
-                    Checkbox(checked = showTime, onCheckedChange = { showTime = it })
-                    Text("顯示上課時間", modifier = Modifier.padding(start = 8.dp))
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(showTeacher, showClassroom, showTime) }) {
-                Text("儲存")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }
