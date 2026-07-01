@@ -55,20 +55,13 @@ class GradeCacheStore(context: Context) {
         val key = stringPreferencesKey("grade_${studentNo}_${yearValue}_${examValue}")
         val serialized = appContext.gradeDataStore.data.map { prefs -> prefs[key] }.firstOrNull() ?: return null
         decodeCachedGradeReport(serialized)?.let { return it }
-        val migrated = decodeLegacyGradeReport(serialized)?.also { migratedReport ->
-            appContext.gradeDataStore.edit { prefs ->
-                prefs[key] = json.encodeToString(migratedReport.toCachedGradeReport())
-            }
-        }
-        if (migrated == null) {
-            DeveloperDiagnostics.recordEvent(
-                context = appContext,
-                area = "GradeCache",
-                message = "grade report cache decode failed",
-            )
-            appContext.gradeDataStore.edit { prefs -> prefs.remove(key) }
-        }
-        return migrated
+        DeveloperDiagnostics.recordEvent(
+            context = appContext,
+            area = "GradeCache",
+            message = "grade report cache expired or decode failed",
+        )
+        appContext.gradeDataStore.edit { prefs -> prefs.remove(key) }
+        return null
     }
 
     private suspend inline fun <reified T> decodeCacheValue(
@@ -194,12 +187,7 @@ class GradeCacheStore(context: Context) {
 
     private fun decodeCachedGradeReport(serialized: String): GradeReport? =
         runCatching {
-            json.decodeFromString<CachedGradeReport>(serialized).toGradeReport()
-        }.getOrNull()
-
-    private fun decodeLegacyGradeReport(serialized: String): GradeReport? =
-        runCatching {
-            json.decodeFromString<GradeReport>(serialized).withoutRawResult()
+            json.decodeFromString<CachedGradeReport>(serialized).toCurrentGradeReport()
         }.getOrNull()
 
     private companion object {

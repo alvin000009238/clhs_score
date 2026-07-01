@@ -43,6 +43,9 @@ class SchoolGradeClientTest {
         assertEquals("期末考", structure.single().exams.single().text)
         assertEquals("範例學生", report.studentInfo.studentName)
         assertEquals("DEMO-001", report.studentInfo.studentNo)
+        assertEquals(114, report.examSummary?.year)
+        assertEquals("下", report.examSummary?.termText)
+        assertEquals("第二次段考", report.examSummary?.examName)
         assertEquals("國語文", report.subjects.single().subjectName)
         assertEquals(78.0, report.subjects.single().scoreValue, 0.001)
         assertEquals(80.0, report.standards.single().top ?: 0.0, 0.001)
@@ -191,6 +194,14 @@ class SchoolGradeClientTest {
             },
             "SubjectExamInfoList": [
               {
+                "Year": 114,
+                "Term": 2,
+                "ExamName": "第二次段考",
+                "YearTermItem": {
+                  "Year": 114,
+                  "Term": 2,
+                  "TermText": "下"
+                },
                 "SubjectName": "國語文",
                 "Score": 78,
                 "ScoreDisplay": "78.00",

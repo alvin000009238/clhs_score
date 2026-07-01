@@ -49,7 +49,10 @@ internal fun parseGradeReport(raw: String): GradeReport {
     val root = SchoolJson.parseToJsonElement(raw).jsonObject
     val result = root["Result"].asObjectOrNull() ?: JsonObject(emptyMap())
     val examItem = result["ExamItem"].asObjectOrNull()
-    val subjects = result["SubjectExamInfoList"].asArrayOrNull()?.mapNotNull { item ->
+    val subjectItems = result["SubjectExamInfoList"].asArrayOrNull().orEmpty()
+    val firstSubject = subjectItems.firstNotNullOfOrNull { it.asObjectOrNull() }
+    val subjectYearTerm = firstSubject?.get("YearTermItem").asObjectOrNull()
+    val subjects = subjectItems.mapNotNull { item ->
         val subject = item.asObjectOrNull() ?: return@mapNotNull null
         SubjectScore(
             subjectName = subject.string("SubjectName"),
@@ -103,18 +106,21 @@ internal fun parseGradeReport(raw: String): GradeReport {
             showCategoryRank = result.boolean("Show類組排名"),
             showCategoryRankCount = result.boolean("Show類組排名人數"),
         ),
-        examSummary = examItem?.let {
+        examSummary = (examItem ?: firstSubject)?.let {
             ExamSummary(
-                year = it.int("Year"),
-                termText = it.string("Term"),
-                examName = it.string("ExamName"),
-                totalScoreDisplay = it.string("TotalScoreDisplay"),
-                averageScoreDisplay = it.string("AVGScoreDisplay"),
-                classRank = it.double("ClassRank"),
-                classCount = it.int("ClassCount"),
-                categoryRank = it.double("類組排名"),
-                categoryRankCount = it.int("類組排名Count"),
-                flunkCount = it.int("FlunkCount"),
+                year = firstSubject?.int("Year") ?: examItem?.int("Year"),
+                termText = subjectYearTerm?.string("TermText").orEmpty()
+                    .ifBlank { firstSubject?.string("Term").orEmpty() }
+                    .ifBlank { examItem?.string("Term").orEmpty() },
+                examName = firstSubject?.string("ExamName").orEmpty()
+                    .ifBlank { examItem?.string("ExamName").orEmpty() },
+                totalScoreDisplay = examItem?.string("TotalScoreDisplay").orEmpty(),
+                averageScoreDisplay = examItem?.string("AVGScoreDisplay").orEmpty(),
+                classRank = examItem?.double("ClassRank"),
+                classCount = examItem?.int("ClassCount"),
+                categoryRank = examItem?.double("類組排名"),
+                categoryRankCount = examItem?.int("類組排名Count"),
+                flunkCount = examItem?.int("FlunkCount"),
             )
         },
         subjects = subjects,

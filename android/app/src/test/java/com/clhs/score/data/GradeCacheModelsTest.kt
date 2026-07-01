@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,5 +34,12 @@ class GradeCacheModelsTest {
         assertEquals(report.subjects, restored.subjects)
         assertEquals(report.standards, restored.standards)
         assertTrue(restored.rawResult.isEmpty())
+    }
+
+    @Test
+    fun oldCachedReportVersionIsExpired() {
+        val cached = FakeData.latestReport().toCachedGradeReport().copy(cacheVersion = 1)
+
+        assertNull(cached.toCurrentGradeReport())
     }
 }

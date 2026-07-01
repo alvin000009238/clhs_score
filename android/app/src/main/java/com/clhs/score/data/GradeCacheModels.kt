@@ -3,9 +3,11 @@ package com.clhs.score.data
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
+internal const val GRADE_REPORT_CACHE_VERSION = 2
+
 @Serializable
 internal data class CachedGradeReport(
-    val cacheVersion: Int = 1,
+    val cacheVersion: Int = GRADE_REPORT_CACHE_VERSION,
     val message: String,
     val studentInfo: StudentInfo,
     val examSummary: ExamSummary?,
@@ -30,6 +32,5 @@ internal fun CachedGradeReport.toGradeReport(): GradeReport = GradeReport(
     rawResult = JsonObject(emptyMap()),
 )
 
-internal fun GradeReport.withoutRawResult(): GradeReport = copy(
-    rawResult = JsonObject(emptyMap()),
-)
+internal fun CachedGradeReport.toCurrentGradeReport(): GradeReport? =
+    takeIf { cacheVersion == GRADE_REPORT_CACHE_VERSION }?.toGradeReport()
