@@ -13,10 +13,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -259,6 +261,8 @@ internal fun DistributionBar(score: Double, standard: GradeStandard) {
     val displayDistributions = distributions.asReversed()
     val total = distributions.sumOf { it.count }.coerceAtLeast(1)
     val mine = distributions.firstOrNull { it.isMine }
+    val weights = displayDistributions.map { (it.count.toFloat() / total).coerceAtLeast(0.02f) }
+    val mineIndex = displayDistributions.indexOfFirst { it.isMine }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -274,43 +278,48 @@ internal fun DistributionBar(score: Double, standard: GradeStandard) {
                 fontWeight = FontWeight.SemiBold,
             )
         }
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            displayDistributions.forEach { item ->
-                val weight = (item.count.toFloat() / total).coerceAtLeast(0.02f)
+            val gap = 2.dp
+            val markerSize = 8.dp
+            Row(
+                modifier = Modifier.fillMaxWidth().height(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                displayDistributions.forEachIndexed { index, item ->
+                    Box(
+                        modifier = Modifier
+                            .weight(weights[index])
+                            .height(24.dp)
+                            .background(distributionColor(item.label), RoundedCornerShape(5.dp)),
+                    )
+                }
+            }
+            if (mineIndex >= 0) {
+                val weightTotal = weights.sum().coerceAtLeast(0.001f)
+                val gapWidth = gap * (displayDistributions.size - 1).coerceAtLeast(0).toFloat()
+                val weightedWidth = (maxWidth - gapWidth).coerceAtLeast(0.dp)
+                val beforeWeight = weights.take(mineIndex).sum()
+                val markerCenter = gap * mineIndex.toFloat() +
+                    weightedWidth * ((beforeWeight + weights[mineIndex] / 2f) / weightTotal)
+                val markerX = (markerCenter - markerSize / 2f)
+                    .coerceIn(0.dp, (maxWidth - markerSize).coerceAtLeast(0.dp))
                 Box(
                     modifier = Modifier
-                        .weight(weight)
-                        .height(24.dp)
-                        .background(distributionColor(item.label), RoundedCornerShape(5.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (item.isMine) {
-                        Text(
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = RoundedCornerShape(999.dp)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant,
-                                    shape = RoundedCornerShape(999.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                            text = "我",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.2.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                        .offset(x = markerX)
+                        .width(markerSize)
+                        .height(markerSize)
+                        .align(Alignment.CenterStart)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(999.dp)
+                        ),
+                )
             }
         }
         displayDistributions.forEach { item ->
