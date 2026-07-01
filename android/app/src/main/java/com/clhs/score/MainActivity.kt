@@ -160,7 +160,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 }
 
                 LaunchedEffect(appSettings.themeMode, appSettings.dynamicColor, appSettings.amoledBlack) {
-                    com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)
+                    com.clhs.score.widget.syncAllScheduleWidgets(applicationContext, appSettings)
                 }
 
                 val useFakeData = BuildConfig.USE_FAKE_DATA || appSettings.demoMode

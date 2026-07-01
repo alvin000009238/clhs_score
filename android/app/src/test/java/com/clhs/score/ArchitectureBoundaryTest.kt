@@ -191,7 +191,7 @@ class ArchitectureBoundaryTest {
         val source = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
 
         assertTrue(source.contains("LaunchedEffect(appSettings.themeMode, appSettings.dynamicColor, appSettings.amoledBlack)"))
-        assertTrue(source.contains("com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)"))
+        assertTrue(source.contains("com.clhs.score.widget.syncAllScheduleWidgets(applicationContext, appSettings)"))
     }
 
     @Test
@@ -233,6 +233,10 @@ class ArchitectureBoundaryTest {
         assertTrue("Widget must read preferences via GradeCacheStore initially", source.contains("cacheStore.getWidgetPreferences()"))
         assertTrue("Widget must sync data to Glance State to support reactive updates", source.contains("updateAppWidgetState"))
         assertTrue("Widget content must read preferences using currentState", source.contains("currentState(key ="))
+        assertTrue("Widget theme mode must be part of Glance state", source.contains("WidgetThemeModeKey"))
+        assertTrue("Widget dynamic color setting must be part of Glance state", source.contains("WidgetDynamicColorKey"))
+        assertTrue("Widget AMOLED setting must be part of Glance state", source.contains("WidgetAmoledBlackKey"))
+        assertTrue("Widget colors must use the current Glance theme settings", source.contains("getWidgetColorProviders(context, currentWidgetSettings(appSettings))"))
     }
 
     @Test

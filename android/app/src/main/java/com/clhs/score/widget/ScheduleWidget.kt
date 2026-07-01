@@ -62,6 +62,9 @@ val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
 val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
 val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
 val WidgetScheduleReportKey = stringPreferencesKey("widget_schedule_report")
+val WidgetThemeModeKey = stringPreferencesKey("widget_theme_mode")
+val WidgetDynamicColorKey = booleanPreferencesKey("widget_dynamic_color")
+val WidgetAmoledBlackKey = booleanPreferencesKey("widget_amoled_black")
 private val WidgetJson = Json { ignoreUnknownKeys = true }
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
@@ -105,15 +108,14 @@ class ScheduleWidget : GlanceAppWidget() {
         val prefs = cacheStore.getWidgetPreferences()
         val report = cacheStore.loadWidgetScheduleReport()
         val reportStr = report?.let { WidgetJson.encodeToString(it) }
-
-        updateAppWidgetState(context, id) { state ->
-            state.syncScheduleWidgetState(prefs, reportStr)
-        }
-
         val appSettings = settingsRepository.settings.first()
 
+        updateAppWidgetState(context, id) { state ->
+            state.syncScheduleWidgetState(prefs, reportStr, appSettings)
+        }
+
         provideContent {
-            val colors = getWidgetColorProviders(context, appSettings)
+            val colors = getWidgetColorProviders(context, currentWidgetSettings(appSettings))
             GlanceTheme(colors = colors) {
                 ScheduleWidgetContent()
             }
@@ -121,16 +123,17 @@ class ScheduleWidget : GlanceAppWidget() {
     }
 }
 
-suspend fun syncAllScheduleWidgets(context: Context) {
+suspend fun syncAllScheduleWidgets(context: Context, settings: AppSettings? = null) {
     val cacheStore = GradeCacheStore(context)
     val prefs = cacheStore.getWidgetPreferences()
     val report = cacheStore.loadWidgetScheduleReport()
     val reportStr = report?.let { WidgetJson.encodeToString(it) }
+    val appSettings = settings ?: SettingsRepository(context).settings.first()
 
     val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(ScheduleWidget::class.java)
     glanceIds.forEach { glanceId ->
         updateAppWidgetState(context, glanceId) { state ->
-            state.syncScheduleWidgetState(prefs, reportStr)
+            state.syncScheduleWidgetState(prefs, reportStr, appSettings)
         }
         ScheduleWidget().update(context, glanceId)
     }
@@ -141,26 +144,43 @@ suspend fun syncScheduleWidget(context: Context, appWidgetId: Int) {
     val prefs = cacheStore.getWidgetPreferences()
     val report = cacheStore.loadWidgetScheduleReport()
     val reportStr = report?.let { WidgetJson.encodeToString(it) }
+    val appSettings = SettingsRepository(context).settings.first()
     val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
 
     updateAppWidgetState(context, glanceId) { state ->
-        state.syncScheduleWidgetState(prefs, reportStr)
+        state.syncScheduleWidgetState(prefs, reportStr, appSettings)
     }
     ScheduleWidget().update(context, glanceId)
 }
 
 private fun MutablePreferences.syncScheduleWidgetState(
     prefs: Triple<Boolean, Boolean, Boolean>,
-    reportStr: String?
+    reportStr: String?,
+    settings: AppSettings,
 ) {
     this[WidgetShowTeacherKey] = prefs.first
     this[WidgetShowClassroomKey] = prefs.second
     this[WidgetShowTimeKey] = prefs.third
+    this[WidgetThemeModeKey] = settings.themeMode.name
+    this[WidgetDynamicColorKey] = settings.dynamicColor
+    this[WidgetAmoledBlackKey] = settings.amoledBlack
     if (reportStr != null) {
         this[WidgetScheduleReportKey] = reportStr
     } else {
         remove(WidgetScheduleReportKey)
     }
+}
+
+@Composable
+private fun currentWidgetSettings(fallback: AppSettings): AppSettings {
+    val themeMode = currentState(key = WidgetThemeModeKey)
+        ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+        ?: fallback.themeMode
+    return fallback.copy(
+        themeMode = themeMode,
+        dynamicColor = currentState(key = WidgetDynamicColorKey) ?: fallback.dynamicColor,
+        amoledBlack = currentState(key = WidgetAmoledBlackKey) ?: fallback.amoledBlack,
+    )
 }
 
 @Composable
