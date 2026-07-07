@@ -6,7 +6,6 @@ import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -46,10 +45,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 private const val LOGIN_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC/Auth/Auth/CloudLogin"
 private const val SCHOOL_DOMAIN = "shcloud2.k12ea.gov.tw"
 private const val LOGIN_HOOK_LOG_PREFIX = "[ScoreLoginHook]"
+private const val LOGIN_HOOK_SUCCESS_PREFIX = "$LOGIN_HOOK_LOG_PREFIX LoginSuccess "
 private const val WEB_VIEW_LOGIN_TAG = "WebViewLogin"
 
 @Composable
@@ -225,15 +227,6 @@ private fun WebViewContent(
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
 
-                val jsInterface = LoginJsInterface { studentNo ->
-                    if (loginHandled || !isTrustedLoginPage) return@LoginJsInterface
-                    loginHandled = true
-                    val cookieString = CookieManager.getInstance()
-                        .getCookie("https://$SCHOOL_DOMAIN") ?: ""
-                    post { onLoginSuccess(studentNo, cookieString) }
-                }
-                addJavascriptInterface(jsInterface, "AndroidLogin")
-
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
                         view: WebView?,
@@ -267,6 +260,18 @@ private fun WebViewContent(
 
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                         val message = consoleMessage?.message().orEmpty()
+                        if (message.startsWith(LOGIN_HOOK_SUCCESS_PREFIX)) {
+                            if (loginHandled || !isTrustedLoginPage) return true
+                            loginHandled = true
+                            val studentNo = URLDecoder.decode(
+                                message.removePrefix(LOGIN_HOOK_SUCCESS_PREFIX),
+                                StandardCharsets.UTF_8.name(),
+                            )
+                            val cookieString = CookieManager.getInstance()
+                                .getCookie("https://$SCHOOL_DOMAIN") ?: ""
+                            post { onLoginSuccess(studentNo, cookieString) }
+                            return true
+                        }
                         if (message.startsWith(LOGIN_HOOK_LOG_PREFIX)) {
                             Log.w(WEB_VIEW_LOGIN_TAG, message)
                             return true
@@ -302,15 +307,6 @@ private fun WebView.clearLoginWebData(clearCookies: Boolean) {
     if (clearCookies) {
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
-    }
-}
-
-private class LoginJsInterface(
-    private val onSuccess: (studentNo: String) -> Unit,
-) {
-    @JavascriptInterface
-    fun onLoginSuccess(loginId: String) {
-        onSuccess(loginId)
     }
 }
 
@@ -352,9 +348,7 @@ private val LOGIN_HOOK_JS = """
                 try {
                     var resp = JSON.parse(self.responseText);
                     if (resp && resp.Result && resp.Result.IsLoginSuccess === true) {
-                        if (window.AndroidLogin) {
-                            window.AndroidLogin.onLoginSuccess(loginId);
-                        }
+                        console.info('$LOGIN_HOOK_SUCCESS_PREFIX' + encodeURIComponent(loginId));
                     }
                 } catch(e) {
                     console.warn('$LOGIN_HOOK_LOG_PREFIX Login response handling failed: ' + (e && e.message ? e.message : e));
