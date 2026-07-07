@@ -225,7 +225,7 @@ private fun WebViewContent(
 
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
-                cookieManager.setAcceptThirdPartyCookies(this, true)
+                cookieManager.setAcceptThirdPartyCookies(this, false)
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
