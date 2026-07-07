@@ -12,7 +12,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import kotlinx.serialization.encodeToString
 
 object BiometricHelper {
     private const val KEY_PROVIDER = "AndroidKeyStore"

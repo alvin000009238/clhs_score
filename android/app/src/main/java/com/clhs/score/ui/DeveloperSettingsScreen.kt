@@ -54,12 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.clhs.score.BuildConfig
-import com.clhs.score.data.GradeChange
-import com.clhs.score.data.GradeChangeField
-import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.DeveloperDiagnostics
 import com.clhs.score.data.ErrorDiagnosticContext
+import com.clhs.score.data.GradeChange
+import com.clhs.score.data.GradeChangeField
+import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.LocalDataCategory
 import com.clhs.score.data.LocalDataCleanupResult
 import com.clhs.score.data.StorageDiagnostics

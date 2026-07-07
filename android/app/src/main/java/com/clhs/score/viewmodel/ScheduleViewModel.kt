@@ -14,21 +14,20 @@ import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.FakeScheduleRepository
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.NetworkScheduleRepository
+import com.clhs.score.data.ScheduleClassOption
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleRepository
 import com.clhs.score.data.ScheduleYearTermOption
 import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SessionStore
 import com.clhs.score.data.parseYearTerm
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-
-import com.clhs.score.data.ScheduleClassOption
 
 data class ScheduleUiState(
     val isLoading: Boolean = false,

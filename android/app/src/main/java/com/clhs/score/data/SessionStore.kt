@@ -7,13 +7,13 @@ import android.util.Base64
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.security.SecureRandom
-import javax.crypto.Cipher
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import java.security.SecureRandom
+import javax.crypto.Cipher
 
 class SessionStore(context: Context) {
     private val appContext = context.applicationContext

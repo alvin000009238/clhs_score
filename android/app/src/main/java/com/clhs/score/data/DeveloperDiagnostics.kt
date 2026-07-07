@@ -4,12 +4,12 @@ import android.content.Context
 import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.WebStorage
+import androidx.core.content.edit
 import com.clhs.score.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
-import androidx.core.content.edit
 
 enum class LocalDataCategory(
     val key: String,

@@ -51,10 +51,9 @@ import com.clhs.score.data.SubjectAnalysis
 import com.clhs.score.data.deltaText
 import com.clhs.score.data.scoreDistributions
 import com.clhs.score.data.shortenSubjectName
+import com.clhs.score.ui.theme.ScoreTheme
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-
-import com.clhs.score.ui.theme.ScoreTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

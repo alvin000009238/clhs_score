@@ -13,16 +13,15 @@ import com.clhs.score.analytics.FirebaseAnalyticsLogger
 import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.ExamSelection
-import com.clhs.score.data.GradeCacheStore
-import com.clhs.score.data.GradeExporter
-
 import com.clhs.score.data.GradeAnalysis
+import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.GradeChangeSet
+import com.clhs.score.data.GradeExporter
 import com.clhs.score.data.GradeReminderRepository
 import com.clhs.score.data.GradeReminderState
 import com.clhs.score.data.GradeReport
-import com.clhs.score.data.GradeRepository
 import com.clhs.score.data.GradeReportDiffer
+import com.clhs.score.data.GradeRepository
 import com.clhs.score.data.GradeTrend
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.SchoolException

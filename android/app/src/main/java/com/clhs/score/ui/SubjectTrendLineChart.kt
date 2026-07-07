@@ -30,10 +30,10 @@ import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.cleanSubjectName
+import com.clhs.score.data.getSubjectBaseName
 import com.clhs.score.data.shortenSubjectName
 import kotlin.math.max
 import kotlin.math.min
-import com.clhs.score.data.getSubjectBaseName
 
 private data class SelectedPoint(val x: Float, val y: Float, val score: Double, val subject: String, val color: Color, val isPointClick: Boolean = true)
 
