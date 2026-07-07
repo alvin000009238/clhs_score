@@ -217,6 +217,11 @@ private fun WebViewContent(
                     displayZoomControls = false
                     textZoom = 100
                     cacheMode = WebSettings.LOAD_NO_CACHE
+                    allowFileAccess = false
+                    allowContentAccess = false
+                    javaScriptCanOpenWindowsAutomatically = false
+                    setSupportMultipleWindows(false)
+                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     loadWithOverviewMode = true
                     useWideViewPort = true
                     userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
