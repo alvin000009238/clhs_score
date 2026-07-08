@@ -1,4 +1,4 @@
-# CLHS Score Android — The Affiliated Zhongli Senior High School of National Central University
+# CLHS Pocket App — The Affiliated Zhongli Senior High School of National Central University
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alvin000009238/clhs_score)

@@ -269,7 +269,7 @@ class ArchitectureBoundaryTest {
     fun developerDiagnosticsAreNotSharedThroughBroadTextIntent() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/DeveloperSettingsScreen.kt")
 
-        assertTrue(source.contains("copyText(\"CLHS Score 診斷包\""))
+        assertTrue(source.contains("copyText(\"CLHS Pocket 診斷包\""))
         assertFalse("Diagnostic reports must not be sent through ACTION_SEND", source.contains("ACTION_SEND"))
         assertFalse("Diagnostic reports must not be embedded in EXTRA_TEXT", source.contains("EXTRA_TEXT"))
         assertFalse("Diagnostic reports must not keep a broad share helper", source.contains("shareText("))

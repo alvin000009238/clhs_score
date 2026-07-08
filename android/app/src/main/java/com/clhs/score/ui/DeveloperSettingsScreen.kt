@@ -150,7 +150,7 @@ fun DeveloperSettingsScreen(
         DiagnosticReportDialog(
             report = report,
             onCopy = {
-                context.copyText("CLHS Score 診斷包", report)
+                context.copyText("CLHS Pocket 診斷包", report)
                 Toast.makeText(context, "診斷包已複製", Toast.LENGTH_SHORT).show()
             },
             onDismiss = { diagnosticReport = null },

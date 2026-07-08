@@ -1,7 +1,7 @@
 ---
 version: alpha
-name: CLHS Score
-description: Design system for the CLHS Score Android app.
+name: CLHS Pocket
+description: Design system for the CLHS Pocket Android app.
 colors:
   primary: "#1565C0"
   primaryDark: "#82B1FF"

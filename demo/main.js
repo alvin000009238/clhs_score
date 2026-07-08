@@ -3,8 +3,8 @@ import anime from 'animejs';
 // ===== i18n Translations =====
 const translations = {
   zh: {
-    'nav.brand': '壢中成績',
-    'hero.title': '壢中成績 app',
+    'nav.brand': '壢中 Pocket',
+    'hero.title': '壢中 Pocket app',
     'hero.subtitle': '更聰明的方式，查看你的成績',
     'hero.desc': '一鍵掌握班排與科目表現，為壢中學生量身設計。',
     'hero.cta': '下載最新版本',
@@ -47,8 +47,8 @@ const translations = {
     'bottom.cta.desc': '立即下載，體驗最流暢的成績查詢方式。'
   },
   en: {
-    'nav.brand': 'CLHS Score',
-    'hero.title': 'CLHS Score app',
+    'nav.brand': 'CLHS Pocket',
+    'hero.title': 'CLHS Pocket app',
     'hero.subtitle': 'A smarter way to check your grades',
     'hero.desc': 'Instantly view class rank and subject performance. Built for CLHS students.',
     'hero.cta': 'Download Latest',

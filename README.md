@@ -1,4 +1,4 @@
-# 壢中成績 Android — 中大壢中
+# 壢中 Pocket App — 中大壢中
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/alvin000009238/clhs_score)

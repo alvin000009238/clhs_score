@@ -217,7 +217,7 @@ fun GradesScreen(
                     title = {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "壢中成績",
+                                text = "壢中 Pocket",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )

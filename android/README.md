@@ -1,6 +1,6 @@
-# Android 原生成績查詢 App
+# 壢中 Pocket Android App
 
-這是成績查詢系統的 Android 原生版本，使用 Kotlin、Jetpack Compose 與 Material 3 實作。手機端直接連線學校系統。
+這是壢中 Pocket 的 Android 原生版本，使用 Kotlin、Jetpack Compose 與 Material 3 實作。手機端直接連線學校系統。
 
 ## 技術棧
 

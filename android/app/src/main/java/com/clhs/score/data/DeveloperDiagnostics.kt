@@ -97,7 +97,7 @@ class DeveloperDiagnostics(private val context: Context) {
     suspend fun buildErrorReport(context: ErrorDiagnosticContext): String = withContext(Dispatchers.IO) {
         val storage = buildStorageDiagnostics()
         buildString {
-            appendLine("CLHS Score 診斷包")
+            appendLine("CLHS Pocket 診斷包")
             appendLine("產生時間: ${storage.generatedAt}")
             appendLine("App ID: ${BuildConfig.APPLICATION_ID}")
             appendLine("版本: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
