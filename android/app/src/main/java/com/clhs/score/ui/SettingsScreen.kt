@@ -267,9 +267,10 @@ fun AboutScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        painter = painterResource(R.drawable.clhs_pocket_foreground),
                         contentDescription = "CLHS Pocket",
                         modifier = Modifier.size(80.dp),
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(androidx.compose.ui.graphics.Color.White),
                     )
                 }
 

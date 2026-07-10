@@ -4,7 +4,7 @@ import anime from 'animejs';
 const translations = {
   zh: {
     'nav.brand': '壢中 Pocket',
-    'hero.title': '壢中 Pocket app',
+    'hero.title': '壢中 Pocket',
     'hero.subtitle': '更聰明的方式，查看你的成績',
     'hero.desc': '一鍵掌握班排與科目表現，為壢中學生量身設計。',
     'hero.cta': '下載最新版本',
@@ -48,7 +48,7 @@ const translations = {
   },
   en: {
     'nav.brand': 'CLHS Pocket',
-    'hero.title': 'CLHS Pocket app',
+    'hero.title': 'CLHS Pocket',
     'hero.subtitle': 'A smarter way to check your grades',
     'hero.desc': 'Instantly view class rank and subject performance. Built for CLHS students.',
     'hero.cta': 'Download Latest',
