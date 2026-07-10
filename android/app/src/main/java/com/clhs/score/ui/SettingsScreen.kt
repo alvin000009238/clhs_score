@@ -77,6 +77,7 @@ import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.ui.components.PinSetupDialog
+import com.clhs.score.ui.theme.OutfitFontFamily
 import com.clhs.score.R
 import com.clhs.score.viewmodel.SettingsUiState
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
@@ -153,6 +154,48 @@ private val APACHE_LICENSE_TEXT = """
 
    END OF TERMS AND CONDITIONS
 """.trimIndent()
+
+private val APACHE_COMPONENTS = listOf(
+    "AndroidX Activity Compose",
+    "AndroidX Biometric",
+    "AndroidX Compose Foundation",
+    "AndroidX Compose Material 3",
+    "AndroidX Compose Material Icons Core",
+    "AndroidX Compose Runtime",
+    "AndroidX Compose UI",
+    "AndroidX Compose UI Graphics",
+    "AndroidX Compose UI Tooling Preview",
+    "AndroidX Core Splashscreen",
+    "AndroidX DataStore Preferences",
+    "AndroidX Glance AppWidget",
+    "AndroidX Glance Material 3",
+    "AndroidX Lifecycle Runtime Compose",
+    "AndroidX Lifecycle ViewModel Compose",
+    "AndroidX Navigation Compose",
+    "AndroidX Security Crypto",
+    "AndroidX WorkManager Runtime KTX",
+    "Firebase Cloud Messaging",
+    "Firebase Remote Config",
+    "Kotlin Standard Library",
+    "kotlinx.coroutines Android",
+    "kotlinx.serialization JSON",
+    "Material Symbols Rounded",
+    "OkHttp",
+)
+
+internal data class LicenseEntry(
+    val componentName: String,
+    val licenseName: String,
+    val licenseText: String,
+)
+
+internal fun buildThirdPartyLicenses(outfitLicenseText: String): List<LicenseEntry> =
+    (APACHE_COMPONENTS.map {
+        LicenseEntry(it, "Apache License 2.0", APACHE_LICENSE_TEXT)
+    } + listOf(
+        LicenseEntry("jsoup", "MIT License", MIT_LICENSE_TEXT),
+        LicenseEntry("Outfit", "SIL Open Font License 1.1", outfitLicenseText),
+    )).sortedBy { it.componentName.lowercase() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -280,6 +323,7 @@ fun AboutScreen(
                 Text(
                     text = "CLHS Pocket",
                     style = MaterialTheme.typography.headlineMedium,
+                    fontFamily = OutfitFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -597,6 +641,14 @@ fun OpenSourceLicensesScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val outfitLicenseText = remember {
+        context.resources.openRawResource(R.raw.outfit_ofl)
+            .bufferedReader()
+            .use { it.readText() }
+    }
+    val thirdPartyLicenses = remember(outfitLicenseText) {
+        buildThirdPartyLicenses(outfitLicenseText)
+    }
 
     SubpageLayout(
         onBack = onBack,
@@ -669,24 +721,15 @@ fun OpenSourceLicensesScreen(
                 }
             }
 
-            SectionHeader("第三方元件")
+            SectionHeader("第三方元件（${thirdPartyLicenses.size}）")
 
-            ThirdPartyLicenseCard(
-                licenseName = "Apache License 2.0",
-                libraries = listOf(
-                    "AndroidX (Activity, Biometric, Compose, Core, DataStore, Glance, Lifecycle, Navigation, Security, Work)",
-                    "Firebase SDK (Analytics, Cloud Messaging, etc.)",
-                    "Kotlin / Kotlinx (Coroutines, Serialization)",
-                    "OkHttp",
-                ),
-                licenseText = APACHE_LICENSE_TEXT,
-            )
-
-            ThirdPartyLicenseCard(
-                licenseName = "MIT License",
-                libraries = listOf("Jsoup"),
-                licenseText = MIT_LICENSE_TEXT,
-            )
+            thirdPartyLicenses.forEach { license ->
+                ThirdPartyLicenseCard(
+                    componentName = license.componentName,
+                    licenseName = license.licenseName,
+                    licenseText = license.licenseText,
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -695,8 +738,8 @@ fun OpenSourceLicensesScreen(
 
 @Composable
 private fun ThirdPartyLicenseCard(
+    componentName: String,
     licenseName: String,
-    libraries: List<String>,
     licenseText: String,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -718,12 +761,12 @@ private fun ThirdPartyLicenseCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = licenseName,
+                        text = componentName,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "${libraries.size} 個元件",
+                        text = licenseName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -735,25 +778,6 @@ private fun ThirdPartyLicenseCard(
                     contentDescription = if (expanded) "收合" else "展開",
                 )
             }
-
-            // 元件清單
-            libraries.forEach { lib ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = lib,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-
             if (expanded) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),

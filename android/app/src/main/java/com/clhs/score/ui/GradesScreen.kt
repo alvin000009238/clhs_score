@@ -88,6 +88,7 @@ import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ExamSummary
 import com.clhs.score.data.GradeAnalysis
+import com.clhs.score.ui.theme.OutfitFontFamily
 import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.GradeReminderState
 import com.clhs.score.data.GradeReminderText
@@ -1575,6 +1576,7 @@ private fun GradesNavigationDrawerContent(
         Text(
             text = "CLHS Pocket",
             style = MaterialTheme.typography.titleLarge,
+            fontFamily = OutfitFontFamily,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .align(Alignment.TopStart)

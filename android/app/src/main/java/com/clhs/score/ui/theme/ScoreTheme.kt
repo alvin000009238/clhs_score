@@ -17,7 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.clhs.score.R
 import com.clhs.score.data.ThemeMode
 
 data class ScoreSemanticColors(
@@ -54,6 +58,10 @@ internal val ScoreShapes = androidx.compose.material3.Shapes(
     small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
     medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
     large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+)
+
+internal val OutfitFontFamily = FontFamily(
+    Font(R.font.outfit_bold_subset, FontWeight.Bold),
 )
 
 internal val LightColors = lightColorScheme(

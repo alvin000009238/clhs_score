@@ -43,6 +43,11 @@
 - Material Symbols rounded icon 由 `android/app/src/main/res/font/material_symbols_rounded_*_subset.ttf` 提供，不要重新加入 `dev.vicart:compose-material-symbols` 整包依賴。
 - 新增 icon ligature 時，先更新 `android/scripts/generate_material_symbol_subset.py` 的 `ICONS` 清單，再執行 `python android/scripts/generate_material_symbol_subset.py` 重新產生 outline / filled subset font。產生器找不到舊 Gradle AAR 時會下載 Google 官方原始字型；離線環境可用 `--source-font` 指定本機字型。
 
+## Android 品牌字型與開源授權
+
+- App 內可見的 `CLHS Pocket` 品牌字樣共用 `ScoreTheme.kt` 的 `OutfitFontFamily`；`outfit_bold_subset.ttf` 只保留目前品牌名稱需要的 Outfit Bold 700 字形。品牌文字或字重變更時，需從 Google Fonts 官方 Outfit 字型重新產生 subset，不能直接顯示 subset 未包含的字元。
+- `OpenSourceLicensesScreen` 透過 `buildThirdPartyLicenses(...)` 逐項顯示實際開源元件與各自授權；不要把非開源 SDK Terms 混進「開放原始碼授權」。新增或移除 runtime 開源元件時，同步更新 `OpenSourceLicensesTest` 的數量與唯一性檢查。
+
 ## Android R8 與安裝包大小
 
 - Release build 已啟用 `isMinifyEnabled` 與 `isShrinkResources`；新增 library 或功能時不要用 `-keep class androidx.**`、`-keep class org.jsoup.**` 這類 broad keep 擋住 R8。優先依賴 library 自帶的 consumer rules，只針對 app 端需要反射或跨版本保留名稱的入口加最小規則，例如 WorkManager worker class name，並用 `:app:assembleRelease` 比對 APK 大小。
