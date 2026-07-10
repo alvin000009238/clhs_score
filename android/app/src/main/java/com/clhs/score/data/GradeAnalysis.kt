@@ -297,6 +297,19 @@ fun List<YearTermOption>.sameTermHistorySource(
     )
 }
 
+fun List<YearTermOption>.sameTermTrendSource(
+    yearValue: String?,
+): SimulationHistorySource? {
+    if (yearValue.isNullOrBlank()) return null
+    val current = firstOrNull { it.value == yearValue } ?: return null
+    if (current.exams.size < 2) return null
+    return SimulationHistorySource(
+        yearTerm = current,
+        exams = current.exams,
+        usesPreviousTerm = false,
+    )
+}
+
 fun List<YearTermOption>.simulationHistorySource(
     yearValue: String?,
     examValue: String?,
@@ -341,6 +354,12 @@ fun buildGradeTrend(
     }
     return GradeTrend(points = previousPoints + currentReport.toTrendPoint(currentExamName))
 }
+
+fun buildGradeTrend(
+    reports: List<Pair<String, GradeReport>>,
+): GradeTrend = GradeTrend(
+    points = reports.map { (examName, report) -> report.toTrendPoint(examName) },
+)
 
 fun deltaText(label: String, delta: Double, unit: String = ""): String {
     val direction = when {

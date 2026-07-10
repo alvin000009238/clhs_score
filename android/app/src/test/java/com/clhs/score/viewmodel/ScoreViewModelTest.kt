@@ -74,6 +74,69 @@ class ScoreViewModelTest {
     }
 
     @Test
+    fun selectingExamKeepsCurrentReportUntilFetchCompletes() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        viewModel.selectExam("114_1_E2")
+        runCurrent()
+
+        assertEquals("114_1_E4", viewModel.gradesState.value.selectedExamValue)
+        assertEquals("期末考", viewModel.gradesState.value.report?.examSummary?.examName)
+        assertEquals(true, viewModel.gradesState.value.isLoadingGrades)
+
+        repository.completeFetch("114_1_E2", FakeData.previousReport())
+        runCurrent()
+
+        assertEquals("114_1_E2", viewModel.gradesState.value.selectedExamValue)
+        assertEquals("第二次段考", viewModel.gradesState.value.report?.examSummary?.examName)
+        assertEquals(false, viewModel.gradesState.value.isLoadingGrades)
+    }
+
+    @Test
+    fun selectingFirstExamStillBuildsSameTermTrend() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(
+            listOf(
+                YearTermOption(
+                    text = "114 學年度 第 1 學期",
+                    value = "114_1",
+                    exams = listOf(
+                        ExamOption("第一次段考", "114_1_E1"),
+                        ExamOption("第二次段考", "114_1_E2"),
+                        ExamOption("期末考", "114_1_E4"),
+                    ),
+                ),
+            ),
+        )
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        viewModel.selectExam("114_1_E1")
+        runCurrent()
+        repository.completeFetch("114_1_E1", FakeData.reportFor("114_1", "114_1_E1"))
+        runCurrent()
+        repository.completeFetch("114_1_E2", FakeData.previousReport())
+        runCurrent()
+
+        assertEquals(null, viewModel.gradesState.value.trendError)
+        assertEquals(
+            listOf("第一次段考", "第二次段考", "期末考"),
+            viewModel.gradesState.value.trend?.points?.map { it.examName },
+        )
+    }
+
+    @Test
     fun logoutProvidesActiveSessionToRepository() = runTest(dispatcher) {
         val repository = ControllableGradeRepository()
         val viewModel = ScoreViewModel(repository)
@@ -119,6 +182,36 @@ class ScoreViewModelTest {
         assertEquals("113_2", viewModel.gradesState.value.selectedYearValue)
         assertEquals(null, viewModel.gradesState.value.selectedExamValue)
         assertEquals(null, viewModel.gradesState.value.report)
+        assertEquals(false, viewModel.gradesState.value.isLoadingGrades)
+    }
+
+    @Test
+    fun selectingYearWithExamsKeepsCurrentReportUntilFetchCompletes() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        assertEquals(114, viewModel.gradesState.value.report?.examSummary?.year)
+
+        viewModel.selectYear("113_2")
+        runCurrent()
+
+        assertEquals("114_1", viewModel.gradesState.value.selectedYearValue)
+        assertEquals("114_1_E4", viewModel.gradesState.value.selectedExamValue)
+        assertEquals(114, viewModel.gradesState.value.report?.examSummary?.year)
+        assertEquals(true, viewModel.gradesState.value.isLoadingGrades)
+
+        repository.completeFetch("113_2_E3", FakeData.reportFor("113_2", "113_2_E3"))
+        runCurrent()
+
+        assertEquals("113_2", viewModel.gradesState.value.selectedYearValue)
+        assertEquals("113_2_E3", viewModel.gradesState.value.selectedExamValue)
+        assertEquals(113, viewModel.gradesState.value.report?.examSummary?.year)
         assertEquals(false, viewModel.gradesState.value.isLoadingGrades)
     }
 
@@ -187,6 +280,20 @@ class ScoreViewModelTest {
 
         assertEquals(emptyList<GradeReport>(), viewModel.subjectTrendState.value.reports)
         assertEquals(emptySet<String>(), viewModel.subjectTrendState.value.selectedYearValues)
+    }
+
+    @Test
+    fun logoutIgnoresStaleStructureResult() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        viewModel.logout()
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+
+        assertFalse(viewModel.gradesState.value.isLoggedIn)
+        assertEquals(emptyList<YearTermOption>(), viewModel.gradesState.value.structure)
     }
 
     @Test

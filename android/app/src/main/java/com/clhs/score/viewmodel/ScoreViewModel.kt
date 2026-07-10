@@ -39,6 +39,7 @@ import com.clhs.score.data.latestExam
 import com.clhs.score.data.latestYearTerm
 import com.clhs.score.data.parseYearTerm
 import com.clhs.score.data.sameTermHistorySource
+import com.clhs.score.data.sameTermTrendSource
 import com.clhs.score.data.simulationHistorySource
 import com.clhs.score.reminders.GradeReminderScheduler
 import kotlinx.coroutines.CancellationException
@@ -112,6 +113,7 @@ class ScoreViewModel(
     private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
 ) : ViewModel() {
     private var session: AuthenticatedSession? = null
+    private var structureRequestId = 0
     private var gradeRequestId = 0
     private var subjectTrendRequestId = 0
     private var pendingReminderTarget: Pair<String, String>? = null
@@ -168,34 +170,44 @@ class ScoreViewModel(
         val year = _gradesState.value.structure.firstOrNull { it.value == value } ?: return
         val latestExam = year.latestExam()
         gradeRequestId++
+        if (latestExam == null) {
+            _gradesState.update {
+                it.copy(
+                    selectedYearValue = value,
+                    selectedExamValue = null,
+                    isLoadingGrades = false,
+                    isLoadingComparison = false,
+                    comparisonReport = null,
+                    comparisonExamName = null,
+                    comparisonError = null,
+                    isLoadingTrend = false,
+                    isLoadingSimulatorHistory = false,
+                    trendReports = emptyList(),
+                    trendError = null,
+                    trendHistoryLabel = null,
+                    trend = null,
+                    simulatorHistoryReports = emptyList(),
+                    simulatorHistoryLabel = null,
+                    report = null,
+                    analysis = null,
+                    insights = null,
+                    expandedSubjectKeys = emptySet(),
+                    errorMessage = null,
+                    gradeReminderChangeSet = null,
+                )
+            }
+            return
+        }
         _gradesState.update {
             it.copy(
-                selectedYearValue = value,
-                selectedExamValue = latestExam?.value,
-                isLoadingGrades = false,
-                isLoadingComparison = false,
-                comparisonReport = null,
-                comparisonExamName = null,
-                comparisonError = null,
                 isLoadingTrend = false,
                 isLoadingSimulatorHistory = false,
-                trendReports = emptyList(),
-                trendError = null,
-                trendHistoryLabel = null,
-                trend = null,
-                simulatorHistoryReports = emptyList(),
-                simulatorHistoryLabel = null,
-                report = null,
-                analysis = null,
-                insights = null,
                 expandedSubjectKeys = emptySet(),
                 errorMessage = null,
                 gradeReminderChangeSet = null,
             )
         }
-        if (latestExam != null) {
-            fetchGrades(value, latestExam.value, analyticsTrigger = AnalyticsValues.TRIGGER_YEAR_SELECT)
-        }
+        fetchGrades(value, latestExam.value, analyticsTrigger = AnalyticsValues.TRIGGER_YEAR_SELECT)
     }
 
     fun selectExam(value: String) {
@@ -203,19 +215,8 @@ class ScoreViewModel(
         gradeRequestId++
         _gradesState.update {
             it.copy(
-                selectedExamValue = value,
-                comparisonReport = null,
-                comparisonExamName = null,
-                comparisonError = null,
                 isLoadingTrend = false,
                 isLoadingSimulatorHistory = false,
-                trendReports = emptyList(),
-                trendError = null,
-                trendHistoryLabel = null,
-                trend = null,
-                simulatorHistoryReports = emptyList(),
-                simulatorHistoryLabel = null,
-                insights = null,
                 expandedSubjectKeys = emptySet(),
                 errorMessage = null,
                 gradeReminderChangeSet = null,
@@ -300,6 +301,7 @@ class ScoreViewModel(
             AnalyticsEvents.LOGOUT,
             mapOf(AnalyticsParams.SOURCE to source),
         )
+        structureRequestId++
         gradeRequestId++
         ensuredGradeReminderWorkKey = null
         resetSubjectTrendState()
@@ -646,10 +648,12 @@ class ScoreViewModel(
 
     private fun loadStructure(forceRefresh: Boolean = false) {
         val currentSession = session ?: return
+        val requestId = ++structureRequestId
         viewModelScope.launch {
             _gradesState.update { it.copy(isLoadingStructure = true, errorMessage = null) }
             runCatching { repository.loadStructure(currentSession, forceRefresh) }
                 .onSuccess { structure ->
+                    if (requestId != structureRequestId) return@onSuccess
                     analyticsLogger.logEvent(
                         AnalyticsEvents.GRADE_STRUCTURE_LOAD,
                         mapOf(
@@ -699,6 +703,7 @@ class ScoreViewModel(
                 }
                 .onFailure { error ->
                     error.throwIfCancellation()
+                    if (requestId != structureRequestId) return@onFailure
                     analyticsLogger.logEvent(
                         AnalyticsEvents.GRADE_STRUCTURE_LOAD,
                         mapOf(AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE),
@@ -732,18 +737,6 @@ class ScoreViewModel(
                     isLoadingComparison = false,
                     isLoadingTrend = false,
                     isLoadingSimulatorHistory = false,
-                    report = null,
-                    comparisonReport = null,
-                    comparisonExamName = null,
-                    comparisonError = null,
-                    trendReports = emptyList(),
-                    trendError = null,
-                    trendHistoryLabel = null,
-                    trend = null,
-                    simulatorHistoryReports = emptyList(),
-                    simulatorHistoryLabel = null,
-                    analysis = null,
-                    insights = null,
                     errorMessage = null,
                 )
             }
@@ -811,6 +804,8 @@ class ScoreViewModel(
         _gradesState.update {
             it.copy(
                 isLoadingGrades = false,
+                selectedYearValue = yearValue,
+                selectedExamValue = examValue,
                 report = report,
                 comparisonReport = null,
                 comparisonExamName = null,
@@ -851,9 +846,10 @@ class ScoreViewModel(
             ?.firstOrNull { it.value == examValue }
             ?.text
             ?: report.examSummary?.examName.orEmpty().ifBlank { "本次考試" }
-        val trendSource = structure.sameTermHistorySource(yearValue, examValue)
+        val comparisonSource = structure.sameTermHistorySource(yearValue, examValue)
+        val trendSource = structure.sameTermTrendSource(yearValue)
         val simulatorSource = structure.simulationHistorySource(yearValue, examValue)
-        if (trendSource == null && simulatorSource == null) {
+        if (comparisonSource == null && trendSource == null && simulatorSource == null) {
             _gradesState.update {
                 val analysis = it.analysis ?: buildGradeAnalysis(report)
                 if (requestId != gradeRequestId) it else it.copy(
@@ -876,7 +872,7 @@ class ScoreViewModel(
         viewModelScope.launch {
             _gradesState.update {
                 if (requestId != gradeRequestId) it else it.copy(
-                    isLoadingComparison = trendSource != null,
+                    isLoadingComparison = comparisonSource != null,
                     isLoadingTrend = trendSource != null,
                     isLoadingSimulatorHistory = simulatorSource != null,
                     comparisonError = null,
@@ -884,7 +880,8 @@ class ScoreViewModel(
                 )
             }
             runCatching {
-                val requests = historicalRequests(trendSource, simulatorSource)
+                val requests = historicalRequests(comparisonSource, trendSource, simulatorSource)
+                    .filterNot { it.yearValue == yearValue && it.examValue == examValue }
                 coroutineScope {
                     requests.map { request ->
                         async {
@@ -894,22 +891,25 @@ class ScoreViewModel(
                 }
             }.onSuccess { reportsByRequest ->
                 if (requestId != gradeRequestId) return@onSuccess
-                val trendPairs = trendSource?.historyExams.orEmpty().mapNotNull { historyExam ->
+                val comparisonPairs = comparisonSource?.historyExams.orEmpty().mapNotNull { historyExam ->
                     val request = HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName)
                     reportsByRequest[request]?.let { historyExam.examName to it }
+                }
+                val trendPairs = trendSource?.historyExams.orEmpty().mapNotNull { historyExam ->
+                    val request = HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName)
+                    val trendReport = if (historyExam.yearValue == yearValue && historyExam.examValue == examValue) {
+                        report
+                    } else {
+                        reportsByRequest[request]
+                    }
+                    trendReport?.let { historyExam.examName to it }
                 }
                 val simulatorReports = simulatorSource?.historyExams.orEmpty().mapNotNull { historyExam ->
                     val request = HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName)
                     reportsByRequest[request]
                 }
-                val comparison = trendPairs.lastOrNull()
-                val trend = trendPairs.takeIf { it.isNotEmpty() }?.let {
-                    buildGradeTrend(
-                        currentExamName = currentExamName,
-                        currentReport = report,
-                        previousReports = it,
-                    )
-                }
+                val comparison = comparisonPairs.lastOrNull()
+                val trend = trendPairs.takeIf { it.size >= 2 }?.let(::buildGradeTrend)
                 _gradesState.update {
                     val analysis = if (comparison != null) {
                         buildGradeAnalysis(
@@ -961,15 +961,11 @@ class ScoreViewModel(
     }
 
     private fun historicalRequests(
-        trendSource: SimulationHistorySource?,
-        simulatorSource: SimulationHistorySource?,
+        vararg sources: SimulationHistorySource?,
     ): List<HistoricalExamRequest> {
-        val requests = buildList {
-            trendSource?.historyExams?.forEach { historyExam ->
-                add(HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName))
-            }
-            simulatorSource?.historyExams?.forEach { historyExam ->
-                add(HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName))
+        val requests = sources.filterNotNull().flatMap { source ->
+            source.historyExams.map { historyExam ->
+                HistoricalExamRequest(historyExam.yearValue, historyExam.examValue, historyExam.examName)
             }
         }
         return requests.distinctBy { it.yearValue to it.examValue }

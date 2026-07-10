@@ -59,6 +59,10 @@ shared_grades/
 # Large Files
 *.tar
 *.tar.gz
+*.aar
+
+# Local extraction scratch
+extracted_aar/
 
 # Logs
 *.log

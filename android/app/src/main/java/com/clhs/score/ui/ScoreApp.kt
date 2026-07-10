@@ -33,6 +33,7 @@ import com.clhs.score.analytics.AnalyticsParameterSanitizer
 import com.clhs.score.analytics.AnalyticsParams
 import com.clhs.score.analytics.AnalyticsValues
 import com.clhs.score.analytics.NoOpAnalyticsLogger
+import com.clhs.score.analytics.UsageStatisticsStore
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
@@ -47,6 +48,9 @@ private const val SubjectTrendRoute = "subject-trend"
 private const val ScheduleRoute = "schedule"
 private const val WidgetSettingsRoute = "widget_settings"
 private const val SettingsRoute = "settings"
+private const val AboutRoute = "about"
+private const val UsageStatisticsRoute = "usage-statistics"
+private const val OpenSourceLicensesRoute = "open-source-licenses"
 private const val DeveloperSettingsRoute = "developer-settings"
 
 @Composable
@@ -168,6 +172,10 @@ fun ScoreApp(
                     }
                     GradesScreen(
                         state = gradesState,
+                        settings = settings,
+                        settingsUiState = settingsUiState,
+                        isExporting = gradesState.isExporting,
+                        exportResult = gradesState.exportResult,
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                         onSelectYear = onSelectYear,
                         onSelectExam = onSelectExam,
@@ -178,6 +186,23 @@ fun ScoreApp(
                         onSetNotificationsEnabled = onSetNotificationsEnabled,
                         onGradeReminderPrerequisiteFailed = onGradeReminderPrerequisiteFailed,
                         onDismissGradeReminderChanges = onDismissGradeReminderChanges,
+                        onSetThemeMode = onSetThemeMode,
+                        onSetDynamicColor = onSetDynamicColor,
+                        onSetAmoledBlack = onSetAmoledBlack,
+                        onCheckUpdate = onCheckUpdate,
+                        onOpenAbout = { navController.navigate(AboutRoute) },
+                        onDismissDeveloperToast = onDismissDeveloperToast,
+                        onOpenDeveloperSettings = {
+                            analyticsLogger.logEvent(
+                                AnalyticsEvents.FEATURE_OPEN,
+                                mapOf(AnalyticsParams.FEATURE to AnalyticsValues.FEATURE_SETTINGS),
+                            )
+                            navController.navigate(DeveloperSettingsRoute)
+                        },
+                        onExportGrades = onExportGrades,
+                        onDismissExportResult = onDismissExportResult,
+                        onLogout = onLogout,
+                        onSetBiometricEnabled = onSetBiometricEnabled,
                         onOpenScoreSimulator = {
                             analyticsLogger.logEvent(
                                 AnalyticsEvents.SCORE_SIMULATOR_USED,
@@ -202,13 +227,6 @@ fun ScoreApp(
                                 mapOf(AnalyticsParams.FEATURE to AnalyticsValues.FEATURE_SUBJECT_TREND),
                             )
                             navController.navigate(SubjectTrendRoute)
-                        },
-                        onOpenSettings = {
-                            analyticsLogger.logEvent(
-                                AnalyticsEvents.FEATURE_OPEN,
-                                mapOf(AnalyticsParams.FEATURE to AnalyticsValues.FEATURE_SETTINGS),
-                            )
-                            navController.navigate(SettingsRoute)
                         },
                     )
                 }
@@ -278,13 +296,39 @@ fun ScoreApp(
                         onSetNotificationsEnabled = onSetNotificationsEnabled,
                         onCheckUpdate = onCheckUpdate,
                         onDismissUpdateResult = onDismissUpdateResult,
-                        onVersionTap = onVersionTap,
+                        onOpenAbout = { navController.navigate(AboutRoute) },
                         onDismissDeveloperToast = onDismissDeveloperToast,
                         onOpenDeveloperSettings = { navController.navigate(DeveloperSettingsRoute) },
                         onExportGrades = onExportGrades,
                         onDismissExportResult = onDismissExportResult,
                         onLogout = onLogout,
                         onSetBiometricEnabled = onSetBiometricEnabled,
+                    )
+                }
+                composable(AboutRoute) {
+                    AboutScreen(
+                        settings = settings,
+                        uiState = settingsUiState,
+                        onBack = { navController.popBackStack() },
+                        onVersionTap = onVersionTap,
+                        onDismissDeveloperToast = onDismissDeveloperToast,
+                        onOpenUsageStatistics = { navController.navigate(UsageStatisticsRoute) },
+                        onOpenSourceLicenses = { navController.navigate(OpenSourceLicensesRoute) },
+                    )
+                }
+                composable(UsageStatisticsRoute) {
+                    val context = LocalContext.current
+                    val statistics = remember(context) {
+                        UsageStatisticsStore(context).snapshot()
+                    }
+                    UsageStatisticsScreen(
+                        statistics = statistics,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(OpenSourceLicensesRoute) {
+                    OpenSourceLicensesScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable(DeveloperSettingsRoute) {

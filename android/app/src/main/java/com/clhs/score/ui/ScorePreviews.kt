@@ -9,6 +9,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
+import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.FakeData
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
@@ -93,17 +94,31 @@ private fun GradesScreenFakePreview(
                     ?.map { cleanSubjectName(it.subjectName) }
                     ?.toSet() ?: emptySet()
             ),
+            settings = AppSettings(),
+            settingsUiState = SettingsUiState(),
+            isExporting = false,
+            exportResult = null,
             snackbarHost = {},
             onSelectYear = {},
             onSelectExam = {},
             onReload = {},
-            onOpenSettings = {},
             onToggleSubject = {},
             onStartGradeReminder = {},
             onStopGradeReminder = {},
             onSetNotificationsEnabled = {},
             onGradeReminderPrerequisiteFailed = {},
             onDismissGradeReminderChanges = {},
+            onSetThemeMode = {},
+            onSetDynamicColor = {},
+            onSetAmoledBlack = {},
+            onCheckUpdate = {},
+            onOpenAbout = {},
+            onDismissDeveloperToast = {},
+            onOpenDeveloperSettings = {},
+            onExportGrades = {},
+            onDismissExportResult = {},
+            onLogout = {},
+            onSetBiometricEnabled = { _, _ -> },
             onOpenScoreSimulator = {},
             onOpenSchedule = {},
             onOpenSubjectTrend = {},

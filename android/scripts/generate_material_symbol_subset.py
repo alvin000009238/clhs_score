@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from fontTools.ttLib import TTFont
 import fontTools.subset
@@ -16,6 +17,7 @@ import fontTools.varLib.instancer
 ICONS = (
     "arrow_back",
     "arrow_forward",
+    "more_horiz",
     "refresh",
     "settings",
     "home",
@@ -24,9 +26,13 @@ ICONS = (
     "system_update",
     "info",
     "brightness_medium",
+    "light_mode",
     "palette",
     "dark_mode",
+    "account_circle",
+    "check",
     "person",
+    "thumbs_up_down",
     "meeting_room",
     "lock",
     "lock_open",
@@ -35,8 +41,11 @@ ICONS = (
     "notifications_active",
     "download",
     "keyboard_arrow_down",
+    "keyboard_arrow_right",
     "keyboard_arrow_up",
-    "more_horiz",
+    "menu",
+    "code",
+    "license",
 )
 
 AAR_GROUP_PATH = Path("dev.vicart/compose-material-symbols-android/1.0.2")
@@ -46,6 +55,10 @@ ROUNDED_FONT_ENTRY = (
 )
 OUTLINE_AXES = ("FILL=0", "wght=400", "GRAD=0", "opsz=24")
 FILLED_AXES = ("FILL=1", "wght=400", "GRAD=0", "opsz=24")
+SOURCE_FONT_URL = (
+    "https://raw.githubusercontent.com/google/material-design-icons/master/variablefont/"
+    "MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf"
+)
 
 
 def repo_root() -> Path:
@@ -89,6 +102,20 @@ def extract_rounded_font(aar_path: Path, destination: Path) -> Path:
     return destination
 
 
+def download_rounded_font(destination: Path) -> Path:
+    print("Cached source font not found; downloading the official Material Symbols Rounded font.")
+    request = Request(SOURCE_FONT_URL, headers={"User-Agent": "CLHS-Pocket-font-subsetter"})
+    try:
+        with urlopen(request, timeout=120) as response:
+            destination.write_bytes(response.read())
+    except (OSError, URLError) as exc:
+        raise SystemExit(
+            "Could not download the Material Symbols source font. "
+            "Use --source-font for offline generation."
+        ) from exc
+    return destination
+
+
 def resolve_source_font(source_font: str | None, work_dir: Path) -> Path:
     if source_font:
         path = Path(source_font).resolve()
@@ -97,14 +124,10 @@ def resolve_source_font(source_font: str | None, work_dir: Path) -> Path:
         return path
 
     aar_path = find_cached_aar()
-    if aar_path is None:
-        roots = "\n".join(str(path) for path in aar_search_roots())
-        raise SystemExit(
-            "Could not find cached compose-material-symbols AAR. "
-            "Pass --source-font with a local material_symbols_rounded.ttf.\n"
-            f"Searched:\n{roots}"
-        )
-    return extract_rounded_font(aar_path, work_dir / "material_symbols_rounded.ttf")
+    destination = work_dir / "material_symbols_rounded.ttf"
+    if aar_path is not None:
+        return extract_rounded_font(aar_path, destination)
+    return download_rounded_font(destination)
 
 
 def collect_ligature_glyphs(font_path: Path, icons: tuple[str, ...]) -> list[str]:
@@ -197,7 +220,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source-font",
-        help="Path to a local material_symbols_rounded.ttf. Defaults to the cached Gradle AAR.",
+        help="Path to a local material_symbols_rounded.ttf. Otherwise uses a cached AAR or downloads Google's font.",
     )
     parser.add_argument(
         "--output-dir",

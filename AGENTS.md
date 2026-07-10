@@ -41,7 +41,7 @@
 ## Android Material Symbols subset
 
 - Material Symbols rounded icon 由 `android/app/src/main/res/font/material_symbols_rounded_*_subset.ttf` 提供，不要重新加入 `dev.vicart:compose-material-symbols` 整包依賴。
-- 新增 icon ligature 時，先更新 `android/scripts/generate_material_symbol_subset.py` 的 `ICONS` 清單，再執行 `python android/scripts/generate_material_symbol_subset.py` 重新產生 outline / filled subset font。
+- 新增 icon ligature 時，先更新 `android/scripts/generate_material_symbol_subset.py` 的 `ICONS` 清單，再執行 `python android/scripts/generate_material_symbol_subset.py` 重新產生 outline / filled subset font。產生器找不到舊 Gradle AAR 時會下載 Google 官方原始字型；離線環境可用 `--source-font` 指定本機字型。
 
 ## Android R8 與安裝包大小
 
@@ -61,6 +61,11 @@
 - Firebase Analytics 事件經由 `com.clhs.score.analytics.AnalyticsLogger` 與 `FirebaseAnalyticsLogger` 集中記錄；不要在 UI、ViewModel 或 service 內直接呼叫 Firebase `logEvent`，避免事件名稱與隱私規則分散。
 - Analytics 採嚴格匿名策略：不得呼叫 `setUserId`，不得送學號、姓名、班級、座號、成績、排名、科目名稱、考試名稱、URL、cookie、token、rawResult 或錯誤原文。事件參數只允許 enum 字串、布林、計數與 bucket。
 - 新增事件或參數時，先更新 `AnalyticsEvents.kt` / `AnalyticsParameterSanitizer.kt` 的常數與白名單，並補 `AnalyticsParameterSanitizerTest` 或 `ArchitectureBoundaryTest`，確保敏感欄位不會被送出。
+
+## Android Firebase Remote Config
+
+- 關於頁的回饋表單使用 Remote Config 參數 `feedback_form_url`；只接受 `https://forms.gle` 或 `https://docs.google.com/forms/` 網址。
+- Remote Config 的參數可被 App 使用者讀取，只能保存公開設定，不得放入 token、密碼或其他秘密資訊。
 
 ## Android 段考資訊變更提醒
 

@@ -164,6 +164,26 @@ class GradeAnalysisTest {
     }
 
     @Test
+    fun sameTermTrendUsesEveryExamInSelectedYearTerm() {
+        val structure = listOf(
+            YearTermOption(
+                text = "114上",
+                value = "114_1",
+                exams = listOf(
+                    ExamOption("期中考1", "E1"),
+                    ExamOption("期中考2", "E2"),
+                    ExamOption("期末考", "E3"),
+                ),
+            ),
+        )
+
+        val source = structure.sameTermTrendSource("114_1")
+
+        assertEquals(false, source?.usesPreviousTerm)
+        assertEquals(listOf("E1", "E2", "E3"), source?.historyExams?.map { it.examValue })
+    }
+
+    @Test
     fun latestYearTermAndExamPreferNewestOptions() {
         val structure = listOf(
             YearTermOption(

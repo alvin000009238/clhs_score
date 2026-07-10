@@ -246,6 +246,7 @@ class ArchitectureBoundaryTest {
             "app/src/main/java/com/clhs/score/analytics/AnalyticsLogger.kt",
             "app/src/main/java/com/clhs/score/analytics/AnalyticsParameterSanitizer.kt",
             "app/src/main/java/com/clhs/score/analytics/FirebaseAnalyticsLogger.kt",
+            "app/src/main/java/com/clhs/score/analytics/UsageStatisticsStore.kt",
         ).joinToString("\n") { path -> readSource(path) }
 
         val forbiddenTerms = listOf(

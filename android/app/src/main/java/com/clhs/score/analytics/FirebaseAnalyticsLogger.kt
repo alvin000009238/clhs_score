@@ -8,11 +8,13 @@ class FirebaseAnalyticsLogger(
     context: Context,
 ) : AnalyticsLogger {
     private val analytics = FirebaseAnalytics.getInstance(context.applicationContext)
+    private val usageStatistics = UsageStatisticsStore(context)
 
     override fun logEvent(name: String, parameters: Map<String, Any?>) {
         if (!isValidEventName(name)) {
             return
         }
+        runCatching { usageStatistics.recordEvent(name, parameters) }
         runCatching {
             analytics.logEvent(name, AnalyticsParameterSanitizer.sanitize(parameters).toBundle())
         }
