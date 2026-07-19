@@ -100,6 +100,52 @@ class ScoreViewModelTest {
     }
 
     @Test
+    fun refreshingStructureKeepsSelectedExam() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        viewModel.selectExam("114_1_E2")
+        runCurrent()
+        repository.completeFetch("114_1_E2", FakeData.previousReport())
+        runCurrent()
+
+        viewModel.reloadStructure()
+        runCurrent()
+
+        assertEquals("114_1", viewModel.gradesState.value.selectedYearValue)
+        assertEquals("114_1_E2", viewModel.gradesState.value.selectedExamValue)
+        assertEquals("第二次段考", viewModel.gradesState.value.report?.examSummary?.examName)
+    }
+
+    @Test
+    fun refreshingWhileExamLoadsDoesNotCancelSelection() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        viewModel.selectExam("114_1_E2")
+        runCurrent()
+        viewModel.reloadStructure()
+        runCurrent()
+        repository.completeFetch("114_1_E2", FakeData.previousReport())
+        runCurrent()
+
+        assertEquals("114_1_E2", viewModel.gradesState.value.selectedExamValue)
+        assertEquals("第二次段考", viewModel.gradesState.value.report?.examSummary?.examName)
+    }
+
+    @Test
     fun selectingFirstExamStillBuildsSameTermTrend() = runTest(dispatcher) {
         val repository = ControllableGradeRepository()
         val viewModel = ScoreViewModel(repository)

@@ -171,10 +171,12 @@ class ScoreViewModel(
         val latestExam = year.latestExam()
         gradeRequestId++
         if (latestExam == null) {
+            structureRequestId++
             _gradesState.update {
                 it.copy(
                     selectedYearValue = value,
                     selectedExamValue = null,
+                    isLoadingStructure = false,
                     isLoadingGrades = false,
                     isLoadingComparison = false,
                     comparisonReport = null,
@@ -238,6 +240,7 @@ class ScoreViewModel(
     }
 
     fun reloadStructure() {
+        if (_gradesState.value.let { it.isLoadingStructure || it.isLoadingGrades }) return
         loadStructure(forceRefresh = true)
     }
 
@@ -673,8 +676,15 @@ class ScoreViewModel(
                     } else {
                         null
                     }
-                    val selectedYear = pendingYear ?: structure.latestYearTerm()
-                    val selectedExam = pendingExam ?: selectedYear?.latestExam()
+                    val currentState = _gradesState.value
+                    val currentYear = structure.firstOrNull { it.value == currentState.selectedYearValue }
+                    val currentExam = currentYear?.exams?.firstOrNull { it.value == currentState.selectedExamValue }
+                    val selectedYear = pendingYear ?: currentYear ?: structure.latestYearTerm()
+                    val selectedExam = when {
+                        pendingYear != null -> pendingExam ?: pendingYear.latestExam()
+                        currentYear != null -> currentExam ?: currentYear.latestExam()
+                        else -> selectedYear?.latestExam()
+                    }
                     if (pendingYear != null && pendingExam != null) {
                         pendingReminderTarget = null
                     }
@@ -729,10 +739,12 @@ class ScoreViewModel(
         },
     ) {
         val currentSession = session ?: return
+        structureRequestId++
         val requestId = ++gradeRequestId
         viewModelScope.launch {
             _gradesState.update {
                 it.copy(
+                    isLoadingStructure = false,
                     isLoadingGrades = true,
                     isLoadingComparison = false,
                     isLoadingTrend = false,
