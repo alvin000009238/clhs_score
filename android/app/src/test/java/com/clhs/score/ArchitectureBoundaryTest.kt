@@ -161,6 +161,15 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun emptyScheduleReportShowsActionableState() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
+
+        assertTrue(source.contains("uiState.report.items.isEmpty()"))
+        assertTrue(source.contains("\"查無課表資料\""))
+        assertTrue(source.contains("onClick = onClearSelection"))
+    }
+
+    @Test
     fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
 

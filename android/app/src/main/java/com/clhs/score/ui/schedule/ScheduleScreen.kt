@@ -108,7 +108,7 @@ fun ScheduleScreen(
                     }
                 },
                 actions = {
-                    if (uiState.report != null) {
+                    if (!uiState.report?.items.isNullOrEmpty()) {
                         IconButton(onClick = { showMoreMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "更多選項")
                         }
@@ -281,6 +281,25 @@ fun ScheduleScreen(
                         ) {
                             Text("重新整理")
                         }
+                    }
+                }
+            } else if (uiState.report.items.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("查無課表資料", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "請重新選擇學期或班級",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Button(
+                        onClick = onClearSelection,
+                        modifier = Modifier.padding(top = 16.dp),
+                    ) {
+                        Text("重新選擇")
                     }
                 }
             } else {
