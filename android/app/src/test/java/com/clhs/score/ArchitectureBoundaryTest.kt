@@ -146,6 +146,13 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun webViewLoginHandlesSystemBack() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/WebViewLoginScreen.kt")
+
+        assertTrue(source.contains("BackHandler(onBack = onBack)"))
+    }
+
+    @Test
     fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
 
