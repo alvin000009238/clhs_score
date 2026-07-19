@@ -49,6 +49,7 @@ class ScheduleViewModel(
     private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
 ) : ViewModel() {
     private var scheduleRequestId = 0
+    private var lastScheduleRequest: Pair<String, String>? = null
 
     private val _uiState = MutableStateFlow(ScheduleUiState())
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
@@ -103,6 +104,7 @@ class ScheduleViewModel(
 
     fun clearSelection() {
         scheduleRequestId++
+        lastScheduleRequest = null
         _uiState.update { it.copy(report = null) }
         if (_uiState.value.availableYears.isEmpty()) {
             loadYears()
@@ -144,6 +146,7 @@ class ScheduleViewModel(
 
     fun selectYear(yearValue: String) {
         if (_uiState.value.selectedYearValue == yearValue) return
+        lastScheduleRequest = null
         _uiState.update {
             it.copy(
                 selectedYearValue = yearValue,
@@ -157,6 +160,7 @@ class ScheduleViewModel(
     
     fun selectClass(classValue: String) {
         if (_uiState.value.selectedClassValue == classValue) return
+        lastScheduleRequest = null
         _uiState.update { it.copy(selectedClassValue = classValue) }
     }
 
@@ -198,6 +202,7 @@ class ScheduleViewModel(
     }
 
     private fun loadSchedule(yearValue: String, classNo: String) {
+        lastScheduleRequest = yearValue to classNo
         val requestId = ++scheduleRequestId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false) }
@@ -241,6 +246,10 @@ class ScheduleViewModel(
     }
 
     fun refresh() {
+        lastScheduleRequest?.let { (yearValue, classNo) ->
+            loadSchedule(yearValue, classNo)
+            return
+        }
         val st = _uiState.value
         val y = st.selectedYearValue
         val c = st.selectedClassValue

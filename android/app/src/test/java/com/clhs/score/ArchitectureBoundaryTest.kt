@@ -153,6 +153,14 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun scheduleErrorsExposeRefreshAction() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
+
+        assertTrue(source.contains("onClick = onRefresh"))
+        assertTrue(source.contains("Text(\"重新整理\")"))
+    }
+
+    @Test
     fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
 

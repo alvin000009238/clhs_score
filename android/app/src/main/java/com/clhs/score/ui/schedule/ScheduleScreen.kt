@@ -275,6 +275,12 @@ fun ScheduleScreen(
                             modifier = Modifier.padding(top = 16.dp),
                             textAlign = TextAlign.Center
                         )
+                        Button(
+                            onClick = onRefresh,
+                            modifier = Modifier.padding(top = 12.dp),
+                        ) {
+                            Text("重新整理")
+                        }
                     }
                 }
             } else {

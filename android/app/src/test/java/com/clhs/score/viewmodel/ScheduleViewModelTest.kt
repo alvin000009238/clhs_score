@@ -75,6 +75,34 @@ class ScheduleViewModelTest {
     }
 
     @Test
+    fun refreshRetriesFailedPersonalScheduleQuery() = runTest(dispatcher) {
+        val repository = ControllableScheduleRepository()
+        val viewModel = ScheduleViewModel(repository)
+        runCurrent()
+
+        repository.yearsDeferred.complete(
+            listOf(ScheduleYearTermOption(text = "114 學年度 第 1 學期", value = "114_1")),
+        )
+        runCurrent()
+        repository.completeClasses(year = "114", term = "1", classes = emptyList())
+        runCurrent()
+
+        repository.enqueueSchedule(Result.failure(IllegalStateException("暫時無法載入課表")))
+        viewModel.confirmSelection()
+        runCurrent()
+        assertEquals(true, viewModel.uiState.value.isError)
+
+        val report = ScheduleReport("114_1", emptyList())
+        repository.enqueueSchedule(Result.success(report))
+        viewModel.refresh()
+        runCurrent()
+
+        assertEquals(report, viewModel.uiState.value.report)
+        assertFalse(viewModel.uiState.value.isError)
+        assertEquals(listOf("", ""), repository.scheduleClassNos)
+    }
+
+    @Test
     fun savingWidgetPreferencesLogsAnonymousAnalytics() = runTest(dispatcher) {
         val repository = ControllableScheduleRepository()
         val analytics = RecordingAnalyticsLogger()
@@ -93,7 +121,9 @@ class ScheduleViewModelTest {
 
     private class ControllableScheduleRepository : ScheduleRepository {
         val yearsDeferred = CompletableDeferred<List<ScheduleYearTermOption>>()
+        val scheduleClassNos = mutableListOf<String>()
         private val classes = mutableMapOf<Pair<String, String>, CompletableDeferred<List<ScheduleClassOption>>>()
+        private val scheduleResults = ArrayDeque<Result<ScheduleReport>>()
 
         override suspend fun getScheduleYears(): List<ScheduleYearTermOption> = yearsDeferred.await()
 
@@ -105,7 +135,10 @@ class ScheduleViewModelTest {
             year: String,
             term: String,
             classNo: String,
-        ): ScheduleReport = ScheduleReport(yearValue, emptyList())
+        ): ScheduleReport {
+            scheduleClassNos += classNo
+            return scheduleResults.removeFirst().getOrThrow()
+        }
 
         override suspend fun getLatestSchedule(): ScheduleReport? = null
 
@@ -115,6 +148,10 @@ class ScheduleViewModelTest {
 
         fun completeClasses(year: String, term: String, classes: List<ScheduleClassOption>) {
             this.classes.getOrPut(year to term) { CompletableDeferred() }.complete(classes)
+        }
+
+        fun enqueueSchedule(result: Result<ScheduleReport>) {
+            scheduleResults.addLast(result)
         }
     }
 
