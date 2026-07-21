@@ -52,6 +52,37 @@ class SchoolGradeClientTest {
     }
 
     @Test
+    fun loadStructureClassifiesUnauthorizedResponse() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        val error = runCatching { client.loadStructure(testSession()) }.exceptionOrNull()
+
+        assertTrue(error is SchoolAuthenticationException)
+    }
+
+    @Test
+    fun loadStructureClassifiesLoginHtmlAsExpiredSession() = runTest {
+        server.enqueue(
+            htmlResponse(
+                """<form action="/CLHSTYC/Auth/Auth/CloudLogin"><input name="LoginId" /></form>""",
+            ),
+        )
+
+        val error = runCatching { client.loadStructure(testSession()) }.exceptionOrNull()
+
+        assertTrue(error is SchoolAuthenticationException)
+    }
+
+    @Test
+    fun loadStructureClassifiesServiceUnavailableAsTransient() = runTest {
+        server.enqueue(MockResponse().setResponseCode(503))
+
+        val error = runCatching { client.loadStructure(testSession()) }.exceptionOrNull()
+
+        assertTrue(error is SchoolTransientException)
+    }
+
+    @Test
     fun parseYearTermMatchesFetcherBehavior() {
         assertEquals("114" to "1", parseYearTerm("114_1"))
         assertEquals("114" to "1", parseYearTerm("1141"))
@@ -170,6 +201,12 @@ class SchoolGradeClientTest {
         .setResponseCode(200)
         .addHeader("Content-Type", "application/json; charset=utf-8")
         .setBody(body)
+
+    private fun testSession() = AuthenticatedSession(
+        studentNo = "DEMO-001",
+        apiToken = "api-token",
+        cookies = mapOf("ASP.NET_SessionId" to "abc"),
+    )
 
     private val gradeJson = """
         {

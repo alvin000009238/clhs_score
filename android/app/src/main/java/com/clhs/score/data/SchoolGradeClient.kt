@@ -16,11 +16,22 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.Jsoup
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
-class SchoolException(
+open class SchoolException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)
+
+class SchoolAuthenticationException(
+    message: String = "登入狀態已失效",
+) : SchoolException(message)
+
+class SchoolTransientException(
+    message: String,
+    cause: Throwable? = null,
+) : SchoolException(message, cause)
 
 class SchoolGradeClient(
     baseUrl: String = DEFAULT_BASE_URL,
@@ -33,6 +44,7 @@ class SchoolGradeClient(
         .cookieJar(cookieJar)
         .followRedirects(true)
         .followSslRedirects(true)
+        .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private var currentStudentNo: String? = null
@@ -101,15 +113,15 @@ class SchoolGradeClient(
         synchronized(sessionLock) {
             cachedScheduleToken?.let { return it }
         }
-        val pageResponse = execute(
+        val pageResponse = executeBody(
             Request.Builder()
                 .url(resolve("ClassTableV2/ClassTable"))
                 .headers(defaultHeaders(referer = resolve("ICampus/Home/Index2").toString()))
                 .get()
                 .build(),
-        ).body.string()
+        )
         val token = hiddenInput(pageResponse, "__RequestVerificationToken")
-            ?: throw SchoolException("找不到課表 API token")
+            ?: throw SchoolAuthenticationException()
         synchronized(sessionLock) {
             cachedScheduleToken = token
         }
@@ -166,13 +178,14 @@ class SchoolGradeClient(
         val body = FormBody.Builder()
             .add("__RequestVerificationToken", token)
             .build()
-        val json = execute(
+        val json = executeBody(
             Request.Builder()
                 .url(resolve("ClassTableV2/ClassTable/GetYearTermList"))
                 .headers(scheduleHeaders())
                 .post(body)
                 .build(),
-        ).body.string()
+            expectJson = true,
+        )
         parseOptionList(json).map { (text, value) -> ScheduleYearTermOption(text, value) }
     }
 
@@ -188,13 +201,14 @@ class SchoolGradeClient(
             .add("ClassNo", "")
             .add("TimetableType", "")
             .build()
-        val json = execute(
+        val json = executeBody(
             Request.Builder()
                 .url(resolve("ClassTableV2/ClassTable/GetClassNoList"))
                 .headers(scheduleHeaders())
                 .post(body)
                 .build(),
-        ).body.string()
+            expectJson = true,
+        )
         parseOptionList(json).map { (text, value) -> ScheduleClassOption(text, value) }
     }
 
@@ -220,13 +234,14 @@ class SchoolGradeClient(
             }
             .build()
 
-        val timetableJson = execute(
+        val timetableJson = executeBody(
             Request.Builder()
                 .url(resolve("ClassTableV2/ClassTable/GetTimeTable"))
                 .headers(scheduleHeaders())
                 .post(form)
                 .build(),
-        ).body.string()
+            expectJson = true,
+        )
 
         val items = parseScheduleItems(timetableJson)
 
@@ -254,15 +269,15 @@ class SchoolGradeClient(
             currentStudentNo = studentNo
             cachedScheduleToken = null
         }
-        val gradesPage = execute(
+        val gradesPage = executeBody(
             Request.Builder()
                 .url(gradesPageUrl())
                 .headers(defaultHeaders(referer = resolve("Auth/Auth/CloudLogin").toString()))
                 .get()
                 .build(),
-        ).body.string()
+        )
         val apiToken = hiddenInput(gradesPage, "__RequestVerificationToken")
-            ?: throw SchoolException("找不到成績 API token，登入狀態可能無效")
+            ?: throw SchoolAuthenticationException()
         AuthenticatedSession(
             studentNo = studentNo,
             apiToken = apiToken,
@@ -307,7 +322,7 @@ class SchoolGradeClient(
         val body = FormBody.Builder().apply {
             form.forEach { (name, value) -> add(name, value) }
         }.build()
-        execute(
+        executeBody(
             Request.Builder()
                 .url(resolve(path))
                 .headers(
@@ -318,18 +333,46 @@ class SchoolGradeClient(
                 )
                 .post(body)
                 .build(),
-        ).body.string()
+            expectJson = true,
+        )
     }
 
     private fun execute(request: Request): Response {
-        val response = client.newCall(request).execute()
+        val response = try {
+            client.newCall(request).execute()
+        } catch (error: IOException) {
+            throw SchoolTransientException("無法連線學校系統", error)
+        }
+        if (response.request.url.encodedPath.contains(LOGIN_PATH, ignoreCase = true)) {
+            response.close()
+            throw SchoolAuthenticationException()
+        }
         if (!response.isSuccessful) {
             val code = response.code
             response.close()
-            throw SchoolException("學校系統回應異常 HTTP $code")
+            throw when {
+                code == 401 || code == 403 -> SchoolAuthenticationException()
+                code == 408 || code == 429 || code in 500..599 ->
+                    SchoolTransientException("學校系統暫時無法回應")
+                else -> SchoolException("學校系統回應異常 HTTP $code")
+            }
         }
         return response
     }
+
+    private fun executeBody(request: Request, expectJson: Boolean = false): String =
+        execute(request).use { response ->
+            val body = response.body.string()
+            if (expectJson && body.trimStart().startsWith("<")) {
+                if (body.contains("CloudLogin", ignoreCase = true) ||
+                    body.contains("name=\"LoginId\"", ignoreCase = true)
+                ) {
+                    throw SchoolAuthenticationException()
+                }
+                throw SchoolException("學校系統回傳非預期內容")
+            }
+            body
+        }
 
     private fun hiddenInput(html: String, name: String): String? {
         val doc = Jsoup.parse(html)
@@ -359,6 +402,7 @@ class SchoolGradeClient(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC"
+        private const val LOGIN_PATH = "/Auth/Auth/CloudLogin"
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     }

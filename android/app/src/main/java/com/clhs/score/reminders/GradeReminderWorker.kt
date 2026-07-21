@@ -6,11 +6,26 @@ import androidx.work.WorkerParameters
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.GradeReminderRepository
 import com.clhs.score.data.GradeReportDiffer
+import com.clhs.score.data.SchoolAuthenticationException
 import com.clhs.score.data.SchoolCookieJar
 import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SchoolGradeRepository
+import com.clhs.score.data.SchoolTransientException
 import com.clhs.score.data.SessionStore
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
+
+internal enum class ReminderFailureAction(val message: String) {
+    STOP("登入狀態已失效，段考提醒已停止"),
+    RETRY("網路連線暫時異常，稍後重試"),
+    COUNT_FAILURE("檢查失敗"),
+}
+
+internal fun reminderFailureAction(error: Throwable): ReminderFailureAction = when (error) {
+    is SchoolAuthenticationException -> ReminderFailureAction.STOP
+    is SchoolTransientException, is IOException -> ReminderFailureAction.RETRY
+    else -> ReminderFailureAction.COUNT_FAILURE
+}
 
 class GradeReminderWorker(
     appContext: Context,
@@ -34,7 +49,7 @@ class GradeReminderWorker(
             return Result.success()
         }
 
-        val session = sessionStore.loadReminderSession(now) ?: sessionStore.loadSession()
+        val session = sessionStore.loadReminderSession(now)
         if (session == null) {
             stopAndNotify(sessionStore, "登入狀態已失效，段考提醒已停止")
             return Result.success()
@@ -82,19 +97,28 @@ class GradeReminderWorker(
             Result.success()
         }.getOrElse { error ->
             if (error is CancellationException) throw error
-            val failures = state.consecutiveFailures + 1
-            if (failures >= MAX_FAILURES_BEFORE_STOP) {
-                stopAndNotify(sessionStore, "連續檢查失敗，段考提醒已停止：${error.message ?: "未知錯誤"}")
-            } else {
-                reminderRepository.saveState(
-                    state.copy(
-                        lastCheckedAtMillis = now,
-                        consecutiveFailures = failures,
-                        stoppedReason = error.message ?: "檢查失敗",
-                    ),
-                )
+            when (val action = reminderFailureAction(error)) {
+                ReminderFailureAction.STOP -> {
+                    stopAndNotify(sessionStore, action.message)
+                    Result.success()
+                }
+                ReminderFailureAction.RETRY -> Result.retry()
+                ReminderFailureAction.COUNT_FAILURE -> {
+                    val failures = state.consecutiveFailures + 1
+                    if (failures >= MAX_FAILURES_BEFORE_STOP) {
+                        stopAndNotify(sessionStore, "連續檢查失敗，段考提醒已停止")
+                    } else {
+                        reminderRepository.saveState(
+                            state.copy(
+                                lastCheckedAtMillis = now,
+                                consecutiveFailures = failures,
+                                stoppedReason = action.message,
+                            ),
+                        )
+                    }
+                    Result.success()
+                }
             }
-            Result.success()
         }
     }
 

@@ -36,9 +36,9 @@
 ## 資料與安全策略
 
 - App 不保存密碼。
-- 登入成功後只保存短期 cookies、studentNo 與 apiToken。
-- 登出或 session 過期時清除本機 session。
-- Manifest 僅需要 `INTERNET` 權限。
+- 登入成功後以 AndroidX Security Crypto 加密保存 cookies、studentNo 與 apiToken；段考提醒使用獨立且最長 48 小時的 session。
+- 登出、登入失效或段考提醒到期時，清除對應的本機 session。
+- Manifest 依功能使用 `INTERNET`、通知、開機後恢復小工具、忽略電池最佳化與 APK 安裝權限；通知、背景提醒與更新安裝皆由使用者主動啟用。
 - 禁止 cleartext traffic，只使用 HTTPS。
 
 

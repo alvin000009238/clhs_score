@@ -80,6 +80,8 @@
 - `GradeReportDiffer` 只比對使用者可見資訊：成績、排名、平均、五標、標準差、級距與缺考/作弊等狀態；不要把 `rawResult`、HTTP 格式差異或 `StudentInfo.updatedAt` 納入通知觸發條件。
 - 五標/分布或整體成績區塊的新增、移除也屬於可見資訊變更，需產生 diff；不要只比較兩邊都存在的欄位。
 - 啟用段考提醒成功後，`SessionStore.saveReminderSession(...)` 會保存一份提醒專用臨時 session，供生物識別解鎖清除一般 session 後的背景 worker 使用；它必須只跟隨提醒狀態存在，並在 48 小時到期、關閉提醒、登出、學生切換或連續失敗停止時清除。
+- `GradeReminderWorker` 只能使用提醒專用 session，不得 fallback 到一般 session。登入失效時停止提醒；連線逾時、HTTP 408/429/5xx 等暫時性錯誤交給 WorkManager retry；其他錯誤才累計連續失敗次數。
+- 段考提醒狀態與通知不得直接顯示 exception message、URL、response body、學號、cookie 或 token；使用固定且不含敏感資訊的使用者文案。
 - 停止或過期段考提醒時，除了取消 WorkManager 與清除 reminder session，也要清掉 reminder snapshot 與 latest change set，避免本機殘留舊成績或舊通知明細。
 - App 啟動後若 DataStore 仍有未過期的提醒狀態，`ScoreViewModel` 會補排 `grade_reminder_poll` 作為自我修復；避免在每次 worker 更新 state 時重複 reschedule。
 - 段考提醒 channel `grade_reminders` 預設使用 `IMPORTANCE_HIGH`，讓新資訊通知有機會 heads-up 彈出；已安裝 App 的既有 channel 可能仍需使用者到系統設定手動調整。
