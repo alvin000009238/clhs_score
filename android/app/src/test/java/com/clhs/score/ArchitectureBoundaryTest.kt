@@ -239,7 +239,7 @@ class ArchitectureBoundaryTest {
         assertTrue(activitySource.contains(".scaleY(0.96f)"))
         assertTrue(activitySource.contains(".setDuration(200L)"))
         assertTrue(activitySource.contains("DecelerateInterpolator()"))
-        assertTrue(activitySource.contains(".withEndAction { splashScreenView.remove() }"))
+        assertTrue(activitySource.contains(".withEndAction {"))
         assertTrue("MainActivity must load persisted settings asynchronously", activitySource.contains("lifecycleScope.launch"))
         assertTrue("MainActivity must not block the main thread while loading settings", !activitySource.contains("runBlocking"))
         assertTrue("MainActivity must wait for persisted settings before creating app content", setContentIndex < scoreThemeIndex)
@@ -248,6 +248,39 @@ class ArchitectureBoundaryTest {
         assertTrue("Readiness gate must be inside ScoreTheme so the window does not flash the manifest light theme", scoreThemeIndex in 0 until readyGateIndex)
         assertTrue(settingsViewModelSource.contains("initialSettings: AppSettings = AppSettings()"))
         assertTrue(settingsViewModelSource.contains("private val _settings = MutableStateFlow(initialSettings)"))
+    }
+
+    @Test
+    fun splashExitReappliesPersistedSystemBarAppearance() {
+        val source = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
+        val splashExitBlock = source
+            .substringAfter("splashScreen.setOnExitAnimationListener")
+            .substringBefore("super.onCreate(savedInstanceState)")
+        val nullIconBlock = splashExitBlock
+            .substringAfter("if (iconView == null)")
+            .substringBefore("return@setOnExitAnimationListener")
+        val animatedExitBlock = splashExitBlock
+            .substringAfter(".withEndAction {")
+            .substringBefore("}", missingDelimiterValue = "")
+        val systemBarAppearanceBlock = source
+            .substringAfter("private fun applyLaunchSystemBarAppearance()")
+            .substringBefore("private fun clearWidgetScheduleCache()")
+
+        assertTrue(
+            "Android 12 splash exit reapplies the manifest theme, so the app theme must win afterward",
+            nullIconBlock.indexOf("splashScreenView.remove()") in
+                0 until nullIconBlock.indexOf("applyLaunchSystemBarAppearance()"),
+        )
+        assertTrue(
+            "Animated splash exit must reapply the app theme after removing the splash view",
+            animatedExitBlock.indexOf("splashScreenView.remove()") in
+                0 until animatedExitBlock.indexOf("applyLaunchSystemBarAppearance()"),
+        )
+        assertTrue(systemBarAppearanceBlock.contains("ThemeMode.DARK -> true"))
+        assertTrue(systemBarAppearanceBlock.contains("ThemeMode.LIGHT -> false"))
+        assertTrue(systemBarAppearanceBlock.contains("Configuration.UI_MODE_NIGHT_MASK"))
+        assertTrue(systemBarAppearanceBlock.contains("isAppearanceLightStatusBars = !useDark"))
+        assertTrue(systemBarAppearanceBlock.contains("isAppearanceLightNavigationBars = !useDark"))
     }
 
     @Test

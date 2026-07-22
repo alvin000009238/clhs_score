@@ -1,6 +1,7 @@
 package com.clhs.score
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -13,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -30,6 +32,7 @@ import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.SessionStore
 import com.clhs.score.data.SettingsRepository
+import com.clhs.score.data.ThemeMode
 import com.clhs.score.notifications.NotificationChannels
 import com.clhs.score.notifications.ScoreFirebaseMessagingService
 import com.clhs.score.reminders.GradeReminderNotifier
@@ -64,6 +67,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             val iconView = runCatching { splashScreenView.iconView }.getOrNull()
             if (iconView == null) {
                 splashScreenView.remove()
+                applyLaunchSystemBarAppearance()
                 return@setOnExitAnimationListener
             }
             iconView.animate()
@@ -72,7 +76,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 .scaleY(0.96f)
                 .setDuration(200L)
                 .setInterpolator(DecelerateInterpolator())
-                .withEndAction { splashScreenView.remove() }
+                .withEndAction {
+                    splashScreenView.remove()
+                    applyLaunchSystemBarAppearance()
+                }
                 .start()
         }
 
@@ -597,6 +604,19 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             )
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun applyLaunchSystemBarAppearance() {
+        val useDark = when (launchSettings.value?.themeMode) {
+            ThemeMode.DARK -> true
+            ThemeMode.LIGHT -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        }
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !useDark
+            isAppearanceLightNavigationBars = !useDark
         }
     }
 
