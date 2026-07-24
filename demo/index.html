@@ -271,18 +271,38 @@
     </div>
   </section>
 
-  <!-- Disclaimer -->
-  <section class="disclaimer" id="disclaimer">
+  <!-- FAQ -->
+  <section class="faq" id="faq">
     <div class="container">
-      <div class="disclaimer-box fade-in">
-        <svg class="disclaimer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-        <h2 data-i18n="disclaimer.title">免責聲明</h2>
-        <p data-i18n="disclaimer.text">本專案為非官方開發之第三方服務，與壢中及欣河智慧校園平台無任何直接關聯。</p>
+      <h2 class="section-title fade-in" data-i18n="faq.title">常見問題</h2>
+      <div class="faq-list fade-in">
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.official.question">壢中 Pocket 是學校官方 App 嗎？與中大壢中或欣河智慧校園有合作關係嗎？</summary>
+          <p data-i18n="faq.official.answer">不是。壢中 Pocket 是學生獨立開發的非官方第三方 App，與壢中及欣河智慧校園平台無任何直接關聯。</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.password.question">App 會取得、儲存或傳送我的帳號密碼嗎？</summary>
+          <p data-i18n="faq.password.answer">App 不會讀取或保存你輸入的密碼；帳號密碼由內嵌的學校登入頁面透過 HTTPS 直接送到校務系統。登入成功後，App
+            會取得學號與查詢所需的登入狀態保存在你的裝置上，不會傳送給開發者。</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.session.question">App 會保存哪些登入資料？登入狀態、Cookies 和驗證權杖會如何處理？</summary>
+          <p data-i18n="faq.session.answer">為維持登入，App 會在手機上保存學號、Cookies 與驗證權杖，並使用 Android 系統金鑰加密。啟用生物辨識時會再以 PIN
+            與硬體金鑰保護；啟用段考提醒功能時會另存最長 48 小時的加密臨時登入狀態。登出會清除這些 Session 資料。</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.personal.question">我的成績、課表、學號和其他個人資料會被上傳嗎？開發者能看到這些資料嗎？</summary>
+          <p data-i18n="faq.personal.answer">成績、課表、姓名、班級、座號與學號只在你的手機和學校系統之間處理，不會傳送到開發者伺服器，開發者也無法從 App 遠端查看。App
+            可能會將不包含上述個人資料的功能使用事件與計數傳送至 Firebase Analytics，用於了解功能使用情況與改善 App，且不會設定可識別個人的使用者 ID。</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.freshness.question">App 顯示的是即時資料還是本機快取？如何重新取得最新資料？</summary>
+          <p data-i18n="faq.freshness.answer">App 會優先顯示上次成功查詢的本機快取，因此不保證是最新資料。請在成績頁下拉重新整理，即可略過快取並向學校系統查詢。</p>
+        </details>
+        <details class="faq-item" name="faq">
+          <summary data-i18n="faq.source.question">五標、標準差與各分數區間人數等資料來自哪裡？</summary>
+          <p data-i18n="faq.source.answer">這些資料均來自學校系統回傳的同一份成績資料，App 僅負責整理、計算落點與繪製圖表。</p>
+        </details>
       </div>
     </div>
   </section>
