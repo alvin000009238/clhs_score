@@ -3,7 +3,6 @@ package com.clhs.score.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
@@ -196,10 +195,6 @@ fun GradesScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
-    BackHandler(enabled = drawerState.isOpen) {
-        coroutineScope.launch { drawerState.close() }
-    }
-
     val pagerState = rememberPagerState(
         initialPage = GradesDestination.Overview.ordinal,
         pageCount = { GradesDestination.entries.size },
@@ -308,6 +303,7 @@ fun GradesScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
+                drawerState = drawerState,
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
             ) {
                 GradesNavigationDrawerContent(

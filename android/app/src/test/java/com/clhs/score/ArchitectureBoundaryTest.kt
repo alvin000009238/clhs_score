@@ -146,10 +146,19 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
-    fun webViewLoginHandlesSystemBack() {
-        val source = readSource("app/src/main/java/com/clhs/score/ui/WebViewLoginScreen.kt")
+    fun predictiveBackUsesPlatformNavigationOwners() {
+        val manifest = readSource("app/src/main/AndroidManifest.xml")
+        val appSource = readSource("app/src/main/java/com/clhs/score/ui/ScoreApp.kt")
+        val loginSource = readSource("app/src/main/java/com/clhs/score/ui/WebViewLoginScreen.kt")
+        val gradesSource = readSource("app/src/main/java/com/clhs/score/ui/GradesScreen.kt")
+        val drawerSheet = gradesSource.substringAfter("ModalDrawerSheet(").substringBefore(") {")
 
-        assertTrue(source.contains("BackHandler(onBack = onBack)"))
+        assertTrue(manifest.contains("android:enableOnBackInvokedCallback=\"true\""))
+        assertTrue(appSource.contains("composable(WebViewLoginRoute)"))
+        assertTrue(appSource.contains("onBack = { loginNavController.popBackStack() }"))
+        assertFalse(loginSource.contains("BackHandler"))
+        assertTrue(drawerSheet.contains("drawerState = drawerState"))
+        assertFalse(gradesSource.contains("BackHandler"))
     }
 
     @Test

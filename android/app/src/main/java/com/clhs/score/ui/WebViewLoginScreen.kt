@@ -12,7 +12,6 @@ import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -64,8 +63,6 @@ fun WebViewLoginScreen(
     onBack: () -> Unit,
     onDismissError: () -> Unit,
 ) {
-    BackHandler(onBack = onBack)
-
     var isPageLoading by remember { mutableStateOf(true) }
     var pageProgress by remember { mutableFloatStateOf(0f) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
