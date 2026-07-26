@@ -11,11 +11,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,6 +48,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
@@ -122,6 +126,18 @@ internal fun pagerNeedsSettling(
     currentPageOffsetFraction: Float,
     destination: Int,
 ): Boolean = currentPage != destination || currentPageOffsetFraction != 0f
+
+internal enum class GradesAdaptiveLayout {
+    SingleColumn,
+    TwoColumn,
+    ListDetail,
+}
+
+internal fun gradesAdaptiveLayoutForWidth(width: Dp): GradesAdaptiveLayout = when {
+    width < 600.dp -> GradesAdaptiveLayout.SingleColumn
+    width < 840.dp -> GradesAdaptiveLayout.TwoColumn
+    else -> GradesAdaptiveLayout.ListDetail
+}
 
 private enum class GradesDestination(
     val label: String,
@@ -325,26 +341,37 @@ fun GradesScreen(
             }
         },
     ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            snackbarHost = snackbarHost,
-            bottomBar = {
-                GradesBottomNavigation(
-                    selectedDestination = selectedDestination,
-                    onSelect = { selectedDestination = it.ordinal },
-                )
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) { padding ->
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = onReload,
-                state = pullToRefreshState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = padding.calculateBottomPadding()),
-                indicator = {},
-            ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val adaptiveLayout = gradesAdaptiveLayoutForWidth(maxWidth)
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                snackbarHost = snackbarHost,
+                bottomBar = {
+                    if (adaptiveLayout == GradesAdaptiveLayout.SingleColumn) {
+                        GradesBottomNavigation(
+                            selectedDestination = selectedDestination,
+                            onSelect = { selectedDestination = it.ordinal },
+                        )
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+            ) { padding ->
+                Row(modifier = Modifier.fillMaxSize()) {
+                    GradesAdaptiveNavigation(
+                        layout = adaptiveLayout,
+                        selectedDestination = selectedDestination,
+                        onSelect = { selectedDestination = it.ordinal },
+                    )
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = onReload,
+                        state = pullToRefreshState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(bottom = padding.calculateBottomPadding()),
+                        indicator = {},
+                    ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -488,6 +515,8 @@ fun GradesScreen(
                             .zIndex(2f),
                     )
                 }
+                    }
+                }
             }
         }
     }
@@ -504,8 +533,51 @@ private fun GradesTabPage(
             .fillMaxSize()
             .verticalScroll(scrollState),
     ) {
-        Box(modifier = Modifier.padding(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = topPadding + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+        ) {
             content()
+        }
+    }
+}
+
+@Composable
+private fun GradesAdaptiveNavigation(
+    layout: GradesAdaptiveLayout,
+    selectedDestination: Int,
+    onSelect: (GradesDestination) -> Unit,
+) {
+    when (layout) {
+        GradesAdaptiveLayout.SingleColumn -> Unit
+        GradesAdaptiveLayout.TwoColumn,
+        GradesAdaptiveLayout.ListDetail,
+        -> NavigationRail(
+            modifier = Modifier.fillMaxHeight(),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            Spacer(modifier = Modifier.statusBarsPadding())
+            GradesDestination.entries.forEach { destination ->
+                val selected = selectedDestination == destination.ordinal
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onSelect(destination) },
+                    icon = {
+                        if (selected) {
+                            FilledRoundedSymbol(
+                                icon = destination.icon,
+                                contentDescription = destination.label,
+                            )
+                        } else {
+                            OutlinedRoundedSymbol(
+                                icon = destination.icon,
+                                contentDescription = destination.label,
+                            )
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -739,7 +811,7 @@ private fun OverviewTab(
         )
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    val summaryContent: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val isReminderActiveForSelection = gradeReminderState.isActiveFor(
                 studentNo = studentNo,
@@ -754,17 +826,39 @@ private fun OverviewTab(
                 onOpenGradeReminder = { showGradeReminderDetails = true },
             )
             HeroChipRow(report, analysis)
+            StrengthWeaknessCard(analysis)
         }
-        StrengthWeaknessCard(analysis)
-        InsightCard(
-            analysis = analysis,
-            isLoadingComparison = isLoadingComparison,
-            comparisonError = comparisonError,
-            isLoadingTrend = isLoadingTrend,
-            trendError = trendError,
-            trend = trend,
-            insights = insights,
-        )
+    }
+    val detailContent: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            InsightCard(
+                analysis = analysis,
+                isLoadingComparison = isLoadingComparison,
+                comparisonError = comparisonError,
+                isLoadingTrend = isLoadingTrend,
+                trendError = trendError,
+                trend = trend,
+                insights = insights,
+            )
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth < 640.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                summaryContent()
+                detailContent()
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    summaryContent()
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    detailContent()
+                }
+            }
+        }
     }
 }
 
@@ -933,26 +1027,45 @@ private fun AdvancedTab(
     onOpenSchedule: () -> Unit,
     onOpenSubjectTrend: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        TrendChart(
-            isLoadingTrend = isLoadingTrend,
-            trendError = trendError,
-            trend = trend,
-        )
-        ScoreSimulatorEntryCard(
-            report = report,
-            analysis = analysis,
-            isLoadingHistory = isLoadingSimulatorHistory,
-            historyLabel = simulatorHistoryLabel,
-            historyCount = simulatorHistoryCount,
-            onOpen = onOpenScoreSimulator,
-        )
-        SubjectTrendEntryCard(
-            onOpen = onOpenSubjectTrend,
-        )
-        ScheduleEntryCard(
-            onOpen = onOpenSchedule,
-        )
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val actions: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                ScoreSimulatorEntryCard(
+                    report = report,
+                    analysis = analysis,
+                    isLoadingHistory = isLoadingSimulatorHistory,
+                    historyLabel = simulatorHistoryLabel,
+                    historyCount = simulatorHistoryCount,
+                    onOpen = onOpenScoreSimulator,
+                )
+                SubjectTrendEntryCard(onOpen = onOpenSubjectTrend)
+                ScheduleEntryCard(onOpen = onOpenSchedule)
+            }
+        }
+
+        if (maxWidth < 640.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                TrendChart(
+                    isLoadingTrend = isLoadingTrend,
+                    trendError = trendError,
+                    trend = trend,
+                )
+                actions()
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    TrendChart(
+                        isLoadingTrend = isLoadingTrend,
+                        trendError = trendError,
+                        trend = trend,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    actions()
+                }
+            }
+        }
     }
 }
 
