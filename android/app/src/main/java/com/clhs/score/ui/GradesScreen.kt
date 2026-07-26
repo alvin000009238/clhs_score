@@ -117,6 +117,12 @@ import kotlin.math.abs
 
 private const val TAB_SLIDE_DURATION_MILLIS = 220
 
+internal fun pagerNeedsSettling(
+    currentPage: Int,
+    currentPageOffsetFraction: Float,
+    destination: Int,
+): Boolean = currentPage != destination || currentPageOffsetFraction != 0f
+
 private enum class GradesDestination(
     val label: String,
     val icon: String,
@@ -190,7 +196,7 @@ fun GradesScreen(
     val advancedScrollState = rememberScrollState()
 
     LaunchedEffect(selectedDestination) {
-        if (pagerState.currentPage != selectedDestination) {
+        if (pagerNeedsSettling(pagerState.currentPage, pagerState.currentPageOffsetFraction, selectedDestination)) {
             pagerState.animateScrollToPage(selectedDestination)
         }
     }
