@@ -14,11 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -42,6 +40,8 @@ import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.ScheduleViewModel
 import com.clhs.score.viewmodel.SettingsUiState
 
+private const val IntroRoute = "intro"
+private const val WebViewLoginRoute = "web-view-login"
 private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
 private const val SubjectTrendRoute = "subject-trend"
@@ -92,8 +92,6 @@ fun ScoreApp(
     onSetBiometricEnabled: (Boolean, String?) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    var showWebView by remember { mutableStateOf(false) }
-
     SystemNotificationPermissionSync(
         settings = settings,
         onSetNotificationsEnabled = onSetNotificationsEnabled,
@@ -345,26 +343,29 @@ fun ScoreApp(
                 }
             }
         } else {
-            AnimatedContent(
-                targetState = showWebView,
-                transitionSpec = {
-                    fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-                },
-                label = "webViewTransition"
-            ) { isWebViewVisible ->
-                if (isWebViewVisible) {
+            val loginNavController = rememberNavController()
+            NavHost(
+                navController = loginNavController,
+                startDestination = IntroRoute,
+                enterTransition = { fadeIn(tween(300)) },
+                exitTransition = { fadeOut(tween(300)) },
+                popEnterTransition = { fadeIn(tween(300)) },
+                popExitTransition = { fadeOut(tween(300)) },
+            ) {
+                composable(IntroRoute) {
+                    IntroScreen(
+                        showSkipButton = settings.demoMode,
+                        onSkipClick = { onWebViewLoginSuccess("DEMO-000", "fake=cookie") },
+                        onLoginClick = { loginNavController.navigate(WebViewLoginRoute) },
+                    )
+                }
+                composable(WebViewLoginRoute) {
                     WebViewLoginScreen(
                         isProcessingLogin = loginState.isWebViewLoginInProgress,
                         errorMessage = loginState.errorMessage,
                         onLoginSuccess = onWebViewLoginSuccess,
-                        onBack = { showWebView = false },
+                        onBack = { loginNavController.popBackStack() },
                         onDismissError = onDismissLoginError,
-                    )
-                } else {
-                    IntroScreen(
-                        showSkipButton = settings.demoMode,
-                        onSkipClick = { onWebViewLoginSuccess("DEMO-000", "fake=cookie") },
-                        onLoginClick = { showWebView = true }
                     )
                 }
             }
