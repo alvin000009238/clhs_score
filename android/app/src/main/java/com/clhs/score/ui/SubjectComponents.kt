@@ -83,6 +83,7 @@ internal fun SubjectCard(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoViewRequester)
+            .padding(bottom = 16.dp)
             .semantics { stateDescription = if (expanded) "已展開" else "已收合" },
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),

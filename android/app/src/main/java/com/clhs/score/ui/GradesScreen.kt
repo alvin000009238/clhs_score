@@ -1277,7 +1277,7 @@ private fun SubjectsTab(
 ) {
     var pendingBringIntoViewKey by remember { mutableStateOf<String?>(null) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column {
         analyses.forEach { analysis ->
             val subjectKey = cleanSubjectName(analysis.subject.subjectName)
             val expanded = subjectKey in expandedSubjectKeys
