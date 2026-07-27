@@ -129,6 +129,8 @@ private fun GradesScreenFakePreview(
 }
 
 @Preview(name = "Score Simulator - Fake Data", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Score Simulator - Landscape", showBackground = true, widthDp = 844, heightDp = 390)
+@Preview(name = "Score Simulator - Tablet", showBackground = true, widthDp = 1280, heightDp = 800)
 @Composable
 private fun ScoreSimulatorFakePreview(
     @PreviewParameter(ScenarioProvider::class) scenario: StudentScenario
