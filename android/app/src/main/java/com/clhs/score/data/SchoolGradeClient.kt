@@ -1,6 +1,7 @@
 package com.clhs.score.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -17,6 +18,7 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.Jsoup
 import java.io.IOException
+import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 open class SchoolException(
@@ -134,11 +136,11 @@ class SchoolGradeClient(
             .add("X-Requested-With", "XMLHttpRequest")
             .build()
 
-    private fun buildScheduleFormDefaults(token: String): FormBody.Builder =
+    private fun buildScheduleFormDefaults(token: String, weekNo: String = ""): FormBody.Builder =
         FormBody.Builder()
             .add("__RequestVerificationToken", token)
             .add("SchoolCode", "030305")
-            .add("WeekNo", "")
+            .add("WeekNo", weekNo)
             .add("ClassroomNo", "")
             .add("CrossName", "")
             .add("TeacherNo", "")
@@ -155,6 +157,8 @@ class SchoolGradeClient(
             .add("顯示科目名稱", "全名")
             .add("是否顯示總時數", "否")
             .add("是否顯示實施日期", "否")
+            .add("實施開始日期", "")
+            .add("實施結束日期", "")
 
     private fun parseOptionList(json: String): List<Pair<String, String>> {
         val root = runCatching { SchoolJson.parseToJsonElement(json) }.getOrNull()
@@ -212,15 +216,73 @@ class SchoolGradeClient(
         parseOptionList(json).map { (text, value) -> ScheduleClassOption(text, value) }
     }
 
+    suspend fun getScheduleWeeks(
+        session: AuthenticatedSession,
+        year: String,
+        term: String,
+    ): List<ScheduleWeekOption> = withContext(Dispatchers.IO) {
+        val token = getSchedulePageToken(session)
+        val body = buildScheduleFormDefaults(token)
+            .add("Year", year)
+            .add("Term", term)
+            .add("ClassNo", "")
+            .add("TimetableType", "")
+            .build()
+        val json = executeBody(
+            Request.Builder()
+                .url(resolve("ClassTableV2/ClassTable/GetWeekNoList"))
+                .headers(scheduleHeaders())
+                .post(body)
+                .build(),
+            expectJson = true,
+        )
+        parseScheduleWeekOptions(json)
+    }
+
     suspend fun fetchSchedule(
         session: AuthenticatedSession,
         yearValue: String,
         year: String,
         term: String,
         classNo: String,
+        scope: ScheduleScope,
+        targetDate: LocalDate = LocalDate.now(),
     ): ScheduleReport = withContext(Dispatchers.IO) {
+        if (scope == ScheduleScope.CURRENT_WEEK) {
+            val weekReport = try {
+                val week = selectScheduleWeek(
+                    options = getScheduleWeeks(session, year, term),
+                    targetDate = targetDate,
+                )
+                    ?: throw SchoolException("目前沒有可用的當週課表")
+                fetchScheduleRequest(session, yearValue, year, term, classNo, week)
+            } catch (error: Exception) {
+                if (error is CancellationException || error is SchoolAuthenticationException) throw error
+                return@withContext fetchScheduleRequest(session, yearValue, year, term, classNo, null)
+            }
+
+            val changes = try {
+                val semesterReport = fetchScheduleRequest(session, yearValue, year, term, classNo, null)
+                compareScheduleItems(semesterReport.items, weekReport.items)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                null
+            }
+            return@withContext weekReport.copy(changes = changes)
+        }
+        fetchScheduleRequest(session, yearValue, year, term, classNo, null)
+    }
+
+    private suspend fun fetchScheduleRequest(
+        session: AuthenticatedSession,
+        yearValue: String,
+        year: String,
+        term: String,
+        classNo: String,
+        week: ScheduleWeekOption?,
+    ): ScheduleReport {
         val token = getSchedulePageToken(session)
-        val form = buildScheduleFormDefaults(token)
+        val form = buildScheduleFormDefaults(token, week?.value.orEmpty())
             .add("Year", year)
             .add("Term", term)
             .apply {
@@ -249,7 +311,15 @@ class SchoolGradeClient(
             throw SchoolException("無法解析課表資料結構或無課表")
         }
 
-        ScheduleReport(yearTermValue = yearValue, items = items)
+        return ScheduleReport(
+            yearTermValue = yearValue,
+            classNo = classNo,
+            scope = if (week == null) ScheduleScope.SEMESTER else ScheduleScope.CURRENT_WEEK,
+            weekNo = week?.value,
+            weekStartDate = week?.startDate,
+            weekEndDate = week?.endDate,
+            items = items,
+        )
     }
 
     fun restoreSession(session: AuthenticatedSession) {

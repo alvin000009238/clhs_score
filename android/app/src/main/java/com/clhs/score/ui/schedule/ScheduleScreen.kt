@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,10 +46,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,16 +75,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
+import com.clhs.score.data.ScheduleChange
+import com.clhs.score.data.ScheduleChangeType
 import com.clhs.score.data.ScheduleItem
-import com.clhs.score.data.getSubjectColor
+import com.clhs.score.data.ScheduleReport
+import com.clhs.score.data.ScheduleScope
+import com.clhs.score.data.getSubjectColors
+import com.clhs.score.data.refreshAt
+import com.clhs.score.data.shouldRefreshAt
 import com.clhs.score.ui.OutlinedRoundedSymbol
 import com.clhs.score.viewmodel.ScheduleUiState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
+import java.time.Duration
+import java.time.LocalDateTime
 import java.util.Date
 import java.util.Locale
 
@@ -89,25 +105,76 @@ fun ScheduleScreen(
     onRefresh: () -> Unit,
     onYearSelected: (String) -> Unit,
     onClassSelected: (String) -> Unit,
+    onScopeSelected: (ScheduleScope) -> Unit,
     onConfirmSelection: () -> Unit,
     onClearSelection: () -> Unit,
-    onOpenWidgetSettings: () -> Unit
+    onNoticeShown: () -> Unit,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showMoreMenu by remember { mutableStateOf(false) }
     var captureView: View? by remember { mutableStateOf(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    var scheduleNow by remember(uiState.report) { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(uiState.report) {
+        val report = uiState.report ?: return@LaunchedEffect
+        val refreshAt = report.refreshAt() ?: return@LaunchedEffect
+        if (scheduleNow.isBefore(refreshAt)) {
+            delay(Duration.between(scheduleNow, refreshAt).toMillis())
+            scheduleNow = LocalDateTime.now()
+        }
+    }
+    val refreshBoundaryReached = uiState.report?.shouldRefreshAt(scheduleNow) == true
+    val isRefreshingExpiredReport = refreshBoundaryReached && uiState.isLoading
+    val isExpiredReport = refreshBoundaryReached && !uiState.isLoading
+
+    LaunchedEffect(uiState.noticeMessage) {
+        uiState.noticeMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onNoticeShown()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("我的課表") },
+                title = {
+                    Column {
+                        Text("我的課表")
+                        uiState.report?.let { report ->
+                            Text(
+                                text = scheduleSubtitle(
+                                    report = report,
+                                    isRefreshing = isRefreshingExpiredReport,
+                                    isExpired = isExpiredReport,
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isExpiredReport) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
+                    if (isExpiredReport) {
+                        IconButton(onClick = onRefresh) {
+                            OutlinedRoundedSymbol(
+                                icon = "refresh",
+                                contentDescription = "重新整理課表",
+                            )
+                        }
+                    }
                     if (!uiState.report?.items.isNullOrEmpty()) {
                         IconButton(onClick = { showMoreMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "更多選項")
@@ -157,13 +224,6 @@ fun ScheduleScreen(
                                         } else {
                                             Toast.makeText(context, "您的裝置不支援新增桌面小工具", Toast.LENGTH_SHORT).show()
                                         }
-                                    showMoreMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Widget 設定") },
-                                onClick = {
-                                    onOpenWidgetSettings()
                                     showMoreMenu = false
                                 }
                             )
@@ -226,7 +286,7 @@ fun ScheduleScreen(
                     ExposedDropdownMenuBox(
                         expanded = classExpanded,
                         onExpandedChange = { classExpanded = !classExpanded },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
                         OutlinedTextField(
                             value = uiState.availableClasses.find { it.value == uiState.selectedClassValue }?.text ?: "選擇班級",
@@ -252,6 +312,29 @@ fun ScheduleScreen(
                                         classExpanded = false
                                     }
                                 )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "課表類型",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    )
+                    val scopeOptions = listOf(
+                        "學期課表" to ScheduleScope.SEMESTER,
+                        "週課表" to ScheduleScope.CURRENT_WEEK,
+                    )
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    ) {
+                        scopeOptions.forEachIndexed { index, (label, scope) ->
+                            SegmentedButton(
+                                selected = uiState.selectedScope == scope,
+                                onClick = { onScopeSelected(scope) },
+                                shape = SegmentedButtonDefaults.itemShape(index, scopeOptions.size),
+                            ) {
+                                Text(label)
                             }
                         }
                     }
@@ -282,6 +365,7 @@ fun ScheduleScreen(
                             Text("重新整理")
                         }
                     }
+
                 }
             } else if (uiState.report.items.isEmpty()) {
                 Column(
@@ -319,6 +403,7 @@ fun ScheduleScreen(
                                 Surface {
                                     ScheduleGrid(
                                         items = report.items,
+                                        changes = report.changes.orEmpty(),
                                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                                     )
                                 }
@@ -329,6 +414,22 @@ fun ScheduleScreen(
                 }
             }
         }
+    }
+}
+
+private fun scheduleSubtitle(
+    report: ScheduleReport,
+    isRefreshing: Boolean,
+    isExpired: Boolean,
+): String {
+    if (isRefreshing) return "正在更新本週課表"
+    if (report.scope == ScheduleScope.SEMESTER) return "學期課表"
+    val weekNo = report.weekNo ?: return "週課表"
+    val start = report.weekStartDate?.takeLast(5)?.replace('-', '/') ?: return "第 $weekNo 週"
+    val end = report.weekEndDate?.takeLast(5)?.replace('-', '/') ?: return "第 $weekNo 週"
+    return buildString {
+        append("第 $weekNo 週 · $start–$end")
+        if (isExpired) append(" · 已過期")
     }
 }
 
@@ -385,15 +486,26 @@ private suspend fun saveBitmapToGallery(context: Context, view: View): Result<St
 @Composable
 fun ScheduleGrid(
     items: List<ScheduleItem>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    changes: List<ScheduleChange> = emptyList(),
 ) {
     val days = listOf("時間", "週一", "週二", "週三", "週四", "週五")
     val periods = (1..8).toList()
     val itemsBySlot = remember(items) {
         items.associateBy { it.dayOfWeek to it.period }
     }
+    val changesBySlot = remember(changes) {
+        changes.associateBy { it.dayOfWeek to it.period }
+    }
+    val subjectColors = remember(items, changes) {
+        getSubjectColors(
+            items.map { it.subjectName } +
+                changes.mapNotNull { it.weekItem?.subjectName },
+        )
+    }
     val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     var selectedItem by remember { mutableStateOf<ScheduleItem?>(null) }
+    var selectedChange by remember { mutableStateOf<ScheduleChange?>(null) }
 
     Column(modifier = modifier) {
         Row(
@@ -443,22 +555,58 @@ fun ScheduleGrid(
                     }
 
                     for (day in 1..5) {
-                        val item = itemsBySlot[day to period]
+                        val slot = day to period
+                        val change = changesBySlot[slot]
+                        val item = change?.weekItem ?: itemsBySlot[slot]
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .padding(horizontal = 2.dp)
                         ) {
-                            if (item != null) {
-                                val tileColors = scheduleTileColors(item.subjectName, isDarkSurface)
+                            if (change?.type == ScheduleChangeType.REMOVED) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable { selectedChange = change },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary),
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        Text(
+                                            text = "停課",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
+                            } else if (item != null) {
+                                val tileColors = scheduleTileColors(
+                                    subjectColors.getValue(item.subjectName),
+                                    isDarkSurface,
+                                )
                                 val shortName = item.subjectName.split("-")[0]
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clickable { selectedItem = item },
+                                        .clickable {
+                                            if (change != null) selectedChange = change else selectedItem = item
+                                        },
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = CardDefaults.cardColors(containerColor = tileColors.container)
+                                    colors = CardDefaults.cardColors(containerColor = tileColors.container),
+                                    border = change?.let {
+                                        BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
+                                    },
                                 ) {
                                     Column(
                                         modifier = Modifier
@@ -492,6 +640,12 @@ fun ScheduleGrid(
             onDismiss = { selectedItem = null },
         )
     }
+    selectedChange?.let { change ->
+        ScheduleChangeDetailSheet(
+            change = change,
+            onDismiss = { selectedChange = null },
+        )
+    }
 }
 
 private data class ScheduleTileColors(
@@ -499,8 +653,8 @@ private data class ScheduleTileColors(
     val content: Color,
 )
 
-private fun scheduleTileColors(subjectName: String, isDarkSurface: Boolean): ScheduleTileColors {
-    val rawBgColor = Color(getSubjectColor(subjectName))
+private fun scheduleTileColors(subjectColor: Long, isDarkSurface: Boolean): ScheduleTileColors {
+    val rawBgColor = Color(subjectColor)
     if (isDarkSurface) {
         return ScheduleTileColors(
             container = rawBgColor.copy(alpha = 0.15f),
@@ -588,6 +742,111 @@ private fun ScheduleDetailSheet(
         }
     }
 }
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun ScheduleChangeDetailSheet(
+    change: ScheduleChange,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "課表差異",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "週${dayName(change.dayOfWeek)} · 第 ${change.period} 節",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ScheduleComparisonCard(
+                    title = "學期課表",
+                    item = change.semesterItem,
+                    emptyText = "無排課",
+                    modifier = Modifier.weight(1f),
+                )
+                ScheduleComparisonCard(
+                    title = "本週課表",
+                    item = change.weekItem,
+                    emptyText = "停課",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("確定", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScheduleComparisonCard(
+    title: String,
+    item: ScheduleItem?,
+    emptyText: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = item?.subjectName ?: emptyText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            item?.teacherName?.takeIf(::hasScheduleDetail)?.let { teacher ->
+                Text(
+                    text = "教師：$teacher",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            item?.classroom?.takeIf(::hasScheduleDetail)?.let { classroom ->
+                Text(
+                    text = "教室：$classroom",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+private fun dayName(dayOfWeek: Int): String =
+    listOf("", "一", "二", "三", "四", "五", "六", "日").getOrElse(dayOfWeek) { dayOfWeek.toString() }
 
 private fun hasScheduleDetail(value: String): Boolean = value.isNotBlank() && value != "null"
 

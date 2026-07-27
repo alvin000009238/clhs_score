@@ -2,6 +2,7 @@ package com.clhs.score.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.ComponentActivity
@@ -9,13 +10,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import com.clhs.score.analytics.AnalyticsEvents
+import com.clhs.score.analytics.AnalyticsParams
+import com.clhs.score.analytics.FirebaseAnalyticsLogger
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.ui.schedule.WidgetSettingsScreen
 import com.clhs.score.ui.theme.ScoreTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -23,11 +31,11 @@ import kotlinx.coroutines.withContext
 
 class WidgetConfigurationActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private val launchSettings = mutableStateOf<AppSettings?>(null)
+    private val launchConfiguration = mutableStateOf<WidgetConfigurationData?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { launchSettings.value == null }
+        splashScreen.setKeepOnScreenCondition { launchConfiguration.value == null }
         splashScreen.setOnExitAnimationListener { splashScreenView ->
             val iconView = runCatching { splashScreenView.iconView }.getOrNull()
             if (iconView == null) {
@@ -47,9 +55,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Default to CANCELED. If user backs out, the widget is not added.
-        setResult(RESULT_CANCELED)
-
         val intentExtras = intent?.extras
         if (intentExtras != null) {
             appWidgetId = intentExtras.getInt(
@@ -62,16 +67,41 @@ class WidgetConfigurationActivity : ComponentActivity() {
             finish()
             return
         }
+        setResult(
+            RESULT_CANCELED,
+            Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+        )
 
         val settingsRepository = SettingsRepository(applicationContext)
         lifecycleScope.launch {
-            launchSettings.value = settingsRepository.settings.first()
+            try {
+                val manager = GlanceAppWidgetManager(applicationContext)
+                val glanceId = manager.getGlanceIdBy(appWidgetId)
+                val sizes = runCatching { manager.getAppWidgetSizes(glanceId) }
+                    .getOrDefault(emptyList())
+                    .filterNot { it == DpSize.Zero }
+                val previewSize = if (
+                    resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                ) {
+                    sizes.maxByOrNull { it.width.value }
+                } else {
+                    sizes.minByOrNull { it.width.value }
+                }
+                launchConfiguration.value = WidgetConfigurationData(
+                    settings = settingsRepository.settings.first(),
+                    preferences = loadScheduleWidgetPreferences(applicationContext, appWidgetId),
+                    previewSize = previewSize ?: DpSize(276.dp, 203.dp),
+                )
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                finish()
+            }
         }
 
         setContent {
-            val initialSettings = launchSettings.value ?: return@setContent
+            val configuration = launchConfiguration.value ?: return@setContent
             val settings by settingsRepository.settings.collectAsStateWithLifecycle(
-                initialValue = initialSettings
+                initialValue = configuration.settings
             )
 
             ScoreTheme(
@@ -80,15 +110,28 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 dynamicColor = settings.dynamicColor
             ) {
                 WidgetSettingsScreen(
-                    isFromLauncher = true,
+                    initialPreferences = configuration.preferences,
+                    previewSize = configuration.previewSize,
                     onDismiss = {
-                        setResult(RESULT_CANCELED)
                         finish()
                     },
-                    onSaveCompleted = {
+                    onSaveCompleted = { preferences ->
                         withContext(Dispatchers.IO) {
+                            saveScheduleWidgetPreferences(
+                                applicationContext,
+                                appWidgetId,
+                                preferences,
+                            )
                             syncScheduleWidget(applicationContext, appWidgetId)
                         }
+                        FirebaseAnalyticsLogger(applicationContext).logEvent(
+                            AnalyticsEvents.SCHEDULE_WIDGET_SETTINGS_SAVE,
+                            mapOf(
+                                AnalyticsParams.SHOW_TEACHER to preferences.showTeacher,
+                                AnalyticsParams.SHOW_CLASSROOM to preferences.showClassroom,
+                                AnalyticsParams.SHOW_TIME to preferences.showTime,
+                            ),
+                        )
                         val resultValue = Intent().apply {
                             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                         }
@@ -99,4 +142,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
             }
         }
     }
+
+    private data class WidgetConfigurationData(
+        val settings: AppSettings,
+        val preferences: ScheduleWidgetPreferences,
+        val previewSize: DpSize,
+    )
 }

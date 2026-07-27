@@ -84,16 +84,21 @@ class GradeCacheStore(context: Context) {
         val key = stringPreferencesKey("schedule_${studentNo}_${yearValue}")
         val latestKey = stringPreferencesKey("schedule_latest_$studentNo")
         val serialized = json.encodeToString(report)
+        val widgetSerialized = if (report.changes == null) {
+            serialized
+        } else {
+            json.encodeToString(report.copy(changes = null))
+        }
         appContext.gradeDataStore.edit { prefs ->
             prefs[key] = serialized
             prefs[latestKey] = serialized
-            prefs[PREF_WIDGET_SCHEDULE_REPORT] = serialized
+            prefs[PREF_WIDGET_SCHEDULE_REPORT] = widgetSerialized
             prefs[PREF_WIDGET_SCHEDULE_STUDENT_NO] = studentNo
         }
     }
 
     suspend fun saveWidgetScheduleReport(studentNo: String, report: ScheduleReport) {
-        val serialized = json.encodeToString(report)
+        val serialized = json.encodeToString(report.copy(changes = null))
         appContext.gradeDataStore.edit { prefs ->
             prefs[PREF_WIDGET_SCHEDULE_REPORT] = serialized
             prefs[PREF_WIDGET_SCHEDULE_STUDENT_NO] = studentNo
@@ -148,41 +153,36 @@ class GradeCacheStore(context: Context) {
         }
     }
 
-    suspend fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
-        appContext.gradeDataStore.edit { prefs ->
-            prefs[PREF_WIDGET_SHOW_TEACHER] = showTeacher
-            prefs[PREF_WIDGET_SHOW_CLASSROOM] = showClassroom
-            prefs[PREF_WIDGET_SHOW_TIME] = showTime
-        }
-    }
-
-    suspend fun getWidgetPreferences(): Triple<Boolean, Boolean, Boolean> {
-        var showTeacher = true
-        var showClassroom = true
-        var showTime = true
-
-        appContext.gradeDataStore.data.firstOrNull()?.let { prefs ->
-            showTeacher = prefs[PREF_WIDGET_SHOW_TEACHER] ?: true
-            showClassroom = prefs[PREF_WIDGET_SHOW_CLASSROOM] ?: true
-            showTime = prefs[PREF_WIDGET_SHOW_TIME] ?: true
-        }
-
-        return Triple(showTeacher, showClassroom, showTime)
-    }
-
-    fun widgetPreferencesFlow() = appContext.gradeDataStore.data.map { prefs ->
-        Triple(
-            prefs[PREF_WIDGET_SHOW_TEACHER] ?: true,
-            prefs[PREF_WIDGET_SHOW_CLASSROOM] ?: true,
-            prefs[PREF_WIDGET_SHOW_TIME] ?: true
-        )
-    }
-
     fun widgetScheduleReportFlow() = appContext.gradeDataStore.data.map { prefs ->
         val serialized = prefs[PREF_WIDGET_SCHEDULE_REPORT] ?: return@map null
         runCatching {
             json.decodeFromString<ScheduleReport>(serialized)
         }.getOrNull()
+    }
+
+    internal suspend fun loadLegacyWidgetPreferences(): Triple<Boolean, Boolean, Boolean> {
+        val prefs = appContext.gradeDataStore.data.firstOrNull()
+        return Triple(
+            prefs?.get(PREF_WIDGET_SHOW_TEACHER) ?: true,
+            prefs?.get(PREF_WIDGET_SHOW_CLASSROOM) ?: true,
+            prefs?.get(PREF_WIDGET_SHOW_TIME) ?: true,
+        )
+    }
+
+    internal suspend fun clearLegacyWidgetPreferences() {
+        val hasLegacyPreferences = appContext.gradeDataStore.data
+            .map { prefs ->
+                prefs[PREF_WIDGET_SHOW_TEACHER] != null ||
+                    prefs[PREF_WIDGET_SHOW_CLASSROOM] != null ||
+                    prefs[PREF_WIDGET_SHOW_TIME] != null
+            }
+            .firstOrNull() == true
+        if (!hasLegacyPreferences) return
+        appContext.gradeDataStore.edit { prefs ->
+            prefs.remove(PREF_WIDGET_SHOW_TEACHER)
+            prefs.remove(PREF_WIDGET_SHOW_CLASSROOM)
+            prefs.remove(PREF_WIDGET_SHOW_TIME)
+        }
     }
 
     private fun decodeCachedGradeReport(serialized: String): GradeReport? =

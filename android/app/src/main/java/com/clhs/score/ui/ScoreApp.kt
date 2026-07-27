@@ -15,7 +15,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -46,7 +45,6 @@ private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
 private const val SubjectTrendRoute = "subject-trend"
 private const val ScheduleRoute = "schedule"
-private const val WidgetSettingsRoute = "widget_settings"
 private const val SettingsRoute = "settings"
 private const val AboutRoute = "about"
 private const val UsageStatisticsRoute = "usage-statistics"
@@ -257,7 +255,6 @@ fun ScoreApp(
                         ),
                     )
                     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                    val coroutineScope = rememberCoroutineScope()
                     LaunchedEffect(uiState.report) {
                         if (uiState.report != null) {
                             com.clhs.score.widget.syncAllScheduleWidgets(context)
@@ -269,15 +266,10 @@ fun ScoreApp(
                         onRefresh = { viewModel.refresh() },
                         onYearSelected = { viewModel.selectYear(it) },
                         onClassSelected = { viewModel.selectClass(it) },
+                        onScopeSelected = { viewModel.selectScope(it) },
                         onConfirmSelection = { viewModel.confirmSelection() },
                         onClearSelection = { viewModel.clearSelection() },
-                        onOpenWidgetSettings = { navController.navigate(WidgetSettingsRoute) }
-                    )
-                }
-                composable(WidgetSettingsRoute) {
-                    com.clhs.score.ui.schedule.WidgetSettingsScreen(
-                        isFromLauncher = false,
-                        onDismiss = { navController.popBackStack() }
+                        onNoticeShown = { viewModel.consumeNotice() },
                     )
                 }
                 composable(SettingsRoute) {

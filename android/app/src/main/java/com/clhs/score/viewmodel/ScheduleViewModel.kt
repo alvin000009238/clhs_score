@@ -17,10 +17,13 @@ import com.clhs.score.data.NetworkScheduleRepository
 import com.clhs.score.data.ScheduleClassOption
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleRepository
+import com.clhs.score.data.ScheduleScope
 import com.clhs.score.data.ScheduleYearTermOption
 import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SessionStore
 import com.clhs.score.data.parseYearTerm
+import com.clhs.score.data.refreshTargetDateAt
+import com.clhs.score.data.shouldRefreshAt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 data class ScheduleUiState(
     val isLoading: Boolean = false,
@@ -38,18 +43,26 @@ data class ScheduleUiState(
     val selectedYearValue: String? = null,
     val availableClasses: List<ScheduleClassOption> = emptyList(),
     val selectedClassValue: String? = null,
+    val selectedScope: ScheduleScope = ScheduleScope.SEMESTER,
     val report: ScheduleReport? = null,
-    val widgetShowTeacher: Boolean = true,
-    val widgetShowClassroom: Boolean = true,
-    val widgetShowTime: Boolean = true,
+    val noticeMessage: String? = null,
+)
+
+private data class ScheduleQuery(
+    val yearValue: String,
+    val classNo: String,
+    val scope: ScheduleScope,
+    val targetDate: LocalDate,
 )
 
 class ScheduleViewModel(
     private val repository: ScheduleRepository,
     private val analyticsLogger: AnalyticsLogger = NoOpAnalyticsLogger,
+    private val nowProvider: () -> LocalDateTime = LocalDateTime::now,
 ) : ViewModel() {
     private var scheduleRequestId = 0
-    private var lastScheduleRequest: Pair<String, String>? = null
+    private var scheduleJob: Job? = null
+    private var lastScheduleRequest: ScheduleQuery? = null
 
     private val _uiState = MutableStateFlow(ScheduleUiState())
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
@@ -58,18 +71,32 @@ class ScheduleViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isInitialLoading = true, isError = false) }
             try {
-                val prefs = repository.getWidgetPreferences()
-                _uiState.update {
-                    it.copy(
-                        widgetShowTeacher = prefs.first,
-                        widgetShowClassroom = prefs.second,
-                        widgetShowTime = prefs.third
-                    )
-                }
-
                 val latest = repository.getLatestSchedule()
                 if (latest != null) {
-                    _uiState.update { it.copy(isLoading = false, isInitialLoading = false, report = latest) }
+                    val now = nowProvider()
+                    val query = ScheduleQuery(
+                        latest.yearTermValue,
+                        latest.classNo,
+                        latest.scope,
+                        now.toLocalDate(),
+                    )
+                    lastScheduleRequest = query
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isInitialLoading = false,
+                            selectedYearValue = latest.yearTermValue,
+                            selectedClassValue = latest.classNo,
+                            selectedScope = latest.scope,
+                            report = latest,
+                        )
+                    }
+                    if (latest.shouldRefreshAt(now)) {
+                        loadSchedule(
+                            query.copy(targetDate = latest.refreshTargetDateAt(now)),
+                            preserveExistingReport = true,
+                        )
+                    }
                 } else {
                     _uiState.update { it.copy(isInitialLoading = false) }
                     loadYears()
@@ -82,30 +109,20 @@ class ScheduleViewModel(
         }
     }
 
-    fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean): Job =
-        viewModelScope.launch {
-            repository.saveWidgetPreferences(showTeacher, showClassroom, showTime)
-            analyticsLogger.logEvent(
-                AnalyticsEvents.SCHEDULE_WIDGET_SETTINGS_SAVE,
-                mapOf(
-                    AnalyticsParams.SHOW_TEACHER to showTeacher,
-                    AnalyticsParams.SHOW_CLASSROOM to showClassroom,
-                    AnalyticsParams.SHOW_TIME to showTime,
-                ),
-            )
-            _uiState.update {
-                it.copy(
-                    widgetShowTeacher = showTeacher,
-                    widgetShowClassroom = showClassroom,
-                    widgetShowTime = showTime
-                )
-            }
-        }
-
     fun clearSelection() {
+        scheduleJob?.cancel()
+        scheduleJob = null
         scheduleRequestId++
         lastScheduleRequest = null
-        _uiState.update { it.copy(report = null) }
+        _uiState.update {
+            it.copy(
+                report = null,
+                selectedScope = ScheduleScope.SEMESTER,
+                noticeMessage = null,
+                isLoading = false,
+                isError = false,
+            )
+        }
         if (_uiState.value.availableYears.isEmpty()) {
             loadYears()
         }
@@ -146,6 +163,8 @@ class ScheduleViewModel(
 
     fun selectYear(yearValue: String) {
         if (_uiState.value.selectedYearValue == yearValue) return
+        scheduleJob?.cancel()
+        scheduleJob = null
         lastScheduleRequest = null
         _uiState.update {
             it.copy(
@@ -160,14 +179,39 @@ class ScheduleViewModel(
     
     fun selectClass(classValue: String) {
         if (_uiState.value.selectedClassValue == classValue) return
+        scheduleJob?.cancel()
+        scheduleJob = null
+        scheduleRequestId++
         lastScheduleRequest = null
-        _uiState.update { it.copy(selectedClassValue = classValue) }
+        _uiState.update { it.copy(selectedClassValue = classValue, isLoading = false) }
+    }
+
+    fun selectScope(scope: ScheduleScope) {
+        if (_uiState.value.selectedScope == scope) return
+        scheduleJob?.cancel()
+        scheduleJob = null
+        scheduleRequestId++
+        lastScheduleRequest = null
+        _uiState.update {
+            it.copy(selectedScope = scope, noticeMessage = null, isLoading = false)
+        }
+    }
+
+    fun consumeNotice() {
+        _uiState.update { it.copy(noticeMessage = null) }
     }
 
     fun confirmSelection() {
         val yearValue = _uiState.value.selectedYearValue ?: return
         val classValue = _uiState.value.selectedClassValue ?: ""
-        loadSchedule(yearValue, classValue)
+        loadSchedule(
+            ScheduleQuery(
+                yearValue,
+                classValue,
+                _uiState.value.selectedScope,
+                nowProvider().toLocalDate(),
+            ),
+        )
     }
 
     private fun loadClasses(yearValue: String) {
@@ -201,16 +245,31 @@ class ScheduleViewModel(
         }
     }
 
-    private fun loadSchedule(yearValue: String, classNo: String) {
-        lastScheduleRequest = yearValue to classNo
+    private fun loadSchedule(
+        query: ScheduleQuery,
+        preserveExistingReport: Boolean = false,
+    ) {
+        scheduleJob?.cancel()
+        lastScheduleRequest = query
         val requestId = ++scheduleRequestId
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isError = false) }
+        scheduleJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, isError = false, noticeMessage = null) }
             try {
-                val (year, term) = parseYearTerm(yearValue)
+                val (year, term) = parseYearTerm(query.yearValue)
                 
-                val report = repository.fetchSchedule(yearValue, year, term, classNo)
+                val report = repository.fetchSchedule(
+                    query.yearValue,
+                    year,
+                    term,
+                    query.classNo,
+                    query.scope,
+                    query.targetDate,
+                )
                 if (requestId != scheduleRequestId) return@launch
+                val now = nowProvider()
+                if (report.shouldRefreshAt(now)) {
+                    lastScheduleRequest = query.copy(targetDate = report.refreshTargetDateAt(now))
+                }
                 analyticsLogger.logEvent(
                     AnalyticsEvents.SCHEDULE_QUERY,
                     mapOf(
@@ -221,7 +280,15 @@ class ScheduleViewModel(
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
-                        report = report
+                        selectedScope = report.scope,
+                        report = report,
+                        noticeMessage = if (query.scope == ScheduleScope.CURRENT_WEEK && report.scope == ScheduleScope.SEMESTER) {
+                            CURRENT_WEEK_FALLBACK_NOTICE
+                        } else if (report.scope == ScheduleScope.CURRENT_WEEK && report.changes == null) {
+                            CURRENT_WEEK_COMPARISON_NOTICE
+                        } else {
+                            null
+                        },
                     )
                 }
             } catch (e: Exception) {
@@ -234,27 +301,38 @@ class ScheduleViewModel(
                         AnalyticsParams.MODE to AnalyticsValues.MODE_CLASS,
                     ),
                 )
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false,
-                        isError = true,
-                        errorMessage = e.message ?: "載入課表失敗"
-                    )
+                _uiState.update {
+                    if (preserveExistingReport && it.report != null) {
+                        it.copy(
+                            isLoading = false,
+                            isError = false,
+                            noticeMessage = "無法更新，暫時顯示已儲存的課表",
+                        )
+                    } else {
+                        it.copy(
+                            isLoading = false,
+                            isError = true,
+                            errorMessage = e.message ?: "載入課表失敗",
+                        )
+                    }
                 }
             }
         }
     }
 
     fun refresh() {
-        lastScheduleRequest?.let { (yearValue, classNo) ->
-            loadSchedule(yearValue, classNo)
+        lastScheduleRequest?.let { query ->
+            loadSchedule(query, preserveExistingReport = _uiState.value.report != null)
             return
         }
         val st = _uiState.value
         val y = st.selectedYearValue
         val c = st.selectedClassValue
         if (st.report != null && y != null && c != null) {
-            loadSchedule(y, c)
+            loadSchedule(
+                ScheduleQuery(y, c, st.report.scope, nowProvider().toLocalDate()),
+                preserveExistingReport = true,
+            )
         } else if (y != null) {
             loadClasses(y)
         } else {
@@ -267,6 +345,9 @@ class ScheduleViewModel(
     }
 
     companion object {
+        const val CURRENT_WEEK_FALLBACK_NOTICE = "無法取得週課表，已改顯示學期課表"
+        const val CURRENT_WEEK_COMPARISON_NOTICE = "已取得週課表，但無法確認是否有調課"
+
         fun factory(
             context: Context,
             useFakeData: Boolean,

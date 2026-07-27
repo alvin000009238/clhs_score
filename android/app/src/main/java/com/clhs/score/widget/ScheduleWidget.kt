@@ -17,6 +17,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -26,6 +27,7 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
 import androidx.glance.currentState
@@ -33,12 +35,9 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.width
 import androidx.glance.material3.ColorProviders
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
@@ -46,24 +45,129 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.GradeCacheStore
+import com.clhs.score.data.PERIOD_TIMES
+import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
+import com.clhs.score.data.ScheduleScope
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.ui.theme.AmoledDarkColors
 import com.clhs.score.ui.theme.DarkColors
 import com.clhs.score.ui.theme.LightColors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.util.Calendar
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 val WidgetShowTeacherKey = booleanPreferencesKey("widget_show_teacher")
 val WidgetShowClassroomKey = booleanPreferencesKey("widget_show_classroom")
 val WidgetShowTimeKey = booleanPreferencesKey("widget_show_time")
+val WidgetAfterLastClassKey = booleanPreferencesKey("widget_after_last_class")
 val WidgetScheduleReportKey = stringPreferencesKey("widget_schedule_report")
 val WidgetThemeModeKey = stringPreferencesKey("widget_theme_mode")
 val WidgetDynamicColorKey = booleanPreferencesKey("widget_dynamic_color")
 val WidgetAmoledBlackKey = booleanPreferencesKey("widget_amoled_black")
 private val WidgetJson = Json { ignoreUnknownKeys = true }
+
+internal data class WidgetScheduleSelection(
+    val date: LocalDate,
+    val items: List<ScheduleItem>,
+)
+
+internal data class ScheduleWidgetPreferences(
+    val showTeacher: Boolean = true,
+    val showClassroom: Boolean = true,
+    val showTime: Boolean = true,
+    val afterLastClass: Boolean = false,
+)
+
+internal data class WidgetScheduleSections(
+    val current: ScheduleItem?,
+    val upcoming: List<ScheduleItem>,
+    val completed: List<ScheduleItem>,
+) {
+    val prioritized: List<ScheduleItem>
+        get() = listOfNotNull(current) + upcoming
+}
+
+internal fun classifyWidgetScheduleItems(
+    items: List<ScheduleItem>,
+    selectionDate: LocalDate,
+    today: LocalDate,
+    currentMinutes: Int,
+): WidgetScheduleSections {
+    val sortedItems = items.sortedBy { it.period }
+    if (selectionDate != today) {
+        return WidgetScheduleSections(
+            current = null,
+            upcoming = sortedItems,
+            completed = emptyList(),
+        )
+    }
+
+    var current: ScheduleItem? = null
+    val upcoming = mutableListOf<ScheduleItem>()
+    val completed = mutableListOf<ScheduleItem>()
+    sortedItems.forEach { item ->
+        val periodTime = PERIOD_TIMES.getOrNull(item.period - 1)
+        val startMinutes = periodTime?.start?.toMinutesOrNull()
+        val endMinutes = periodTime?.end?.toMinutesOrNull()
+        when {
+            startMinutes == null || endMinutes == null -> upcoming += item
+            currentMinutes >= startMinutes && currentMinutes < endMinutes && current == null -> current = item
+            currentMinutes >= endMinutes -> completed += item
+            else -> upcoming += item
+        }
+    }
+    return WidgetScheduleSections(current, upcoming, completed)
+}
+
+private fun String.toMinutesOrNull(): Int? {
+    val hour = substringBefore(":").toIntOrNull() ?: return null
+    val minute = substringAfter(":", missingDelimiterValue = "").toIntOrNull() ?: return null
+    return hour * 60 + minute
+}
+
+internal fun selectWidgetSchedule(
+    items: List<ScheduleItem>,
+    today: LocalDate,
+    currentMinutes: Int,
+    afterLastClass: Boolean,
+    validFrom: LocalDate = today,
+): WidgetScheduleSelection {
+    val selectionDate = maxOf(today, validFrom)
+    val selectedDateItems = items.filter { it.dayOfWeek == selectionDate.dayOfWeek.value }.sortedBy { it.period }
+    val shouldAdvance = if (afterLastClass && selectionDate == today) {
+        val endMinutes = selectedDateItems.maxOfOrNull { it.period }
+            ?.let { PERIOD_TIMES.getOrNull(it - 1)?.end?.toMinutesOrNull() }
+        endMinutes != null && currentMinutes >= endMinutes
+    } else false
+
+    if (selectedDateItems.isNotEmpty() && !shouldAdvance) {
+        return WidgetScheduleSelection(selectionDate, selectedDateItems)
+    }
+
+    for (offset in 1L..7L) {
+        val date = selectionDate.plusDays(offset)
+        val nextItems = items.filter { it.dayOfWeek == date.dayOfWeek.value }.sortedBy { it.period }
+        if (nextItems.isNotEmpty()) return WidgetScheduleSelection(date, nextItems)
+    }
+    return WidgetScheduleSelection(selectionDate, emptyList())
+}
+
+internal fun widgetScheduleDayLabel(selectionDate: LocalDate, today: LocalDate): String = when (selectionDate) {
+    today -> "今天"
+    today.plusDays(1) -> "明天"
+    else -> arrayOf("週一", "週二", "週三", "週四", "週五", "週六", "週日")[selectionDate.dayOfWeek.value - 1]
+}
+
+internal fun widgetScheduleDateLabel(date: LocalDate): String =
+    "${date.monthValue} 月 ${date.dayOfMonth} 日"
+
+internal fun widgetScheduleShortDateLabel(date: LocalDate): String =
+    "${date.monthValue}/${date.dayOfMonth}"
 
 fun getWidgetColorProviders(context: Context, settings: AppSettings) = run {
     val dynamicColor = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -103,13 +207,13 @@ class ScheduleWidget : GlanceAppWidget() {
         val cacheStore = GradeCacheStore(context)
         val settingsRepository = SettingsRepository(context)
 
-        val prefs = cacheStore.getWidgetPreferences()
         val report = cacheStore.loadWidgetScheduleReport()
         val reportStr = report?.let { WidgetJson.encodeToString(it) }
         val appSettings = settingsRepository.settings.first()
+        val legacyPreferences = cacheStore.loadLegacyWidgetPreferences()
 
         updateAppWidgetState(context, id) { state ->
-            state.syncScheduleWidgetState(prefs, reportStr, appSettings)
+            state.syncScheduleWidgetState(reportStr, appSettings, legacyPreferences)
         }
 
         provideContent {
@@ -121,44 +225,80 @@ class ScheduleWidget : GlanceAppWidget() {
     }
 }
 
-suspend fun syncAllScheduleWidgets(context: Context, settings: AppSettings? = null) {
+suspend fun syncAllScheduleWidgets(
+    context: Context,
+    settings: AppSettings? = null,
+) = withContext(Dispatchers.IO) {
     val cacheStore = GradeCacheStore(context)
-    val prefs = cacheStore.getWidgetPreferences()
     val report = cacheStore.loadWidgetScheduleReport()
     val reportStr = report?.let { WidgetJson.encodeToString(it) }
     val appSettings = settings ?: SettingsRepository(context).settings.first()
+    val legacyPreferences = cacheStore.loadLegacyWidgetPreferences()
 
     val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(ScheduleWidget::class.java)
+    val widget = ScheduleWidget()
     glanceIds.forEach { glanceId ->
         updateAppWidgetState(context, glanceId) { state ->
-            state.syncScheduleWidgetState(prefs, reportStr, appSettings)
+            state.syncScheduleWidgetState(reportStr, appSettings, legacyPreferences)
         }
-        ScheduleWidget().update(context, glanceId)
+        widget.update(context, glanceId)
     }
+    cacheStore.clearLegacyWidgetPreferences()
 }
 
-suspend fun syncScheduleWidget(context: Context, appWidgetId: Int) {
+suspend fun syncScheduleWidget(
+    context: Context,
+    appWidgetId: Int,
+) = withContext(Dispatchers.IO) {
     val cacheStore = GradeCacheStore(context)
-    val prefs = cacheStore.getWidgetPreferences()
     val report = cacheStore.loadWidgetScheduleReport()
     val reportStr = report?.let { WidgetJson.encodeToString(it) }
     val appSettings = SettingsRepository(context).settings.first()
+    val legacyPreferences = cacheStore.loadLegacyWidgetPreferences()
     val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
 
     updateAppWidgetState(context, glanceId) { state ->
-        state.syncScheduleWidgetState(prefs, reportStr, appSettings)
+        state.syncScheduleWidgetState(reportStr, appSettings, legacyPreferences)
     }
     ScheduleWidget().update(context, glanceId)
 }
 
-private fun MutablePreferences.syncScheduleWidgetState(
-    prefs: Triple<Boolean, Boolean, Boolean>,
+internal suspend fun loadScheduleWidgetPreferences(
+    context: Context,
+    appWidgetId: Int,
+): ScheduleWidgetPreferences {
+    val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+    val state = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
+    return ScheduleWidgetPreferences(
+        showTeacher = state[WidgetShowTeacherKey] ?: true,
+        showClassroom = state[WidgetShowClassroomKey] ?: true,
+        showTime = state[WidgetShowTimeKey] ?: true,
+        afterLastClass = state[WidgetAfterLastClassKey] ?: false,
+    )
+}
+
+internal suspend fun saveScheduleWidgetPreferences(
+    context: Context,
+    appWidgetId: Int,
+    preferences: ScheduleWidgetPreferences,
+) {
+    val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+    updateAppWidgetState(context, glanceId) { state ->
+        state[WidgetShowTeacherKey] = preferences.showTeacher
+        state[WidgetShowClassroomKey] = preferences.showClassroom
+        state[WidgetShowTimeKey] = preferences.showTime
+        state[WidgetAfterLastClassKey] = preferences.afterLastClass
+    }
+}
+
+internal fun MutablePreferences.syncScheduleWidgetState(
     reportStr: String?,
     settings: AppSettings,
+    legacyPreferences: Triple<Boolean, Boolean, Boolean>,
 ) {
-    this[WidgetShowTeacherKey] = prefs.first
-    this[WidgetShowClassroomKey] = prefs.second
-    this[WidgetShowTimeKey] = prefs.third
+    if (this[WidgetShowTeacherKey] == null) this[WidgetShowTeacherKey] = legacyPreferences.first
+    if (this[WidgetShowClassroomKey] == null) this[WidgetShowClassroomKey] = legacyPreferences.second
+    if (this[WidgetShowTimeKey] == null) this[WidgetShowTimeKey] = legacyPreferences.third
     this[WidgetThemeModeKey] = settings.themeMode.name
     this[WidgetDynamicColorKey] = settings.dynamicColor
     this[WidgetAmoledBlackKey] = settings.amoledBlack
@@ -186,59 +326,34 @@ fun ScheduleWidgetContent() {
     val showTeacher = currentState(key = WidgetShowTeacherKey) ?: true
     val showClassroom = currentState(key = WidgetShowClassroomKey) ?: true
     val showTime = currentState(key = WidgetShowTimeKey) ?: true
+    val afterLastClass = currentState(key = WidgetAfterLastClassKey) ?: false
     val reportStr = currentState(key = WidgetScheduleReportKey)
-    val items = reportStr?.let { 
-        try { WidgetJson.decodeFromString<ScheduleReport>(it).items }
+    val report = reportStr?.let {
+        try { WidgetJson.decodeFromString<ScheduleReport>(it) }
         catch(e: Exception) { null } 
     }
-    val calendar = Calendar.getInstance()
-    val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
-    val currentMinute = calendar.get(Calendar.MINUTE)
-    val currentTotalMinutes = currentHour * 60 + currentMinute
-
-    var dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1 // Sunday=0, Monday=1..
-    if (dayOfWeek == 0) dayOfWeek = 7 // Adjust for standard week
-
-    var displayDay = dayOfWeek
-    var titleText = "今日課表"
-    var todayItems = items?.filter { it.dayOfWeek == dayOfWeek }?.sortedBy { it.period } ?: emptyList()
-
-    // Find next school day if today is empty
-    if (items != null && todayItems.isEmpty()) {
-        val dayNames = arrayOf("", "週一", "週二", "週三", "週四", "週五", "週六", "週日")
-        for (i in 1..7) {
-            val nextDay = (dayOfWeek + i - 1) % 7 + 1
-            val nextItems = items.filter { it.dayOfWeek == nextDay }
-            if (nextItems.isNotEmpty()) {
-                displayDay = nextDay
-                todayItems = nextItems.sortedBy { it.period }
-                titleText = "${dayNames[displayDay]}課表"
-                break
-            }
-        }
-    }
-
-    // Determine current period once outside the loop to save computation
-    var currentPeriod = -1
-    if (displayDay == dayOfWeek) {
-        for (i in com.clhs.score.data.PERIOD_TIMES.indices) {
-            val periodStr = com.clhs.score.data.PERIOD_TIMES[i]
-            val startH = periodStr.start.substringBefore(":").toIntOrNull()
-            val startM = periodStr.start.substringAfter(":").toIntOrNull()
-            val endH = periodStr.end.substringBefore(":").toIntOrNull()
-            val endM = periodStr.end.substringAfter(":").toIntOrNull()
-            
-            if (startH != null && startM != null && endH != null && endM != null) {
-                val startMin = startH * 60 + startM
-                val endMin = endH * 60 + endM
-                if (currentTotalMinutes in startMin..endMin) {
-                    currentPeriod = i + 1
-                    break
-                }
-            }
-        }
-    }
-
+    val items = report?.items.orEmpty()
+    val now = LocalDateTime.now()
+    val currentTotalMinutes = now.hour * 60 + now.minute
+    val today = now.toLocalDate()
+    val validFrom = report
+        ?.takeIf { it.scope == ScheduleScope.CURRENT_WEEK }
+        ?.weekStartDate
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?: today
+    val selection = selectWidgetSchedule(items, today, currentTotalMinutes, afterLastClass, validFrom)
+    val isExpiredCurrentWeek = report?.scope == ScheduleScope.CURRENT_WEEK && !report.isValidOn(selection.date)
+    val sections = classifyWidgetScheduleItems(
+        items = selection.items,
+        selectionDate = selection.date,
+        today = today,
+        currentMinutes = currentTotalMinutes,
+    )
+    val widgetSize = LocalSize.current
+    val isShort = widgetSize.height < 160.dp
+    val isNarrow = widgetSize.width < 220.dp
+    val isCompact = widgetSize.height < 260.dp
+    val prioritizedItems = if (isShort) sections.prioritized.take(1) else sections.prioritized
 
     val context = LocalContext.current
     val intent = Intent(
@@ -254,110 +369,214 @@ fun ScheduleWidgetContent() {
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.background)
-            .padding(16.dp)
+            .padding(if (isShort) 8.dp else if (isCompact) 12.dp else 16.dp)
             .clickable(actionStartActivity(intent)),
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(bottom = 8.dp),
+                modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically
             ) {
                 Text(
-                    text = titleText,
+                    text = widgetScheduleDayLabel(selection.date, today),
                     style = TextStyle(
                         fontWeight = FontWeight.Bold,
-                        color = GlanceTheme.colors.onBackground
+                        fontSize = 16.sp,
+                        color = GlanceTheme.colors.onBackground,
                     ),
-                    modifier = GlanceModifier.defaultWeight()
                 )
+                Text(
+                    text = if (isShort || isNarrow) {
+                        widgetScheduleShortDateLabel(selection.date)
+                    } else {
+                        widgetScheduleDateLabel(selection.date)
+                    },
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                    ),
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .padding(start = 8.dp),
+                )
+                if (!isShort &&
+                    !isNarrow &&
+                    !isExpiredCurrentWeek &&
+                    report?.scope == ScheduleScope.CURRENT_WEEK &&
+                    !report.weekNo.isNullOrBlank()
+                ) {
+                    Text(
+                        text = "第 ${report.weekNo} 週",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GlanceTheme.colors.onPrimaryContainer,
+                        ),
+                        modifier = GlanceModifier
+                            .background(GlanceTheme.colors.primaryContainer)
+                            .cornerRadius(12.dp)
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
             }
 
-            if (items == null) {
-                Text(text = "尚未登入或無課表資料", style = TextStyle(color = GlanceTheme.colors.onBackground))
-            } else if (todayItems.isEmpty()) {
-                Text(text = "今日無排課", style = TextStyle(color = GlanceTheme.colors.onBackground))
+            if (report == null) {
+                WidgetStatusText("尚未登入或無課表資料")
+            } else if (isExpiredCurrentWeek) {
+                WidgetStatusText("本週課表已過期\n開啟 App 更新")
+            } else if (selection.items.isEmpty()) {
+                WidgetStatusText("今日無排課")
             } else {
                 LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                    items(todayItems, itemId = { it.period.toLong() }) { item ->
-                        val isCurrentPeriod = item.period == currentPeriod
-
-                        val rowModifier = if (isCurrentPeriod) {
-                            GlanceModifier
-                                .fillMaxWidth()
-                                .background(GlanceTheme.colors.primaryContainer)
-                                .cornerRadius(8.dp)
-                                .padding(vertical = 4.dp, horizontal = 4.dp)
-                        } else {
-                            GlanceModifier
-                                .fillMaxWidth()
-                                .background(Color.Transparent)
-                                .cornerRadius(0.dp)
-                                .padding(vertical = 4.dp, horizontal = 4.dp)
+                    if (sections.prioritized.isEmpty() && sections.completed.isNotEmpty()) {
+                        item(itemId = -1L) {
+                            WidgetStatusText(
+                                text = "今日課程已結束",
+                                modifier = GlanceModifier.padding(bottom = if (isCompact) 0.dp else 8.dp),
+                            )
                         }
-
-                        Row(
-                            modifier = rowModifier,
-                            verticalAlignment = Alignment.Vertical.CenterVertically
-                        ) {
-                            if (isCurrentPeriod) {
-                                Spacer(modifier = GlanceModifier.width(4.dp).height(32.dp).background(GlanceTheme.colors.primary).cornerRadius(2.dp))
-                            } else {
-                                Spacer(modifier = GlanceModifier.width(4.dp).height(32.dp).background(Color.Transparent).cornerRadius(0.dp))
-                            }
-                            Spacer(modifier = GlanceModifier.width(8.dp))
-                            Column(modifier = GlanceModifier.padding(end = 8.dp)) {
-                                Text(
-                                    text = "第 ${item.period} 節",
-                                    style = TextStyle(
-                                        fontWeight = FontWeight.Bold,
-                                        color = GlanceTheme.colors.primary
-                                    )
-                                )
-                                if (showTime) {
-                                    Text(
-                                        text = com.clhs.score.data.PERIOD_TIMES.getOrNull(item.period - 1)?.singleLine ?: "",
-                                        style = TextStyle(color = GlanceTheme.colors.primary)
-                                    )
-                                }
-                            }
-                            Column(modifier = GlanceModifier.defaultWeight()) {
-                                if (item.subjectName.isNotBlank() && item.subjectName != "null") {
-                                    Text(
-                                        text = item.subjectName,
-                                        style = TextStyle(
-                                            color = GlanceTheme.colors.onBackground,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp
-                                        )
-                                    )
-                                }
-                                
-                                val secondaryTextElements = mutableListOf<String>()
-                                if (showTeacher && item.teacherName.isNotBlank() && item.teacherName != "null") {
-                                    secondaryTextElements.add(item.teacherName)
-                                }
-                                if (showClassroom && item.classroom.isNotBlank() && item.classroom != "null") {
-                                    secondaryTextElements.add(item.classroom)
-                                }
-                                val secondaryText = secondaryTextElements.joinToString(" • ")
-
-                                if (secondaryText.isNotEmpty()) {
-                                    Text(
-                                        text = secondaryText,
-                                        style = TextStyle(
-                                            color = GlanceTheme.colors.onSurfaceVariant,
-                                            fontSize = 12.sp
-                                        ),
-                                        modifier = GlanceModifier.padding(top = 2.dp)
-                                    )
-                                }
-                            }
+                    }
+                    items(prioritizedItems, itemId = { it.period.toLong() }) { item ->
+                        ScheduleItemRow(
+                            item = item,
+                            isCurrent = item == sections.current,
+                            isCompleted = false,
+                            showTeacher = showTeacher && !isShort && !isNarrow,
+                            showClassroom = showClassroom && !isShort && !isNarrow,
+                            showTime = showTime,
+                            isSmall = isShort,
+                        )
+                    }
+                    if (!isCompact && sections.completed.isNotEmpty()) {
+                        item(itemId = -2L) {
+                            Text(
+                                text = "已下課",
+                                style = TextStyle(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GlanceTheme.colors.onSurfaceVariant,
+                                ),
+                                modifier = GlanceModifier.padding(top = 8.dp, bottom = 2.dp),
+                            )
+                        }
+                        items(sections.completed, itemId = { 100L + it.period }) { item ->
+                            ScheduleItemRow(
+                                item = item,
+                                isCurrent = false,
+                                isCompleted = true,
+                                showTeacher = showTeacher,
+                                showClassroom = showClassroom,
+                                showTime = showTime,
+                                isSmall = false,
+                            )
                         }
                     }
                 }
             }
-        } // End of Column
+        }
     }
 }
+
+@Composable
+private fun WidgetStatusText(
+    text: String,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    Text(
+        text = text,
+        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant),
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ScheduleItemRow(
+    item: ScheduleItem,
+    isCurrent: Boolean,
+    isCompleted: Boolean,
+    showTeacher: Boolean,
+    showClassroom: Boolean,
+    showTime: Boolean,
+    isSmall: Boolean,
+) {
+    val rowModifier = if (isCurrent) {
+        GlanceModifier
+            .fillMaxWidth()
+            .background(GlanceTheme.colors.primaryContainer)
+            .cornerRadius(12.dp)
+            .padding(horizontal = 8.dp, vertical = if (isSmall) 4.dp else 6.dp)
+    } else {
+        GlanceModifier
+            .fillMaxWidth()
+            .background(Color.Transparent)
+            .cornerRadius(0.dp)
+            .padding(horizontal = 8.dp, vertical = if (isSmall) 4.dp else 6.dp)
+    }
+    val primaryTextColor = when {
+        isCompleted -> GlanceTheme.colors.onSurfaceVariant
+        isCurrent -> GlanceTheme.colors.onPrimaryContainer
+        else -> GlanceTheme.colors.primary
+    }
+    val subjectColor = when {
+        isCompleted -> GlanceTheme.colors.onSurfaceVariant
+        isCurrent -> GlanceTheme.colors.onPrimaryContainer
+        else -> GlanceTheme.colors.onBackground
+    }
+    val secondaryText = buildList {
+        if (showTeacher && item.teacherName.isMeaningfulWidgetText()) add(item.teacherName)
+        if (showClassroom && item.classroom.isMeaningfulWidgetText()) add(item.classroom)
+    }.joinToString(" • ")
+
+    Row(
+        modifier = rowModifier,
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        Column(modifier = GlanceModifier.padding(end = 10.dp)) {
+            Text(
+                text = "第 ${item.period} 節",
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = primaryTextColor,
+                ),
+            )
+            if (showTime) {
+                PERIOD_TIMES.getOrNull(item.period - 1)?.singleLine?.let { periodTime ->
+                    Text(
+                        text = periodTime,
+                        style = TextStyle(
+                            fontSize = 10.sp,
+                            color = primaryTextColor,
+                        ),
+                    )
+                }
+            }
+        }
+        Column(modifier = GlanceModifier.defaultWeight()) {
+            if (item.subjectName.isMeaningfulWidgetText()) {
+                Text(
+                    text = item.subjectName,
+                    style = TextStyle(
+                        color = subjectColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    ),
+                )
+            }
+            if (secondaryText.isNotEmpty()) {
+                Text(
+                    text = secondaryText,
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 11.sp,
+                    ),
+                    modifier = GlanceModifier.padding(top = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+private fun String.isMeaningfulWidgetText(): Boolean = isNotBlank() && this != "null"
 
 

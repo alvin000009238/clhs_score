@@ -28,6 +28,8 @@ class ArchitectureBoundaryTest {
         forbiddenTerms.forEach { term ->
             assertFalse("ScheduleWidget must not depend on authentication state: $term", source.contains(term))
         }
+        assertTrue(source.contains("本週課表已過期"))
+        assertTrue(source.contains("開啟 App 更新"))
     }
 
     @Test
@@ -115,6 +117,7 @@ class ArchitectureBoundaryTest {
     fun coroutineCancellationIsNotConvertedToUiOrWorkerErrors() {
         val scoreViewModel = readSource("app/src/main/java/com/clhs/score/viewmodel/ScoreViewModel.kt")
         val scheduleViewModel = readSource("app/src/main/java/com/clhs/score/viewmodel/ScheduleViewModel.kt")
+        val schoolClient = readSource("app/src/main/java/com/clhs/score/data/SchoolGradeClient.kt")
         val reminderWorker = readSource("app/src/main/java/com/clhs/score/reminders/GradeReminderWorker.kt")
         val updateChecker = readSource("app/src/main/java/com/clhs/score/data/UpdateChecker.kt")
 
@@ -125,6 +128,7 @@ class ArchitectureBoundaryTest {
         assertTrue(scheduleViewModel.contains("import kotlinx.coroutines.CancellationException"))
         assertTrue(scheduleViewModel.countOccurrences("e.throwIfCancellation()") >= 4)
         assertTrue(scheduleViewModel.contains("private fun Throwable.throwIfCancellation()"))
+        assertTrue(schoolClient.contains("error is CancellationException"))
 
         assertTrue(reminderWorker.contains("import kotlinx.coroutines.CancellationException"))
         assertTrue(reminderWorker.contains("if (error is CancellationException) throw error"))
@@ -179,14 +183,18 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
-    fun widgetPreferenceSaveCompletesBeforeWidgetRefresh() {
-        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
+    fun widgetPreferencesAreStoredPerGlanceId() {
+        val widgetSource = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+        val appSource = readSource("app/src/main/java/com/clhs/score/ui/ScoreApp.kt")
+        val scheduleSource = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
 
-        val saveIndex = source.indexOf("cacheStore.saveWidgetPreferences(teacher, classroom, time)")
-        val updateIndex = source.indexOf("syncAllScheduleWidgets(context)", saveIndex)
-
-        assertTrue("Widget preferences must be saved before requesting a widget refresh", saveIndex >= 0)
-        assertTrue("All widgets must be refreshed after the new preferences are saved", updateIndex > saveIndex)
+        assertTrue(widgetSource.contains("getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)"))
+        assertTrue(widgetSource.contains("state[WidgetShowTeacherKey] = preferences.showTeacher"))
+        assertTrue(widgetSource.contains("state[WidgetAfterLastClassKey] = preferences.afterLastClass"))
+        assertFalse(widgetSource.contains("cacheStore.getWidgetPreferences()"))
+        assertFalse(widgetSource.contains("cacheStore.getWidgetAfterLastClass()"))
+        assertFalse(appSource.contains("WidgetSettingsRoute"))
+        assertFalse(scheduleSource.contains("Widget 設定"))
     }
 
     @Test
@@ -196,7 +204,7 @@ class ArchitectureBoundaryTest {
 
         val setContentBlock = activitySource.substringAfter("setContent {")
         assertTrue("Widget configuration must use the Android SplashScreen API while loading settings", activitySource.contains("installSplashScreen()"))
-        assertTrue(activitySource.contains("splashScreen.setKeepOnScreenCondition { launchSettings.value == null }"))
+        assertTrue(activitySource.contains("splashScreen.setKeepOnScreenCondition { launchConfiguration.value == null }"))
         assertTrue(activitySource.contains("splashScreen.setOnExitAnimationListener"))
         assertTrue(activitySource.contains("val iconView = runCatching { splashScreenView.iconView }.getOrNull()"))
         assertTrue(activitySource.contains("if (iconView == null)"))
@@ -213,10 +221,83 @@ class ArchitectureBoundaryTest {
         assertTrue(activitySource.contains("lifecycleScope.launch"))
         assertTrue(activitySource.contains("collectAsStateWithLifecycle"))
         assertFalse("Widget configuration must not render the first frame with a guessed default theme", activitySource.contains("initialValue = AppSettings()"))
-        assertTrue(activitySource.contains("initialValue = initialSettings"))
+        assertTrue(activitySource.contains("initialValue = configuration.settings"))
+        assertTrue(activitySource.contains("loadScheduleWidgetPreferences(applicationContext, appWidgetId)"))
+        assertTrue(activitySource.contains("saveScheduleWidgetPreferences("))
         assertTrue(activitySource.contains("syncScheduleWidget(applicationContext, appWidgetId)"))
         assertTrue(widgetSource.contains("getGlanceIdBy(appWidgetId)"))
         assertTrue(widgetSource.contains("ScheduleWidget().update(context, glanceId)"))
+    }
+
+    @Test
+    fun widgetConfigurationCancellationKeepsTheWidgetIdResult() {
+        val source = readSource("app/src/main/java/com/clhs/score/widget/WidgetConfigurationActivity.kt")
+        val dismissBlock = source.substringAfter("onDismiss = {").substringBefore("},")
+
+        assertFalse(dismissBlock.contains("setResult(RESULT_CANCELED)"))
+    }
+
+    @Test
+    fun widgetConfigurationDoesNotKeepSplashForeverWhenLoadingFails() {
+        val source = readSource("app/src/main/java/com/clhs/score/widget/WidgetConfigurationActivity.kt")
+        val loadingBlock = source
+            .substringAfter("lifecycleScope.launch {")
+            .substringBefore("setContent {")
+
+        assertTrue(loadingBlock.contains("catch (error: Exception)"))
+        assertTrue(loadingBlock.contains("if (error is CancellationException) throw error"))
+        assertTrue(loadingBlock.contains("finish()"))
+    }
+
+    @Test
+    fun existingGlobalWidgetPreferencesMigrateToPerWidgetState() {
+        val cacheSource = readSource("app/src/main/java/com/clhs/score/data/GradeCacheStore.kt")
+        val widgetSource = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+
+        assertTrue(cacheSource.contains("loadLegacyWidgetPreferences"))
+        assertTrue(cacheSource.contains("clearLegacyWidgetPreferences"))
+        assertTrue(widgetSource.contains("legacyPreferences"))
+        assertTrue(widgetSource.contains("if (this[WidgetShowTeacherKey] == null)"))
+        assertTrue(widgetSource.contains("if (this[WidgetShowClassroomKey] == null)"))
+        assertTrue(widgetSource.contains("if (this[WidgetShowTimeKey] == null)"))
+        assertTrue(widgetSource.contains("cacheStore.clearLegacyWidgetPreferences()"))
+        val loadPreferences = widgetSource
+            .substringAfter("internal suspend fun loadScheduleWidgetPreferences(")
+            .substringBefore("internal suspend fun saveScheduleWidgetPreferences(")
+        assertFalse(loadPreferences.contains("loadLegacyWidgetPreferences"))
+    }
+
+    @Test
+    fun widgetConfigurationSaveIsSingleFlightAndReportsFailure() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
+
+        assertTrue(source.contains("enabled = !isSaving"))
+        assertTrue(source.contains("if (!isSaving)"))
+        assertTrue(source.contains("if (error is CancellationException) throw error"))
+        assertTrue(source.contains("snackbarHostState.showSnackbar(\"儲存失敗，請再試一次\")"))
+    }
+
+    @Test
+    fun scheduleRefreshBoundaryUsesObservableTimeState() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
+
+        assertTrue(source.contains("var scheduleNow by remember(uiState.report)"))
+        assertTrue(source.contains("delay(Duration.between(scheduleNow, refreshAt).toMillis())"))
+        assertFalse(source.contains("shouldRefreshAt(LocalDateTime.now())"))
+    }
+
+    @Test
+    fun widgetScheduleCacheOmitsUnusedComparisonDetails() {
+        val source = readSource("app/src/main/java/com/clhs/score/data/GradeCacheStore.kt")
+
+        assertTrue(source.countOccurrences("copy(changes = null)") >= 2)
+    }
+
+    @Test
+    fun widgetSynchronizationRunsOffTheMainThread() {
+        val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+
+        assertTrue(source.countOccurrences("= withContext(Dispatchers.IO) {") >= 2)
     }
 
     @Test
@@ -296,13 +377,27 @@ class ArchitectureBoundaryTest {
     fun scheduleWidgetReadsPreferencesFromGlanceState() {
         val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
 
-        assertTrue("Widget must read preferences via GradeCacheStore initially", source.contains("cacheStore.getWidgetPreferences()"))
         assertTrue("Widget must sync data to Glance State to support reactive updates", source.contains("updateAppWidgetState"))
         assertTrue("Widget content must read preferences using currentState", source.contains("currentState(key ="))
+        assertTrue("Each widget must load its own preferences from Glance state", source.contains("getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)"))
         assertTrue("Widget theme mode must be part of Glance state", source.contains("WidgetThemeModeKey"))
         assertTrue("Widget dynamic color setting must be part of Glance state", source.contains("WidgetDynamicColorKey"))
         assertTrue("Widget AMOLED setting must be part of Glance state", source.contains("WidgetAmoledBlackKey"))
         assertTrue("Widget colors must use the current Glance theme settings", source.contains("getWidgetColorProviders(context, currentWidgetSettings(appSettings))"))
+    }
+
+    @Test
+    fun smallScheduleWidgetPrioritizesOneUsefulLesson() {
+        val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+        val previewSource = readSource("app/src/main/java/com/clhs/score/ui/schedule/WidgetSettingsScreen.kt")
+
+        assertTrue(source.contains("widgetSize.height < 160.dp"))
+        assertTrue(source.contains("widgetSize.width < 220.dp"))
+        assertTrue(source.contains("sections.prioritized.take(1)"))
+        assertTrue(source.contains("showTeacher && !isShort && !isNarrow"))
+        assertTrue(source.contains("showClassroom && !isShort && !isNarrow"))
+        assertFalse(source.contains("text = \"上課中\""))
+        assertFalse(previewSource.contains("text = \"上課中\""))
     }
 
     @Test

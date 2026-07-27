@@ -1,12 +1,19 @@
 package com.clhs.score.data
 
+import java.time.LocalDate
+
 interface ScheduleRepository {
     suspend fun getScheduleYears(): List<ScheduleYearTermOption>
     suspend fun getScheduleClasses(year: String, term: String): List<ScheduleClassOption>
-    suspend fun fetchSchedule(yearValue: String, year: String, term: String, classNo: String): ScheduleReport
+    suspend fun fetchSchedule(
+        yearValue: String,
+        year: String,
+        term: String,
+        classNo: String,
+        scope: ScheduleScope,
+        targetDate: LocalDate,
+    ): ScheduleReport
     suspend fun getLatestSchedule(): ScheduleReport?
-    suspend fun getWidgetPreferences(): Triple<Boolean, Boolean, Boolean>
-    suspend fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean)
 }
 
 class NetworkScheduleRepository(
@@ -31,9 +38,24 @@ class NetworkScheduleRepository(
         return client.getScheduleClasses(session, year, term)
     }
 
-    override suspend fun fetchSchedule(yearValue: String, year: String, term: String, classNo: String): ScheduleReport {
+    override suspend fun fetchSchedule(
+        yearValue: String,
+        year: String,
+        term: String,
+        classNo: String,
+        scope: ScheduleScope,
+        targetDate: LocalDate,
+    ): ScheduleReport {
         val session = sessionResolver.requireSession()
-        val report = client.fetchSchedule(session, yearValue, year, term, classNo)
+        val report = client.fetchSchedule(
+            session,
+            yearValue,
+            year,
+            term,
+            classNo,
+            scope,
+            targetDate,
+        )
         
         // Use a composite key for caching so different classes in the same semester are cached separately.
         val cacheKey = if (classNo.isNotBlank()) "${yearValue}_${classNo}" else yearValue
@@ -49,13 +71,6 @@ class NetworkScheduleRepository(
         return report
     }
 
-    override suspend fun getWidgetPreferences(): Triple<Boolean, Boolean, Boolean> {
-        return cacheStore.getWidgetPreferences()
-    }
-
-    override suspend fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
-        cacheStore.saveWidgetPreferences(showTeacher, showClassroom, showTime)
-    }
 }
 
 internal class ActiveSessionResolver(
@@ -82,19 +97,19 @@ class FakeScheduleRepository : ScheduleRepository {
         return FakeScheduleData.classes
     }
 
-    override suspend fun fetchSchedule(yearValue: String, year: String, term: String, classNo: String): ScheduleReport {
-        return FakeScheduleData.report(yearValue, classNo)
+    override suspend fun fetchSchedule(
+        yearValue: String,
+        year: String,
+        term: String,
+        classNo: String,
+        scope: ScheduleScope,
+        targetDate: LocalDate,
+    ): ScheduleReport {
+        return FakeScheduleData.report(yearValue, classNo, scope)
     }
 
     override suspend fun getLatestSchedule(): ScheduleReport? {
         return FakeScheduleData.report("114_2", "230")
     }
 
-    override suspend fun getWidgetPreferences(): Triple<Boolean, Boolean, Boolean> {
-        return Triple(true, true, true)
-    }
-
-    override suspend fun saveWidgetPreferences(showTeacher: Boolean, showClassroom: Boolean, showTime: Boolean) {
-        // No-op for fake
-    }
 }

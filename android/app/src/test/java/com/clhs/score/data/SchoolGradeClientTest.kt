@@ -9,6 +9,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 class SchoolGradeClientTest {
     private lateinit var server: MockWebServer
@@ -102,7 +104,7 @@ class SchoolGradeClientTest {
                 teacherName = "範例教師",
                 classroom = "示範教室",
             ),
-            items[0].copy(rawData = null),
+            items[0],
         )
         assertEquals(
             ScheduleItem(
@@ -112,7 +114,7 @@ class SchoolGradeClientTest {
                 teacherName = "代理教師",
                 classroom = "語言教室",
             ),
-            items[1].copy(rawData = null),
+            items[1],
         )
     }
 
@@ -132,11 +134,13 @@ class SchoolGradeClientTest {
             year = "114",
             term = "1",
             classNo = "230",
+            scope = ScheduleScope.SEMESTER,
         )
 
         assertEquals("114_1", report.yearTermValue)
         assertEquals(2, report.items.size)
         assertEquals("數學", report.items.first().subjectName)
+        assertEquals(ScheduleScope.SEMESTER, report.scope)
 
         assertEquals("/CLHSTYC/ClassTableV2/ClassTable", server.takeRequest().path)
         val timetableRequest = server.takeRequest()
@@ -147,6 +151,378 @@ class SchoolGradeClientTest {
         assertTrue(form.contains("Term=1"))
         assertTrue(form.contains("ClassNo=230"))
         assertTrue(form.contains("TimetableType=Class"))
+        assertEquals(1, Regex("(?:^|&)WeekNo=").findAll(form).count())
+    }
+
+    @Test
+    fun parseScheduleWeeksRejectsInvalidValuesAndDates() {
+        val weeks = parseScheduleWeekOptions(
+            """
+                [
+                  {"Value":"4","Selected":false,"Item":{"IsSelected":true,"StartDate":"2026-07-19T00:00:00","EndDate":"2026-07-25T00:00:00"}},
+                  {"Value":"0","Selected":true,"Item":{"StartDateDisplay":"2026-07-19","EndDateDisplay":"2026-07-25"}},
+                  {"Value":"5","Selected":true,"Item":{"StartDateDisplay":"bad","EndDateDisplay":"2026-08-01"}}
+                ]
+            """.trimIndent(),
+        )
+
+        assertEquals(1, weeks.size)
+        assertEquals("4", weeks.single().value)
+    }
+
+    @Test
+    fun currentWeekReportIsOnlyValidInsideItsDateRange() {
+        val report = ScheduleReport(
+            "115_4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            weekNo = "4",
+            weekStartDate = "2026-07-19",
+            weekEndDate = "2026-07-25",
+            items = emptyList(),
+        )
+
+        assertTrue(report.isValidOn(LocalDate.parse("2026-07-19")))
+        assertTrue(report.isValidOn(LocalDate.parse("2026-07-25")))
+        assertFalse(report.isValidOn(LocalDate.parse("2026-07-26")))
+    }
+
+    @Test
+    fun currentWeekRefreshesAtLastClassEndInsteadOfWeekEndDate() {
+        val report = ScheduleReport(
+            "115_4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            weekNo = "4",
+            weekStartDate = "2026-07-19",
+            weekEndDate = "2026-07-25",
+            items = listOf(
+                ScheduleItem(dayOfWeek = 4, period = 8, subjectName = "英文"),
+                ScheduleItem(dayOfWeek = 5, period = 4, subjectName = "國文"),
+            ),
+        )
+
+        assertFalse(report.shouldRefreshAt(LocalDateTime.parse("2026-07-24T11:59")))
+        assertTrue(report.shouldRefreshAt(LocalDateTime.parse("2026-07-24T12:00")))
+        assertEquals(
+            LocalDate.parse("2026-07-26"),
+            report.refreshTargetDateAt(LocalDateTime.parse("2026-07-24T12:00")),
+        )
+        assertEquals(
+            LocalDateTime.parse("2026-07-24T12:00"),
+            report.refreshAt(),
+        )
+    }
+
+    @Test
+    fun currentWeekRefreshBoundaryHandlesPastInvalidAndUnknownPeriods() {
+        val unknownPeriod = ScheduleReport(
+            "115_4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            weekStartDate = "2026-07-19",
+            weekEndDate = "2026-07-25",
+            items = listOf(ScheduleItem(dayOfWeek = 5, period = 9, subjectName = "未知節次")),
+        )
+        val invalidDate = unknownPeriod.copy(weekStartDate = "invalid")
+        val emptyWeek = unknownPeriod.copy(items = emptyList())
+        val semester = unknownPeriod.copy(scope = ScheduleScope.SEMESTER)
+
+        assertFalse(unknownPeriod.shouldRefreshAt(LocalDateTime.parse("2026-07-24T16:54")))
+        assertTrue(unknownPeriod.shouldRefreshAt(LocalDateTime.parse("2026-07-24T16:55")))
+        assertTrue(unknownPeriod.shouldRefreshAt(LocalDateTime.parse("2026-07-26T00:00")))
+        assertFalse(emptyWeek.shouldRefreshAt(LocalDateTime.parse("2026-07-25T23:59")))
+        assertTrue(emptyWeek.shouldRefreshAt(LocalDateTime.parse("2026-07-26T00:00")))
+        assertEquals(
+            LocalDate.parse("2026-07-26"),
+            unknownPeriod.refreshTargetDateAt(LocalDateTime.parse("2026-07-26T00:00")),
+        )
+        assertTrue(invalidDate.shouldRefreshAt(LocalDateTime.parse("2026-07-20T08:00")))
+        assertFalse(semester.shouldRefreshAt(LocalDateTime.parse("2026-07-26T00:00")))
+    }
+
+    @Test
+    fun compareScheduleItemsFindsVisibleChangesAndIgnoresOrder() {
+        val unchanged = ScheduleItem(1, 1, "國文", "甲師", "101")
+        assertEquals(
+            emptyList<ScheduleChange>(),
+            compareScheduleItems(
+                listOf(unchanged, ScheduleItem(3, 1, "數學")),
+                listOf(ScheduleItem(3, 1, "數學"), unchanged),
+            ),
+        )
+
+        val semester = listOf(
+            unchanged,
+            ScheduleItem(1, 2, "英文", "乙師", "102"),
+            ScheduleItem(1, 3, "物理", "丙師", "103"),
+            ScheduleItem(1, 4, "化學", "丁師", "104"),
+            ScheduleItem(1, 5, "體育", "戊師", "操場"),
+            ScheduleItem(2, 2, "歷史", "己師", "201"),
+        )
+        val week = listOf(
+            ScheduleItem(2, 1, "生涯規劃", "庚師", "202"),
+            unchanged,
+            ScheduleItem(1, 2, "數學", "乙師", "102"),
+            ScheduleItem(1, 3, "物理", "代理教師", "103"),
+            ScheduleItem(1, 4, "化學", "丁師", "實驗室"),
+            ScheduleItem(2, 2, "公民", "辛師", "203"),
+        )
+
+        val changes = compareScheduleItems(semester, week)
+
+        assertEquals(
+            listOf(
+                ScheduleChangeType.MODIFIED,
+                ScheduleChangeType.MODIFIED,
+                ScheduleChangeType.MODIFIED,
+                ScheduleChangeType.REMOVED,
+                ScheduleChangeType.ADDED,
+                ScheduleChangeType.MODIFIED,
+            ),
+            changes.map { it.type },
+        )
+        assertEquals(listOf(2, 3, 4, 5, 1, 2), changes.map { it.period })
+    }
+
+    @Test
+    fun scheduleReportSerializationOmitsRawApiPayload() {
+        val report = ScheduleReport(
+            yearTermValue = "114_1",
+            classNo = "230",
+            scope = ScheduleScope.SEMESTER,
+            items = parseScheduleItems(scheduleJson),
+        )
+
+        val serialized = SchoolJson.encodeToString(report)
+
+        assertFalse(serialized.contains("\"rawData\""))
+        assertFalse(serialized.contains("TeacherNameDisplay"))
+    }
+
+    @Test
+    fun scheduleUsesEveryColorBeforeRepeatingOne() {
+        val subjects = listOf(
+            "團體活動",
+            "物理輔導",
+            "數學輔導",
+            "化學輔導",
+            "英語文輔導",
+            "國語文輔導",
+            "生物",
+            "歷史",
+            "地理",
+            "公民",
+            "音樂",
+            "美術",
+            "體育",
+            "資訊",
+            "生命教育",
+        )
+
+        assertEquals(subjects.size, getSubjectColors(subjects).values.toSet().size)
+    }
+
+    @Test
+    fun subjectPaletteStaysPale() {
+        val darkestAverage = predefinedColors.minOf { color ->
+            listOf(16, 8, 0).sumOf { shift ->
+                ((color shr shift) and 0xFF).toInt()
+            } / 3
+        }
+
+        assertTrue(darkestAverage >= 225)
+    }
+
+    @Test
+    fun currentWeekScheduleLoadsWeekContainingTargetDateAndPostsItOnce() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", mapOf("ASP.NET_SessionId" to "abc"))
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-24"),
+        )
+
+        assertEquals(ScheduleScope.CURRENT_WEEK, report.scope)
+        assertEquals("4", report.weekNo)
+        assertEquals("2026-07-19", report.weekStartDate)
+        assertEquals("2026-07-25", report.weekEndDate)
+        server.takeRequest()
+        val weekRequest = server.takeRequest()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetWeekNoList", weekRequest.path)
+        assertTrue(weekRequest.body.readUtf8().contains("Year=115"))
+        val timetableRequest = server.takeRequest()
+        val form = timetableRequest.body.readUtf8()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetTimeTable", timetableRequest.path)
+        assertTrue(form.contains("WeekNo=4"))
+        assertEquals(1, Regex("(?:^|&)WeekNo=").findAll(form).count())
+        val semesterRequest = server.takeRequest()
+        val semesterForm = semesterRequest.body.readUtf8()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetTimeTable", semesterRequest.path)
+        assertTrue(semesterForm.contains("WeekNo=&"))
+        assertEquals(1, Regex("(?:^|&)WeekNo=").findAll(semesterForm).count())
+        assertEquals(emptyList<ScheduleChange>(), report.changes)
+    }
+
+    @Test
+    fun currentWeekComparisonFailureKeepsWeekReport() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-24"),
+        )
+
+        assertEquals(ScheduleScope.CURRENT_WEEK, report.scope)
+        assertEquals(2, report.items.size)
+        assertEquals(null, report.changes)
+        server.takeRequest()
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("WeekNo=4"))
+        assertTrue(server.takeRequest().body.readUtf8().contains("WeekNo=&"))
+    }
+
+    @Test
+    fun currentWeekIgnoresFalseSelectedFlagsWhenDateMatches() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson.replace("\"Selected\": true", "\"Selected\": false")))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-24"),
+        )
+
+        assertEquals(ScheduleScope.CURRENT_WEEK, report.scope)
+        assertEquals("4", report.weekNo)
+        server.takeRequest()
+        server.takeRequest()
+        val form = server.takeRequest().body.readUtf8()
+        assertEquals(1, Regex("(?:^|&)WeekNo=").findAll(form).count())
+        assertTrue(form.contains("WeekNo=4"))
+    }
+
+    @Test
+    fun currentWeekUsesTargetDateWhenServerSelectedFlagIsStale() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-27"),
+        )
+
+        assertEquals(ScheduleScope.CURRENT_WEEK, report.scope)
+        assertEquals("5", report.weekNo)
+        server.takeRequest()
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("WeekNo=5"))
+    }
+
+    @Test
+    fun currentWeekApiFailureFallsBackToSemester() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-24"),
+        )
+
+        assertEquals(ScheduleScope.SEMESTER, report.scope)
+        server.takeRequest()
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetWeekNoList", server.takeRequest().path)
+        assertEquals("/CLHSTYC/ClassTableV2/ClassTable/GetTimeTable", server.takeRequest().path)
+    }
+
+    @Test
+    fun currentWeekAuthenticationFailureDoesNotFallBackWithAnotherRequest() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val error = runCatching {
+            client.fetchSchedule(
+                session,
+                "115_4",
+                "115",
+                "4",
+                "230",
+                ScheduleScope.CURRENT_WEEK,
+                targetDate = LocalDate.parse("2026-07-24"),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is SchoolAuthenticationException)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun currentWeekTimetableFailureFallsBackToSemester() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson))
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(jsonResponse(scheduleJson))
+
+        val report = client.fetchSchedule(
+            session,
+            "115_4",
+            "115",
+            "4",
+            "230",
+            ScheduleScope.CURRENT_WEEK,
+            targetDate = LocalDate.parse("2026-07-24"),
+        )
+
+        assertEquals(ScheduleScope.SEMESTER, report.scope)
+        server.takeRequest()
+        server.takeRequest()
+        val failedWeeklyForm = server.takeRequest().body.readUtf8()
+        val semesterForm = server.takeRequest().body.readUtf8()
+        assertTrue(failedWeeklyForm.contains("WeekNo=4"))
+        assertTrue(semesterForm.contains("WeekNo=&"))
     }
 
     @Test
@@ -166,9 +542,9 @@ class SchoolGradeClientTest {
         server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token-2" />"""))
         server.enqueue(jsonResponse(scheduleJson))
 
-        client.fetchSchedule(firstSession, "114_1", "114", "1", "230")
+        client.fetchSchedule(firstSession, "114_1", "114", "1", "230", ScheduleScope.SEMESTER)
         client.restoreSession(restoredSession)
-        client.fetchSchedule(restoredSession, "114_1", "114", "1", "230")
+        client.fetchSchedule(restoredSession, "114_1", "114", "1", "230", ScheduleScope.SEMESTER)
 
         server.takeRequest()
         server.takeRequest()
@@ -309,5 +685,33 @@ class SchoolGradeClientTest {
             ]
           }
         }
+    """.trimIndent()
+
+    private val currentWeekJson = """
+        [
+          {
+            "DisplayText": "第4週 (2026-07-19~2026-07-25)",
+            "Value": "4",
+            "Selected": true,
+            "Item": {
+              "WeekNo": "4",
+              "StartDateDisplay": "2026-07-19",
+              "EndDateDisplay": "2026-07-25",
+              "IsSelected": false
+            }
+          },
+          {
+            "DisplayText": "第5週 (2026-07-26~2026-08-01)",
+            "Value": "5",
+            "Selected": false,
+            "Item": {
+              "WeekNoInt": 5,
+              "WeekNo": "5",
+              "StartDateDisplay": "2026-07-26",
+              "EndDateDisplay": "2026-08-01",
+              "IsSelected": false
+            }
+          }
+        ]
     """.trimIndent()
 }

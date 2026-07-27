@@ -1,6 +1,7 @@
 package com.clhs.score.data
 
 import kotlinx.serialization.json.JsonObject
+import java.time.LocalDate
 
 enum class StudentScenario {
     NORMAL, EXCELLENT, STRUGGLING, SPECIAL
@@ -298,9 +299,17 @@ object FakeScheduleData {
         ScheduleClassOption("高二 31 班", "231"),
     )
 
-    fun report(yearValue: String, classNo: String): ScheduleReport {
-        return ScheduleReport(
+    fun report(
+        yearValue: String,
+        classNo: String,
+        scope: ScheduleScope = ScheduleScope.SEMESTER,
+    ): ScheduleReport {
+        val today = LocalDate.now()
+        val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        val semesterReport = ScheduleReport(
             yearTermValue = yearValue,
+            classNo = classNo,
+            scope = ScheduleScope.SEMESTER,
             items = listOf(
                 ScheduleItem(dayOfWeek = 1, period = 1, subjectName = "國語文", teacherName = "張三", classroom = "高二30"),
                 ScheduleItem(dayOfWeek = 1, period = 2, subjectName = "數學", teacherName = "李四", classroom = "高二30"),
@@ -342,6 +351,32 @@ object FakeScheduleData {
                 ScheduleItem(dayOfWeek = 5, period = 6, subjectName = "地理", teacherName = "鄭十", classroom = "高二30"),
                 ScheduleItem(dayOfWeek = 5, period = 7, subjectName = "公民", teacherName = "陳二", classroom = "高二30")
             )
+        )
+        if (scope == ScheduleScope.SEMESTER) return semesterReport
+
+        val weekItems = semesterReport.items
+            .filterNot { it.dayOfWeek == 1 && it.period == 4 }
+            .map { item ->
+                if (item.dayOfWeek == 2 && item.period == 3) {
+                    item.copy(subjectName = "數學", teacherName = "李四", classroom = "高二31")
+                } else {
+                    item
+                }
+            } + ScheduleItem(
+                dayOfWeek = 3,
+                period = 8,
+                subjectName = "生涯規劃",
+                teacherName = "代理教師",
+                classroom = "專題教室",
+            )
+
+        return semesterReport.copy(
+            scope = ScheduleScope.CURRENT_WEEK,
+            weekNo = "4",
+            weekStartDate = weekStart.toString(),
+            weekEndDate = weekStart.plusDays(6).toString(),
+            items = weekItems,
+            changes = compareScheduleItems(semesterReport.items, weekItems),
         )
     }
 }
