@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -51,12 +52,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.getSubjectBaseName
 import com.clhs.score.data.shortenSubjectName
 import com.clhs.score.viewmodel.ScoreViewModel
+
+internal fun subjectTrendUsesSplitLayout(width: Dp): Boolean =
+    gradesAdaptiveLayoutForWidth(width) != GradesAdaptiveLayout.SingleColumn
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -108,6 +113,98 @@ fun SubjectTrendScreen(
         }
     }
 
+    val chartSection = @Composable {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 280.dp, max = 520.dp)
+                .aspectRatio(1.5f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        ) {
+            if (state.reports.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(if (state.isLoading) "載入中..." else "請選擇學期與科目以顯示圖表")
+                }
+            } else {
+                SubjectTrendLineChart(
+                    reports = state.reports,
+                    selectedSubjectKeys = state.selectedSubjectKeys,
+                    subjectColors = subjectColors,
+                    selectedBaseName = selectedBaseName,
+                    onBaseNameSelected = { selectedBaseName = it },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                )
+            }
+        }
+    }
+
+    val legendSection = @Composable {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            groupedLegend.forEach { (baseName, pair) ->
+                val (firstKey, keys) = pair
+                val color = subjectColors[firstKey] ?: Color.Black
+                val label = keys.map { shortenSubjectName(it) }.distinct().joinToString("/")
+                val isSelected = baseName == selectedBaseName
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable {
+                            selectedBaseName = if (isSelected) null else baseName
+                        }
+                        .background(
+                            color = if (isSelected) color.copy(alpha = 0.1f) else Color.Transparent,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(color, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+
+    val filtersSection = @Composable {
+        Column {
+            Text("選擇學期", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                structure.forEach { yearTerm ->
+                    FilterChip(
+                        selected = state.selectedYearValues.contains(yearTerm.value),
+                        onClick = { viewModel.toggleSubjectTrendYear(yearTerm.value) },
+                        label = { Text(yearTerm.text) }
+                    )
+                }
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            ElevatedButton(
+                onClick = { showSubjectBottomSheet = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("新增 / 變更對比科目")
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -133,114 +230,49 @@ fun SubjectTrendScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 1. Chart Section
-                item {
-                    Card(
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                if (subjectTrendUsesSplitLayout(maxWidth)) {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 280.dp, max = 400.dp)
-                            .aspectRatio(1.5f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        if (state.reports.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(if (state.isLoading) "載入中..." else "請選擇學期與科目以顯示圖表")
-                            }
-                        } else {
-                            SubjectTrendLineChart(
-                                reports = state.reports,
-                                selectedSubjectKeys = state.selectedSubjectKeys,
-                                subjectColors = subjectColors,
-                                selectedBaseName = selectedBaseName,
-                                onBaseNameSelected = { selectedBaseName = it },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp)
-                            )
-                        }
-                    }
-                }
-
-                // 2. Legend Section
-                if (state.selectedSubjectKeys.isNotEmpty()) {
-                    item {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(2f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            groupedLegend.forEach { (baseName, pair) ->
-                                val (firstKey, keys) = pair
-                                
-                                val color = subjectColors[firstKey] ?: Color.Black
-                                val label = keys.map { shortenSubjectName(it) }.distinct().joinToString("/")
-                                val isSelected = baseName == selectedBaseName
-                                
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clickable {
-                                            selectedBaseName = if (isSelected) null else baseName
-                                        }
-                                        .background(
-                                            color = if (isSelected) color.copy(alpha = 0.1f) else Color.Transparent,
-                                            shape = RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .background(color, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
+                            item { chartSection() }
+                            if (state.selectedSubjectKeys.isNotEmpty()) {
+                                item { legendSection() }
                             }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
+                        }
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                        ) {
+                            item { filtersSection() }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
                         }
                     }
-                }
-
-                // 3. Semesters Filter
-                item {
-                    Text("選擇學期", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 8.dp)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        structure.forEach { yearTerm ->
-                            FilterChip(
-                                selected = state.selectedYearValues.contains(yearTerm.value),
-                                onClick = { viewModel.toggleSubjectTrendYear(yearTerm.value) },
-                                label = { Text(yearTerm.text) }
-                            )
+                        item { chartSection() }
+                        if (state.selectedSubjectKeys.isNotEmpty()) {
+                            item { legendSection() }
                         }
+                        item { filtersSection() }
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                }
-
-                // 4. Subjects Filter Button
-                item {
-                    ElevatedButton(
-                        onClick = { showSubjectBottomSheet = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("新增 / 變更對比科目")
-                    }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
