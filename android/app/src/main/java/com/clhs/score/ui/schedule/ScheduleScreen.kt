@@ -10,10 +10,11 @@ import android.view.View
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -22,8 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -482,6 +481,55 @@ private suspend fun saveBitmapToGallery(context: Context, view: View): Result<St
         Result.failure(error)
     }
 
+internal data class ScheduleGridCell(
+    val period: Int,
+    val periodCount: Int,
+    val item: ScheduleItem?,
+    val change: ScheduleChange?,
+)
+
+internal fun scheduleGridCells(
+    items: List<ScheduleItem>,
+    changes: List<ScheduleChange>,
+    dayOfWeek: Int,
+    periods: IntRange = 1..8,
+): List<ScheduleGridCell> {
+    if (periods.isEmpty()) return emptyList()
+
+    val itemsByPeriod = items
+        .filter { it.dayOfWeek == dayOfWeek }
+        .associateBy { it.period }
+    val changesByPeriod = changes
+        .filter { it.dayOfWeek == dayOfWeek }
+        .associateBy { it.period }
+
+    return buildList {
+        var period = periods.first
+        while (period <= periods.last) {
+            val change = changesByPeriod[period]
+            val item = change?.weekItem ?: itemsByPeriod[period]
+            var periodCount = 1
+            if (item != null && change == null) {
+                while (
+                    period + periodCount <= periods.last &&
+                    changesByPeriod[period + periodCount] == null &&
+                    item.isSameDisplayedCourse(itemsByPeriod[period + periodCount])
+                ) {
+                    periodCount++
+                }
+            }
+            add(ScheduleGridCell(period, periodCount, item, change))
+            period += periodCount
+        }
+    }
+}
+
+private fun ScheduleItem.isSameDisplayedCourse(other: ScheduleItem?): Boolean =
+    other != null &&
+        subjectName == other.subjectName &&
+        teacherName == other.teacherName &&
+        classroom == other.classroom
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleGrid(
@@ -491,11 +539,8 @@ fun ScheduleGrid(
 ) {
     val days = listOf("時間", "週一", "週二", "週三", "週四", "週五")
     val periods = (1..8).toList()
-    val itemsBySlot = remember(items) {
-        items.associateBy { it.dayOfWeek to it.period }
-    }
-    val changesBySlot = remember(changes) {
-        changes.associateBy { it.dayOfWeek to it.period }
+    val cellsByDay = remember(items, changes) {
+        (1..5).associateWith { day -> scheduleGridCells(items, changes, day) }
     }
     val subjectColors = remember(items, changes) {
         getSubjectColors(
@@ -504,6 +549,7 @@ fun ScheduleGrid(
         )
     }
     val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val changeBorderColor = if (isDarkSurface) Color.White else Color.Black
     var selectedItem by remember { mutableStateOf<ScheduleItem?>(null) }
     var selectedChange by remember { mutableStateOf<ScheduleChange?>(null) }
 
@@ -526,22 +572,21 @@ fun ScheduleGrid(
         
         HorizontalDivider()
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 8.dp),
         ) {
-            items(periods) { period ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .padding(bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Column(modifier = Modifier.weight(1f)) {
+                periods.forEach { period ->
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .padding(bottom = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
                     ) {
                         Text(text = period.toString(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
@@ -553,16 +598,19 @@ fun ScheduleGrid(
                             softWrap = true
                         )
                     }
+                }
+            }
 
-                    for (day in 1..5) {
-                        val slot = day to period
-                        val change = changesBySlot[slot]
-                        val item = change?.weekItem ?: itemsBySlot[slot]
+            for (day in 1..5) {
+                Column(modifier = Modifier.weight(1f)) {
+                    cellsByDay.getValue(day).forEach { cell ->
+                        val change = cell.change
+                        val item = cell.item
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
+                                .height(80.dp * cell.periodCount)
                                 .padding(horizontal = 2.dp)
+                                .padding(bottom = 8.dp),
                         ) {
                             if (change?.type == ScheduleChangeType.REMOVED) {
                                 Card(
@@ -574,7 +622,7 @@ fun ScheduleGrid(
                                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                     ),
-                                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary),
+                                    border = BorderStroke(2.dp, changeBorderColor),
                                 ) {
                                     Column(
                                         modifier = Modifier
@@ -605,7 +653,7 @@ fun ScheduleGrid(
                                     shape = RoundedCornerShape(8.dp),
                                     colors = CardDefaults.cardColors(containerColor = tileColors.container),
                                     border = change?.let {
-                                        BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
+                                        BorderStroke(2.dp, changeBorderColor)
                                     },
                                 ) {
                                     Column(
