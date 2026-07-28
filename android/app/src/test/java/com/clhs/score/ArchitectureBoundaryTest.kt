@@ -174,6 +174,16 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun updateDialogKeepsFullMarkdownScrollable() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/UpdateResultDialog.kt")
+
+        assertTrue(source.contains("verticalScroll(rememberScrollState())"))
+        assertTrue(source.contains("Markdown("))
+        assertTrue(source.contains("content = result.releaseNotes"))
+        assertFalse(source.contains("result.releaseNotes.take("))
+    }
+
+    @Test
     fun emptyScheduleReportShowsActionableState() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
 

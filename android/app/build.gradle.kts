@@ -133,6 +133,8 @@ dependencies {
     implementation("com.google.firebase:firebase-config")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-android:0.40.2")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3-android:0.40.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("org.jsoup:jsoup:1.22.2")

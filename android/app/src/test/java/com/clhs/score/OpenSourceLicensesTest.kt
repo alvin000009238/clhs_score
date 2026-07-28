@@ -10,7 +10,7 @@ class OpenSourceLicensesTest {
     fun everyPublishedComponentHasOneLicenseEntry() {
         val licenses = buildThirdPartyLicenses("Outfit license")
 
-        assertEquals(27, licenses.size)
+        assertEquals(28, licenses.size)
         assertEquals(licenses.size, licenses.map { it.componentName }.distinct().size)
         assertTrue(licenses.all { it.licenseName.isNotBlank() && it.licenseText.isNotBlank() })
         assertTrue(licenses.none { it.componentName == "Firebase Analytics" })

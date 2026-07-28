@@ -180,6 +180,7 @@ private val APACHE_COMPONENTS = listOf(
     "kotlinx.coroutines Android",
     "kotlinx.serialization JSON",
     "Material Symbols Rounded",
+    "Multiplatform Markdown Renderer",
     "OkHttp",
 )
 
