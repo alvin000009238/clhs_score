@@ -8,6 +8,11 @@
             android:name=".reminders.GradeReminderDebugReceiver"
             android:exported="true"
             tools:ignore="ExportedReceiver" />
+        <activity
+            android:name=".widget.ScheduleWidgetPreviewCaptureActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.Dialog.NoActionBar"
+            tools:ignore="ExportedActivity" />
     </application>
 
 </manifest>

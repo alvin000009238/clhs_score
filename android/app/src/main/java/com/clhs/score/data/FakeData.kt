@@ -303,8 +303,8 @@ object FakeScheduleData {
         yearValue: String,
         classNo: String,
         scope: ScheduleScope = ScheduleScope.SEMESTER,
+        today: LocalDate = LocalDate.now(),
     ): ScheduleReport {
-        val today = LocalDate.now()
         val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
         val semesterReport = ScheduleReport(
             yearTermValue = yearValue,

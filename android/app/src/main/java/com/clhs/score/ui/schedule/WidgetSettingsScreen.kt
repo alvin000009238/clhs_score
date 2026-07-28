@@ -1,5 +1,6 @@
 package com.clhs.score.ui.schedule
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
@@ -88,6 +90,11 @@ internal fun WidgetSettingsScreen(
     var showClassroom by remember { mutableStateOf(initialPreferences.showClassroom) }
     var showTime by remember { mutableStateOf(initialPreferences.showTime) }
     var afterLastClass by remember { mutableStateOf(initialPreferences.afterLastClass) }
+    val widgetCornerRadius = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        dimensionResource(android.R.dimen.system_app_widget_background_radius)
+    } else {
+        24.dp
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -160,7 +167,7 @@ internal fun WidgetSettingsScreen(
                     .width(previewSize.width)
                     .height(previewSize.height)
                     .align(Alignment.CenterHorizontally),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(widgetCornerRadius),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -172,13 +179,7 @@ internal fun WidgetSettingsScreen(
                     showTime = showTime,
                     afterLastClass = afterLastClass,
                     widgetSize = previewSize,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            if (previewSize.height < 160.dp) 8.dp
-                            else if (previewSize.height < 260.dp) 12.dp
-                            else 16.dp,
-                        ),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 
@@ -316,113 +317,120 @@ private fun ScheduleWidgetPreview(
     val prioritizedItems = if (isShort) sections.prioritized.take(1) else sections.prioritized
 
     Box(modifier = modifier) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = widgetScheduleDayLabel(selection.date, today),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    horizontal = if (isShort) 8.dp else 16.dp,
                 )
-                Text(
-                    text = if (isShort || isNarrow) {
-                        widgetScheduleShortDateLabel(selection.date)
-                    } else {
-                        widgetScheduleDateLabel(selection.date)
-                    },
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp),
-                )
-                if (!isShort &&
-                    !isNarrow &&
-                    !isExpiredCurrentWeek &&
-                    report?.scope == ScheduleScope.CURRENT_WEEK &&
-                    !report.weekNo.isNullOrBlank()
-                ) {
-                    Text(
-                        text = "第 ${report.weekNo} 週",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                .padding(top = if (isShort) 8.dp else 12.dp, bottom = if (isShort) 4.dp else 8.dp),
+        ) {
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
-            }
-
-            if (report == null) {
-                Text(
-                    "尚未登入或無課表資料",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else if (isExpiredCurrentWeek) {
-                Text(
-                    "本週課表已過期\n開啟 App 更新",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else if (selection.items.isEmpty()) {
-                Text(
-                    "今日無排課",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (sections.prioritized.isEmpty() && sections.completed.isNotEmpty()) {
-                        item(key = -1) {
-                            Text(
-                                "今日課程已結束",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(
-                                    bottom = if (isCompact) 0.dp else 8.dp,
-                                ),
-                            )
-                        }
-                    }
-                    items(prioritizedItems, key = { it.period }) { item ->
-                        PreviewScheduleItemRow(
-                            item = item,
-                            isCurrent = item == sections.current,
-                            isCompleted = false,
-                            showTeacher = showTeacher && !isShort && !isNarrow,
-                            showClassroom = showClassroom && !isShort && !isNarrow,
-                            showTime = showTime,
-                            isSmall = isShort,
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = widgetScheduleDayLabel(selection.date, today),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                    }
-                    if (!isCompact && sections.completed.isNotEmpty()) {
-                        item(key = -2) {
+                        Text(
+                            text = if (isShort || isNarrow) {
+                                widgetScheduleShortDateLabel(selection.date)
+                            } else {
+                                widgetScheduleDateLabel(selection.date)
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp),
+                        )
+                        if (!isShort &&
+                            !isNarrow &&
+                            !isExpiredCurrentWeek &&
+                            report?.scope == ScheduleScope.CURRENT_WEEK &&
+                            !report.weekNo.isNullOrBlank()
+                        ) {
                             Text(
-                                text = "已下課",
+                                text = "第 ${report.weekNo} 週",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                            )
-                        }
-                        items(sections.completed, key = { 100 + it.period }) { item ->
-                            PreviewScheduleItemRow(
-                                item = item,
-                                isCurrent = false,
-                                isCompleted = true,
-                                showTeacher = showTeacher,
-                                showClassroom = showClassroom,
-                                showTime = showTime,
-                                isSmall = false,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
                             )
                         }
                     }
-                }
-            }
+
+                    if (report == null) {
+                        Text(
+                            "開啟 App 查詢本週課表",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (isExpiredCurrentWeek) {
+                        Text(
+                            "本週課表已過期\n開啟 App 更新",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (selection.items.isEmpty()) {
+                        Text(
+                            "今日無排課",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            if (sections.prioritized.isEmpty() && sections.completed.isNotEmpty()) {
+                                item(key = -1) {
+                                    Text(
+                                        "今日課程已結束",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(
+                                            bottom = if (isCompact) 0.dp else 8.dp,
+                                        ),
+                                    )
+                                }
+                            }
+                            items(prioritizedItems, key = { it.period }) { item ->
+                                PreviewScheduleItemRow(
+                                    item = item,
+                                    isCurrent = item == sections.current,
+                                    isCompleted = false,
+                                    showTeacher = showTeacher && !isShort && !isNarrow,
+                                    showClassroom = showClassroom && !isShort && !isNarrow,
+                                    showTime = showTime,
+                                    isSmall = isShort,
+                                )
+                            }
+                            if (!isCompact && sections.completed.isNotEmpty()) {
+                                item(key = -2) {
+                                    Text(
+                                        text = "已下課",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                                    )
+                                }
+                                items(sections.completed, key = { 100 + it.period }) { item ->
+                                    PreviewScheduleItemRow(
+                                        item = item,
+                                        isCurrent = false,
+                                        isCompleted = true,
+                                        showTeacher = showTeacher,
+                                        showClassroom = showClassroom,
+                                        showTime = showTime,
+                                        isSmall = false,
+                                    )
+                                }
+                            }
+                        }
+                    }
         }
     }
 }

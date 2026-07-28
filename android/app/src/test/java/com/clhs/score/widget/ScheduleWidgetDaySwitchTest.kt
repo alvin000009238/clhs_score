@@ -20,6 +20,16 @@ class ScheduleWidgetDaySwitchTest {
     )
 
     @Test
+    fun previewRefreshWaitsForCooldownAndSkipsCurrentPreview() {
+        val hour = 60 * 60 * 1_000L
+
+        assertFalse(shouldRefreshScheduleWidgetPreview(true, "current", "current", 0L, hour))
+        assertFalse(shouldRefreshScheduleWidgetPreview(true, "old", "current", hour, hour * 2 - 1))
+        assertTrue(shouldRefreshScheduleWidgetPreview(true, "old", "current", hour, hour * 2))
+        assertTrue(shouldRefreshScheduleWidgetPreview(false, "current", "current", hour, hour * 2))
+    }
+
+    @Test
     fun switchesAfterLastClass() {
         assertEquals(
             monday,

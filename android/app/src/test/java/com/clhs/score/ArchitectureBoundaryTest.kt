@@ -306,6 +306,7 @@ class ArchitectureBoundaryTest {
 
         assertTrue(source.contains("LaunchedEffect(appSettings.themeMode, appSettings.dynamicColor, appSettings.amoledBlack)"))
         assertTrue(source.contains("com.clhs.score.widget.syncAllScheduleWidgets(applicationContext, appSettings)"))
+        assertTrue(source.contains("com.clhs.score.widget.refreshScheduleWidgetPreview(applicationContext, appSettings)"))
     }
 
     @Test
@@ -398,6 +399,38 @@ class ArchitectureBoundaryTest {
         assertTrue(source.contains("showClassroom && !isShort && !isNarrow"))
         assertFalse(source.contains("text = \"上課中\""))
         assertFalse(previewSource.contains("text = \"上課中\""))
+        assertFalse(previewSource.contains("PreviewTitleBar("))
+        assertTrue(source.contains("horizontalPadding = if (isShort) 8.dp else 16.dp"))
+        assertTrue(previewSource.contains("horizontal = if (isShort) 8.dp else 16.dp"))
+        assertTrue(source.contains(".padding(top = if (isShort) 8.dp else 12.dp, bottom = if (isShort) 4.dp else 8.dp)"))
+        assertTrue(previewSource.contains(".padding(top = if (isShort) 8.dp else 12.dp, bottom = if (isShort) 4.dp else 8.dp)"))
+        assertTrue(previewSource.contains("android.R.dimen.system_app_widget_background_radius"))
+    }
+
+    @Test
+    fun scheduleWidgetKeepsTierOnePlatformIntegration() {
+        val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
+        val provider = readSource("app/src/main/res/xml/schedule_widget_info.xml")
+        val manifest = readSource("app/src/main/AndroidManifest.xml")
+
+        assertTrue(source.contains("Scaffold("))
+        assertFalse(source.contains("TitleBar("))
+        assertTrue(source.contains("override val previewSizeMode = SizeMode.Responsive("))
+        assertTrue(source.contains("override suspend fun providePreview("))
+        assertTrue(source.contains("setWidgetPreviews(ScheduleWidgetReceiver::class)"))
+        assertTrue(source.contains("generatedPreviewCategories"))
+        assertTrue(source.contains("ScheduleWidgetPreviewRevision"))
+        assertTrue(source.contains("actionStartActivity(intent)"))
+
+        assertTrue(provider.contains("android:minResizeWidth=\"180dp\""))
+        assertTrue(provider.contains("android:minResizeHeight=\"110dp\""))
+        assertTrue(provider.contains("android:maxResizeWidth=\"460dp\""))
+        assertTrue(provider.contains("android:maxResizeHeight=\"500dp\""))
+        assertTrue(provider.contains("android:initialLayout=\"@layout/glance_default_loading_layout\""))
+        assertTrue(provider.contains("android:previewImage=\"@drawable/schedule_widget_preview\""))
+        assertTrue(provider.contains("android:description=\"@string/schedule_widget_description\""))
+        assertTrue(provider.contains("android:widgetFeatures=\"reconfigurable\""))
+        assertTrue(manifest.contains("android:label=\"@string/schedule_widget_name\""))
     }
 
     @Test

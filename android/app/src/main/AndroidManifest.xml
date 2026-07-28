@@ -56,6 +56,7 @@
 
         <receiver
             android:name=".widget.ScheduleWidgetReceiver"
+            android:label="@string/schedule_widget_name"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

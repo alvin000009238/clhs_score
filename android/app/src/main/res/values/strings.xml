@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">壢中 Pocket</string>
+    <string name="schedule_widget_name">課表</string>
+    <string name="schedule_widget_description">在主畫面查看現在與接下來的課程</string>
     <string name="notification_channel_updates_name">更新與公告</string>
     <string name="notification_channel_updates_description">接收 app 更新與一般公告通知</string>
     <string name="notification_channel_grade_reminders_name">段考提醒</string>
