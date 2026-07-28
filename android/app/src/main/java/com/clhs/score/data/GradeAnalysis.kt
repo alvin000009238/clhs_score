@@ -324,7 +324,7 @@ fun List<YearTermOption>.simulationHistorySource(
         it.yearValue == yearValue && it.examValue == examValue
     }
     if (currentIndex <= 0) return null
-    val historyExams = orderedExams.subList(max(0, currentIndex - 3), currentIndex)
+    val historyExams = orderedExams.subList(0, currentIndex)
     if (historyExams.isEmpty()) return null
     return SimulationHistorySource(
         yearTerm = historyExams.first().yearTerm,

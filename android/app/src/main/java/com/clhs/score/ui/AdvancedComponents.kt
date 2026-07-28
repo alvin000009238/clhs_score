@@ -302,17 +302,13 @@ internal fun ScoreSimulatorScreen(
         weightedTotalFor(report.subjects, adjustedScores, activeSubjects)
     }
 
-    val allHistory = remember(state.trendReports, state.simulatorHistoryReports) {
-        state.trendReports + state.simulatorHistoryReports
-    }
-
-    val historyMaxMin = remember(allHistory, report) {
+    val historyMaxMin = remember(state.simulatorHistoryReports, report) {
         val reportSubjectKeys = report.subjects
-            .mapTo(mutableSetOf()) { cleanSubjectName(it.subjectName) }
+            .mapTo(mutableSetOf()) { shortenSubjectName(it.subjectName) }
         val map = mutableMapOf<String, Pair<Double, Double>>()
-        allHistory.forEach { historyReport ->
+        state.simulatorHistoryReports.forEach { historyReport ->
             historyReport.subjects.forEach { subject ->
-                val key = cleanSubjectName(subject.subjectName)
+                val key = shortenSubjectName(subject.subjectName)
                 if (key in reportSubjectKeys) {
                     val score = subject.scoreValue
                     val range = map[key]
@@ -564,8 +560,8 @@ internal fun ScoreSimulatorScreen(
                                         lockedSubjects = if (locked) lockedSubjects + key else lockedSubjects - key
                                     },
                                     showLock = isTargetReversalEnabled,
-                                    historyMin = historyMaxMin[key]?.first,
-                                    historyMax = historyMaxMin[key]?.second,
+                                    historyMin = historyMaxMin[shortenSubjectName(subject.subjectName)]?.first,
+                                    historyMax = historyMaxMin[shortenSubjectName(subject.subjectName)]?.second,
                                     onValueChange = { score ->
                                         adjustedScores = adjustedScores + (key to score)
                                     },

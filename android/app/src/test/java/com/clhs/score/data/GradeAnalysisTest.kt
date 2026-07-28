@@ -65,7 +65,7 @@ class GradeAnalysisTest {
     }
 
     @Test
-    fun simulatorHistoryUsesLastThreePreviousExamsInSameTerm() {
+    fun simulatorHistoryUsesAllPreviousExamsInSameTerm() {
         val structure = listOf(
             YearTermOption(
                 text = "114上",
@@ -83,7 +83,7 @@ class GradeAnalysisTest {
         val source = structure.simulationHistorySource("114_1", "E5")
 
         assertEquals(false, source?.usesPreviousTerm)
-        assertEquals(listOf("E2", "E3", "E4"), source?.exams?.map { it.value })
+        assertEquals(listOf("E1", "E2", "E3", "E4"), source?.exams?.map { it.value })
     }
 
     @Test
@@ -112,7 +112,7 @@ class GradeAnalysisTest {
     }
 
     @Test
-    fun simulatorHistoryUsesPreviousThreeExamsAcrossTerms() {
+    fun simulatorHistoryUsesAllPreviousExamsAcrossTerms() {
         val structure = listOf(
             YearTermOption(
                 text = "113上",
@@ -139,6 +139,13 @@ class GradeAnalysisTest {
         assertEquals(true, source?.usesPreviousTerm)
         assertEquals(listOf("113_1", "113_2", "113_2"), source?.historyExams?.map { it.yearValue })
         assertEquals(listOf("A3", "P1", "P2"), source?.historyExams?.map { it.examValue })
+    }
+
+    @Test
+    fun simulatorHistoryMatchesDisplayedSubjectName() {
+        assertEquals("化學", shortenSubjectName("化學"))
+        assertEquals("選修物理", shortenSubjectName("選修物理-力學"))
+        assertEquals("選修物理", shortenSubjectName("選修物理-電磁學"))
     }
 
     @Test
