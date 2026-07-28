@@ -146,6 +146,32 @@ class ScoreViewModelTest {
     }
 
     @Test
+    fun refreshingOnlyForcesSelectedExam() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(FakeData.structure)
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+        repository.completeFetch("114_1_E1", FakeData.reportFor("114_1", "114_1_E1"))
+        repository.completeFetch("114_1_E2", FakeData.previousReport())
+        repository.completeFetch("113_2_E3", FakeData.reportFor("113_2", "113_2_E3"))
+        runCurrent()
+
+        repository.fetchCalls.clear()
+        viewModel.reloadStructure()
+        runCurrent()
+
+        val selectedCalls = repository.fetchCalls.filter { it.second == "114_1_E4" }
+        val historicalCalls = repository.fetchCalls.filterNot { it.second == "114_1_E4" }
+        assertEquals(listOf(true), selectedCalls.map { it.third })
+        assertFalse(historicalCalls.isEmpty())
+        assertEquals(setOf(false), historicalCalls.map { it.third }.toSet())
+    }
+
+    @Test
     fun selectingFirstExamStillBuildsSameTermTrend() = runTest(dispatcher) {
         val repository = ControllableGradeRepository()
         val viewModel = ScoreViewModel(repository)
@@ -389,6 +415,7 @@ class ScoreViewModelTest {
 
     private class ControllableGradeRepository : GradeRepository {
         val structureDeferred = CompletableDeferred<List<YearTermOption>>()
+        val fetchCalls = mutableListOf<Triple<String, String, Boolean>>()
         var loggedOutSession: AuthenticatedSession? = null
         private val session = AuthenticatedSession("DEMO-000", "token", emptyMap())
         private val fetches = mutableMapOf<Pair<String, String>, CompletableDeferred<GradeReport>>()
@@ -407,7 +434,10 @@ class ScoreViewModelTest {
             yearValue: String,
             examValue: String,
             forceRefresh: Boolean,
-        ): GradeReport = fetches.getOrPut(yearValue to examValue) { CompletableDeferred() }.await()
+        ): GradeReport {
+            fetchCalls += Triple(yearValue, examValue, forceRefresh)
+            return fetches.getOrPut(yearValue to examValue) { CompletableDeferred() }.await()
+        }
 
         override suspend fun logout(currentSession: AuthenticatedSession?) {
             loggedOutSession = currentSession

@@ -840,7 +840,6 @@ class ScoreViewModel(
             yearValue = yearValue,
             examValue = examValue,
             report = report,
-            forceRefresh = forceRefresh,
         )
     }
 
@@ -850,7 +849,6 @@ class ScoreViewModel(
         yearValue: String,
         examValue: String,
         report: GradeReport,
-        forceRefresh: Boolean = false,
     ) {
         val structure = _gradesState.value.structure
         val year = structure.firstOrNull { it.value == yearValue }
@@ -897,7 +895,7 @@ class ScoreViewModel(
                 coroutineScope {
                     requests.map { request ->
                         async {
-                            request to repository.fetchGrades(session, request.yearValue, request.examValue, forceRefresh)
+                            request to repository.fetchGrades(session, request.yearValue, request.examValue, false)
                         }
                     }.awaitAll().toMap()
                 }
