@@ -119,6 +119,20 @@ class SchoolGradeClientTest {
     }
 
     @Test
+    fun parseScheduleItemsRejectsInvalidWeekdays() {
+        val items = parseScheduleItems(
+            """
+                [
+                  {"SubjectName":"有效課程","WeekDay":1,"SectionSeq":1},
+                  {"SubjectName":"錯誤課程","WeekDay":8,"SectionSeq":1}
+                ]
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf(ScheduleItem(1, 1, "有效課程")), items)
+    }
+
+    @Test
     fun fetchSchedulePostsSelectionAndParsesRecursiveTimetableResponse() = runTest {
         val session = AuthenticatedSession(
             studentNo = "DEMO-001",
@@ -398,6 +412,30 @@ class SchoolGradeClientTest {
         server.takeRequest()
         assertTrue(server.takeRequest().body.readUtf8().contains("WeekNo=4"))
         assertTrue(server.takeRequest().body.readUtf8().contains("WeekNo=&"))
+    }
+
+    @Test
+    fun currentWeekComparisonAuthenticationFailureIsNotHidden() = runTest {
+        val session = AuthenticatedSession("DEMO-001", "api-token", emptyMap())
+        server.enqueue(htmlResponse("""<input name="__RequestVerificationToken" value="schedule-token" />"""))
+        server.enqueue(jsonResponse(currentWeekJson))
+        server.enqueue(jsonResponse(scheduleJson))
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        val error = runCatching {
+            client.fetchSchedule(
+                session,
+                "115_4",
+                "115",
+                "4",
+                "230",
+                ScheduleScope.CURRENT_WEEK,
+                targetDate = LocalDate.parse("2026-07-24"),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is SchoolAuthenticationException)
+        assertEquals(4, server.requestCount)
     }
 
     @Test

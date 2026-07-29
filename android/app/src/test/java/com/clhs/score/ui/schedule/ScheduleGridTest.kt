@@ -30,6 +30,18 @@ class ScheduleGridTest {
         assertEquals(listOf(2, 1, 1), cells.map { it.periodCount })
     }
 
+    @Test
+    fun extraPeriodsRemainVisible() {
+        val cells = scheduleGridCells(
+            items = listOf(lesson(period = 9)),
+            changes = emptyList(),
+            dayOfWeek = 1,
+        )
+
+        assertEquals(9, cells.last().period)
+        assertEquals("國文", cells.last().item?.subjectName)
+    }
+
     private fun lesson(period: Int, classroom: String = "101") =
         ScheduleItem(
             dayOfWeek = 1,

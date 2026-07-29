@@ -79,6 +79,7 @@ import com.clhs.score.data.ScheduleChangeType
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleScope
+import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.getSubjectColors
 import com.clhs.score.data.refreshAt
 import com.clhs.score.data.shouldRefreshAt
@@ -488,13 +489,23 @@ internal data class ScheduleGridCell(
     val change: ScheduleChange?,
 )
 
+internal fun scheduleGridPeriods(
+    items: List<ScheduleItem>,
+    changes: List<ScheduleChange>,
+): List<Int> =
+    ((1..PERIOD_TIMES.size) + items.map { it.period } + changes.map { it.period })
+        .filter { it > 0 }
+        .distinct()
+        .sorted()
+
 internal fun scheduleGridCells(
     items: List<ScheduleItem>,
     changes: List<ScheduleChange>,
     dayOfWeek: Int,
-    periods: IntRange = 1..8,
+    periods: Iterable<Int> = scheduleGridPeriods(items, changes),
 ): List<ScheduleGridCell> {
-    if (periods.isEmpty()) return emptyList()
+    val displayedPeriods = periods.filter { it > 0 }.distinct().sorted()
+    if (displayedPeriods.isEmpty()) return emptyList()
 
     val itemsByPeriod = items
         .filter { it.dayOfWeek == dayOfWeek }
@@ -504,14 +515,15 @@ internal fun scheduleGridCells(
         .associateBy { it.period }
 
     return buildList {
-        var period = periods.first
-        while (period <= periods.last) {
+        var index = 0
+        while (index < displayedPeriods.size) {
+            val period = displayedPeriods[index]
             val change = changesByPeriod[period]
             val item = change?.weekItem ?: itemsByPeriod[period]
             var periodCount = 1
             if (item != null && change == null) {
                 while (
-                    period + periodCount <= periods.last &&
+                    displayedPeriods.getOrNull(index + periodCount) == period + periodCount &&
                     changesByPeriod[period + periodCount] == null &&
                     item.isSameDisplayedCourse(itemsByPeriod[period + periodCount])
                 ) {
@@ -519,7 +531,7 @@ internal fun scheduleGridCells(
                 }
             }
             add(ScheduleGridCell(period, periodCount, item, change))
-            period += periodCount
+            index += periodCount
         }
     }
 }
@@ -538,9 +550,9 @@ fun ScheduleGrid(
     changes: List<ScheduleChange> = emptyList(),
 ) {
     val days = listOf("時間", "週一", "週二", "週三", "週四", "週五")
-    val periods = (1..8).toList()
-    val cellsByDay = remember(items, changes) {
-        (1..5).associateWith { day -> scheduleGridCells(items, changes, day) }
+    val periods = remember(items, changes) { scheduleGridPeriods(items, changes) }
+    val cellsByDay = remember(items, changes, periods) {
+        (1..5).associateWith { day -> scheduleGridCells(items, changes, day, periods) }
     }
     val subjectColors = remember(items, changes) {
         getSubjectColors(
@@ -590,7 +602,7 @@ fun ScheduleGrid(
                     ) {
                         Text(text = period.toString(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
-                            text = com.clhs.score.data.PERIOD_TIMES.getOrNull(period - 1)?.multiLine ?: "",
+                            text = PERIOD_TIMES.getOrNull(period - 1)?.multiLine ?: "",
                             fontSize = 8.sp,
                             lineHeight = 10.sp,
                             textAlign = TextAlign.Center,

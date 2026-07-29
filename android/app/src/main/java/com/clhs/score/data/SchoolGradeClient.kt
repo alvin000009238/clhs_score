@@ -265,7 +265,7 @@ class SchoolGradeClient(
                 val semesterReport = fetchScheduleRequest(session, yearValue, year, term, classNo, null)
                 compareScheduleItems(semesterReport.items, weekReport.items)
             } catch (error: Exception) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException || error is SchoolAuthenticationException) throw error
                 null
             }
             return@withContext weekReport.copy(changes = changes)

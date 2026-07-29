@@ -105,12 +105,14 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
-    fun widgetBootReceiverHasRequiredPermission() {
+    fun widgetAlarmUsesThePlatformWidgetBootLifecycle() {
         val manifest = readSource("app/src/main/AndroidManifest.xml")
+        val widgetReceiver = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidgetReceiver.kt")
 
-        assertTrue(manifest.contains("android.permission.RECEIVE_BOOT_COMPLETED"))
-        assertTrue(manifest.contains("android.intent.action.BOOT_COMPLETED"))
-        assertTrue(manifest.contains(".widget.WidgetUpdateReceiver"))
+        assertFalse(manifest.contains("android.permission.RECEIVE_BOOT_COMPLETED"))
+        assertFalse(manifest.contains("android.intent.action.BOOT_COMPLETED"))
+        assertTrue(widgetReceiver.contains("override fun onEnabled(context: Context)"))
+        assertTrue(widgetReceiver.contains("WidgetUpdateReceiver.scheduleNextUpdate(context)"))
     }
 
     @Test

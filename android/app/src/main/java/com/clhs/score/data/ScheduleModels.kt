@@ -223,7 +223,7 @@ internal fun parseScheduleItems(timetableJson: String): List<ScheduleItem> {
                 val dayOfWeek = element.intField("WeekDay", "weekDay", "DayOfWeek")
                 val period = element.intField("SectionSeq", "sectionSeq", "Section", "Period")
 
-                if (!subjectName.isNullOrBlank() && dayOfWeek != null && period != null && dayOfWeek > 0 && period > 0) {
+                if (!subjectName.isNullOrBlank() && dayOfWeek != null && dayOfWeek in 1..7 && period != null && period > 0) {
                     items.add(
                         ScheduleItem(
                             dayOfWeek = dayOfWeek,

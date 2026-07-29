@@ -14,20 +14,18 @@ import java.util.Calendar
 
 class WidgetUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-        if (action == Intent.ACTION_BOOT_COMPLETED || action == ACTION_UPDATE_WIDGET) {
-            val pendingResult = goAsync()
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    syncAllScheduleWidgets(context)
-                } catch (e: Exception) {
-                    Log.e("WidgetUpdateReceiver", "Failed to update widget", e)
-                } finally {
-                    pendingResult.finish()
-                }
+        if (intent.action != ACTION_UPDATE_WIDGET) return
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                syncAllScheduleWidgets(context)
+            } catch (e: Exception) {
+                Log.e("WidgetUpdateReceiver", "Failed to update widget", e)
+            } finally {
+                pendingResult.finish()
             }
-            scheduleNextUpdate(context)
         }
+        scheduleNextUpdate(context)
     }
 
     companion object {
