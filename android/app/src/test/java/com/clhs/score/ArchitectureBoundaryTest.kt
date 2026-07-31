@@ -1,11 +1,11 @@
 package com.clhs.score
 
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 
 class ArchitectureBoundaryTest {
     @Test
@@ -28,8 +28,8 @@ class ArchitectureBoundaryTest {
         forbiddenTerms.forEach { term ->
             assertFalse("ScheduleWidget must not depend on authentication state: $term", source.contains(term))
         }
-        assertTrue(source.contains("本週課表已過期"))
-        assertTrue(source.contains("開啟 App 更新"))
+        assertTrue(source.contains("課表已過期"))
+        assertTrue(source.contains("點擊此處更新"))
     }
 
     @Test

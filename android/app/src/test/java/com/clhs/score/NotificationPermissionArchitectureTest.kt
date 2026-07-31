@@ -1,10 +1,10 @@
 package com.clhs.score
 
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import org.junit.Assert.assertTrue
-import org.junit.Test
 
 class NotificationPermissionArchitectureTest {
     @Test

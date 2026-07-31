@@ -90,7 +90,7 @@ fun BiometricLockScreen(
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("登出") },
-            text = { Text("確定要登出嗎？登出後需要重新登入。") },
+            text = { Text("確定要登出嗎？登出後成績資料將被刪除。") },
             confirmButton = {
                 TextButton(
                     onClick = {

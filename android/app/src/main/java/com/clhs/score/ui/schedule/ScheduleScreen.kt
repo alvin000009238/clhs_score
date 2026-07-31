@@ -10,19 +10,18 @@ import android.view.View
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -74,12 +73,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
+import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.ScheduleChange
 import com.clhs.score.data.ScheduleChangeType
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleScope
-import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.getSubjectColors
 import com.clhs.score.data.refreshAt
 import com.clhs.score.data.shouldRefreshAt
@@ -457,7 +456,7 @@ private fun scheduleSubtitle(
     isRefreshing: Boolean,
     isExpired: Boolean,
 ): String {
-    if (isRefreshing) return "正在更新本週課表"
+    if (isRefreshing) return "正在更新課表"
     if (report.scope == ScheduleScope.SEMESTER) return "學期課表"
     val weekNo = report.weekNo ?: return "週課表"
     val start = report.weekStartDate?.takeLast(5)?.replace('-', '/') ?: return "第 $weekNo 週"

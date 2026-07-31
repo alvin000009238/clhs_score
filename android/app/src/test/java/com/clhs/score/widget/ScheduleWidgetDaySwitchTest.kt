@@ -5,12 +5,12 @@ import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleScope
-import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 class ScheduleWidgetDaySwitchTest {
     private val monday = LocalDate.parse("2026-07-20")

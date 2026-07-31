@@ -8,7 +8,6 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -73,12 +72,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -99,7 +98,6 @@ import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ExamSummary
 import com.clhs.score.data.GradeAnalysis
-import com.clhs.score.ui.theme.OutfitFontFamily
 import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.GradeReminderState
 import com.clhs.score.data.GradeReminderText
@@ -119,6 +117,7 @@ import com.clhs.score.notifications.hasPostNotificationsPermission
 import com.clhs.score.notifications.openAppNotificationSettings
 import com.clhs.score.notifications.shouldShowPostNotificationsRationale
 import com.clhs.score.reminders.BatteryOptimizationHelper
+import com.clhs.score.ui.theme.OutfitFontFamily
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.SettingsUiState

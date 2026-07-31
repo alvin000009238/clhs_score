@@ -13,9 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.clhs.score.analytics.AnalyticsEvents
 import com.clhs.score.analytics.AnalyticsParams
 import com.clhs.score.analytics.FirebaseAnalyticsLogger

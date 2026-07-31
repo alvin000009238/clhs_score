@@ -9,7 +9,6 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
-import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.FakeData
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem

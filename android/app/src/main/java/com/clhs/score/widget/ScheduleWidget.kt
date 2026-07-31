@@ -547,9 +547,9 @@ private fun ScheduleWidgetContent(
                 }
 
                 if (report == null) {
-                    WidgetStatusText("開啟 App 查詢本週課表")
+                    WidgetStatusText("點擊此處查詢課表")
                 } else if (isExpiredCurrentWeek) {
-                    WidgetStatusText("本週課表已過期\n開啟 App 更新")
+                    WidgetStatusText("課表已過期\n點擊此處更新")
                 } else if (selection.items.isEmpty()) {
                     WidgetStatusText("今日無排課")
                 } else {

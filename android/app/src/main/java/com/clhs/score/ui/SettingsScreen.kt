@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,9 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -76,6 +75,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.clhs.score.BuildConfig
+import com.clhs.score.R
 import com.clhs.score.analytics.UsageMetric
 import com.clhs.score.analytics.UsageStatistics
 import com.clhs.score.data.AppSettings
@@ -89,7 +89,6 @@ import com.clhs.score.notifications.openAppNotificationSettings
 import com.clhs.score.notifications.shouldShowPostNotificationsRationale
 import com.clhs.score.ui.components.PinSetupDialog
 import com.clhs.score.ui.theme.OutfitFontFamily
-import com.clhs.score.R
 import com.clhs.score.viewmodel.SettingsUiState
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import java.net.URI
@@ -973,7 +972,7 @@ internal fun SettingsContent(
                 ClickableSettingsItem(
                     icon = "download",
                     title = "匯出成績",
-                    subtitle = if (isExporting) "匯出中…" else "將成績資料匯出為 CSV 檔案",
+                    subtitle = if (isExporting) "匯出中…" else "將成績資料匯出成 CSV",
                     onClick = { if (!isExporting) showExportDialog = true },
                     index = dataPrivacyItemCount - 1,
                     count = dataPrivacyItemCount,
@@ -1059,7 +1058,7 @@ internal fun LogoutConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("登出") },
-        text = { Text("確定要登出嗎？登出後需要重新登入。") },
+        text = { Text("確定要登出嗎？登出後成績資料將被刪除。") },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
@@ -1125,7 +1124,7 @@ private fun GeneralSettingsCard(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "外觀",
+                        text = "主題",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                     )
@@ -1197,7 +1196,15 @@ private fun SettingsSwitchListItem(
         checked = checked,
         onCheckedChange = onCheckedChange,
         enabled = enabled,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        shapes = ListItemDefaults.segmentedShapes(
+            index = index,
+            count = count,
+            defaultShapes = if (count == 1) {
+                ListItemDefaults.shapes(shape = MaterialTheme.shapes.large)
+            } else {
+                ListItemDefaults.shapes()
+            },
+        ),
         supportingContent = {
             Text(
                 text = subtitle,
@@ -1245,7 +1252,15 @@ private fun ClickableSettingsItem(
 ) {
     SegmentedListItem(
         onClick = onClick,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        shapes = ListItemDefaults.segmentedShapes(
+            index = index,
+            count = count,
+            defaultShapes = if (count == 1) {
+                ListItemDefaults.shapes(shape = MaterialTheme.shapes.large)
+            } else {
+                ListItemDefaults.shapes()
+            },
+        ),
         supportingContent = {
             Text(
                 text = subtitle,

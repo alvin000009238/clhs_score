@@ -64,10 +64,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.getSubjectBaseName
 import com.clhs.score.data.shortenSubjectName
-import com.clhs.score.data.YearTermOption
 import com.clhs.score.viewmodel.ScoreViewModel
 
 internal fun subjectTrendUsesSplitLayout(width: Dp): Boolean =
@@ -210,13 +210,19 @@ fun SubjectTrendScreen(
             val selectedCount = state.selectedYearValues.size
             val selectionSummary = when {
                 selectedCount == 0 -> "尚未選擇學期"
-                selectedCount == structure.size -> "全部 $selectedCount 個學期"
+                selectedCount == structure.size -> "已全選（共 $selectedCount 個學期）"
                 else -> "已選 $selectedCount 個學期"
             }
             SegmentedListItem(
                 onClick = { showYearTermBottomSheet = true },
                 enabled = structure.isNotEmpty(),
-                shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                shapes = ListItemDefaults.segmentedShapes(
+                    index = 0,
+                    count = 1,
+                    defaultShapes = ListItemDefaults.shapes(
+                        shape = MaterialTheme.shapes.large,
+                    ),
+                ),
                 supportingContent = {
                     Text(
                         text = selectionSummary,

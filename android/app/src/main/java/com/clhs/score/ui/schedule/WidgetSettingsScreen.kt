@@ -55,12 +55,12 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.clhs.score.ui.OutlinedRoundedSymbol
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.ScheduleItem
 import com.clhs.score.data.ScheduleReport
 import com.clhs.score.data.ScheduleScope
+import com.clhs.score.ui.OutlinedRoundedSymbol
 import com.clhs.score.widget.ScheduleWidgetPreferences
 import com.clhs.score.widget.classifyWidgetScheduleItems
 import com.clhs.score.widget.selectWidgetSchedule
@@ -381,12 +381,12 @@ private fun ScheduleWidgetPreview(
 
                     if (report == null) {
                         Text(
-                            "開啟 App 查詢本週課表",
+                            "點擊此處查詢課表",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     } else if (isExpiredCurrentWeek) {
                         Text(
-                            "本週課表已過期\n開啟 App 更新",
+                            "課表已過期\n點擊此處更新",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     } else if (selection.items.isEmpty()) {
