@@ -176,6 +176,15 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun currentWeekScheduleExposesForceReloadAction() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/schedule/ScheduleScreen.kt")
+
+        assertTrue(source.contains("if (uiState.report?.scope == ScheduleScope.CURRENT_WEEK)"))
+        assertTrue(source.contains("contentDescription = \"強制重新載入本週課表\""))
+        assertTrue(source.contains("enabled = !uiState.isLoading"))
+    }
+
+    @Test
     fun subjectCardExpansionKeepsTheValidatedTweenTransition() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/SubjectComponents.kt")
         val visibilityTransition = source

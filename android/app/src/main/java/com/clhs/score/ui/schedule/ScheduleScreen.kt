@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -126,7 +125,8 @@ fun ScheduleScreen(
         }
     }
     val refreshBoundaryReached = uiState.report?.shouldRefreshAt(scheduleNow) == true
-    val isRefreshingExpiredReport = refreshBoundaryReached && uiState.isLoading
+    val isRefreshingWeekReport =
+        uiState.report?.scope == ScheduleScope.CURRENT_WEEK && uiState.isLoading
     val isExpiredReport = refreshBoundaryReached && !uiState.isLoading
     val scheduleColorScheme = MaterialTheme.colorScheme
     val scheduleShapes = MaterialTheme.shapes
@@ -155,7 +155,7 @@ fun ScheduleScreen(
                             Text(
                                 text = scheduleSubtitle(
                                     report = report,
-                                    isRefreshing = isRefreshingExpiredReport,
+                                    isRefreshing = isRefreshingWeekReport,
                                     isExpired = isExpiredReport,
                                 ),
                                 color = if (isExpiredReport) {
@@ -179,14 +179,15 @@ fun ScheduleScreen(
                     }
                 },
                 actions = {
-                    if (isExpiredReport) {
+                    if (uiState.report?.scope == ScheduleScope.CURRENT_WEEK) {
                         IconButton(
                             onClick = onRefresh,
+                            enabled = !uiState.isLoading,
                             shapes = IconButtonDefaults.shapes(),
                         ) {
                             OutlinedRoundedSymbol(
                                 icon = "refresh",
-                                contentDescription = "重新整理課表",
+                                contentDescription = "強制重新載入本週課表",
                             )
                         }
                     }
@@ -831,15 +832,6 @@ private fun ScheduleDetailSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                shapes = ButtonDefaults.shapes(),
-            ) {
-                Text("確定", style = MaterialTheme.typography.titleMedium)
-            }
         }
     }
 }
@@ -890,13 +882,6 @@ private fun ScheduleChangeDetailSheet(
                 )
             }
 
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                shapes = ButtonDefaults.shapes(),
-            ) {
-                Text("確定", style = MaterialTheme.typography.titleMedium)
-            }
         }
     }
 }
