@@ -1,11 +1,9 @@
 package com.clhs.score.ui
 
-import android.Manifest
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +62,7 @@ import com.clhs.score.data.StorageDiagnostics
 import com.clhs.score.data.StorageEntry
 import com.clhs.score.data.defaultClearableLocalDataCategories
 import com.clhs.score.data.toReadableSize
+import com.clhs.score.notifications.canPostNotifications
 import com.clhs.score.reminders.GradeReminderNotifier
 import kotlinx.coroutines.launch
 
@@ -269,10 +268,7 @@ fun DeveloperSettingsScreen(
 }
 
 private fun showGradeReminderTestNotification(context: Context) {
-    if (
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-    ) {
+    if (!context.canPostNotifications()) {
         Toast.makeText(context, "請先允許通知權限", Toast.LENGTH_SHORT).show()
         return
     }

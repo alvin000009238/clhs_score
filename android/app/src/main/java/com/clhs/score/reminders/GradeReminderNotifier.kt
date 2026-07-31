@@ -1,25 +1,23 @@
 package com.clhs.score.reminders
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import com.clhs.score.MainActivity
 import com.clhs.score.R
 import com.clhs.score.data.GradeChangeSet
 import com.clhs.score.data.GradeReminderText
 import com.clhs.score.notifications.NotificationChannels
+import com.clhs.score.notifications.canPostNotifications
 import java.util.concurrent.atomic.AtomicInteger
 
 class GradeReminderNotifier(private val context: Context) {
     private val appContext = context.applicationContext
 
     fun showChangedNotification(changeSet: GradeChangeSet) {
-        if (!canPostNotifications()) return
+        if (!appContext.canPostNotifications()) return
         NotificationChannels.ensureCreated(appContext)
 
         val notification = Notification.Builder(appContext, NotificationChannels.GRADE_REMINDERS_CHANNEL_ID)
@@ -37,7 +35,7 @@ class GradeReminderNotifier(private val context: Context) {
     }
 
     fun showStoppedNotification(reason: String) {
-        if (!canPostNotifications()) return
+        if (!appContext.canPostNotifications()) return
         NotificationChannels.ensureCreated(appContext)
 
         val notification = Notification.Builder(appContext, NotificationChannels.GRADE_REMINDERS_CHANNEL_ID)
@@ -80,10 +78,6 @@ class GradeReminderNotifier(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
-
-    private fun canPostNotifications(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            appContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     companion object {
         const val EXTRA_OPEN_GRADE_REMINDER = "open_grade_reminder"

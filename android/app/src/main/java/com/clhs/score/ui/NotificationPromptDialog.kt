@@ -1,7 +1,10 @@
 package com.clhs.score.ui
 
+import android.Manifest
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -21,6 +24,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.clhs.score.data.AppSettings
+import com.clhs.score.notifications.canPostNotifications
+import com.clhs.score.notifications.hasPostNotificationsPermission
+import com.clhs.score.notifications.openAppNotificationSettings
+import com.clhs.score.notifications.shouldShowPostNotificationsRationale
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -37,21 +44,31 @@ fun NotificationPromptDialog(
     val currentOnOpenSettings by rememberUpdatedState(onOpenSettings)
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
-    val needsPermission = !context.arePostNotificationsGranted()
-
-    if (!needsPermission || settings.notificationPromptDismissed) {
-        return
+    var showDialog by rememberSaveable { mutableStateOf(true) }
+    var awaitingNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    var permissionDenied by rememberSaveable { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            currentOnEnableNotifications(true)
+            showDialog = false
+            Toast.makeText(context, "已開啟推播通知", Toast.LENGTH_SHORT).show()
+        } else {
+            permissionDenied = true
+            Toast.makeText(context, "未取得通知權限，可再次嘗試開啟", Toast.LENGTH_SHORT).show()
+        }
     }
 
-    var showDialog by rememberSaveable { mutableStateOf(true) }
-    if (!showDialog) return
-    var awaitingNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    if (context.canPostNotifications() || settings.notificationPromptDismissed || !showDialog) {
+        return
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && awaitingNotificationSettings) {
                 awaitingNotificationSettings = false
-                if (context.arePostNotificationsGranted()) {
+                if (context.canPostNotifications()) {
                     currentOnEnableNotifications(true)
                     showDialog = false
                     Toast.makeText(context, "已開啟推播通知", Toast.LENGTH_SHORT).show()
@@ -75,11 +92,18 @@ fun NotificationPromptDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    currentOnOpenSettings()
-                    awaitingNotificationSettings = true
-                    if (!context.openAppNotificationSettings()) {
-                        awaitingNotificationSettings = false
-                        Toast.makeText(context, "無法開啟通知設定，請手動到系統設定開啟", Toast.LENGTH_SHORT).show()
+                    if (
+                        !context.hasPostNotificationsPermission() &&
+                        (!permissionDenied || context.shouldShowPostNotificationsRationale())
+                    ) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        currentOnOpenSettings()
+                        awaitingNotificationSettings = true
+                        if (!context.openAppNotificationSettings()) {
+                            awaitingNotificationSettings = false
+                            Toast.makeText(context, "無法開啟通知設定，請手動到系統設定開啟", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 },
                 shapes = ButtonDefaults.shapes(),

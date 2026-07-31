@@ -1,21 +1,38 @@
-package com.clhs.score.ui
+package com.clhs.score.notifications
 
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.app.NotificationManagerCompat
 
-internal fun Context.arePostNotificationsGranted(): Boolean =
+internal fun Context.hasPostNotificationsPermission(): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
+
+internal fun Context.areNotificationsEnabled(): Boolean =
+    NotificationManagerCompat.from(this).areNotificationsEnabled()
+
+internal fun Context.canPostNotifications(): Boolean =
+    hasPostNotificationsPermission() && areNotificationsEnabled()
+
+internal fun Context.shouldShowPostNotificationsRationale(): Boolean =
+    findActivity()?.let { activity ->
+        ActivityCompat.shouldShowRequestPermissionRationale(
+            activity,
+            Manifest.permission.POST_NOTIFICATIONS,
+        )
+    } == true
 
 internal fun Context.openAppNotificationSettings(): Boolean {
     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -36,3 +53,9 @@ private fun Context.startSettingsActivity(intent: Intent): Boolean =
         }
         startActivity(intent)
     }.isSuccess
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}

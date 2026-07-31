@@ -36,6 +36,7 @@ import com.clhs.score.analytics.UsageStatisticsStore
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
+import com.clhs.score.notifications.canPostNotifications
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.ScheduleViewModel
@@ -394,7 +395,7 @@ private fun SystemNotificationPermissionSync(
     val currentOnSetNotificationsEnabled by rememberUpdatedState(onSetNotificationsEnabled)
 
     fun syncIfNeeded() {
-        if (notificationsEnabled && !context.arePostNotificationsGranted()) {
+        if (notificationsEnabled && !context.canPostNotifications()) {
             analyticsLogger.logEvent(
                 AnalyticsEvents.NOTIFICATION_PROMPT_ACTION,
                 mapOf(AnalyticsParams.ACTION to AnalyticsValues.ACTION_AUTO_DISABLED),

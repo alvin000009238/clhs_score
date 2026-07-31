@@ -1,8 +1,12 @@
 package com.clhs.score.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
@@ -110,6 +114,10 @@ import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.parseYearTerm
 import com.clhs.score.data.shortenSubjectName
+import com.clhs.score.notifications.canPostNotifications
+import com.clhs.score.notifications.hasPostNotificationsPermission
+import com.clhs.score.notifications.openAppNotificationSettings
+import com.clhs.score.notifications.shouldShowPostNotificationsRationale
 import com.clhs.score.reminders.BatteryOptimizationHelper
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
@@ -192,7 +200,8 @@ fun GradesScreen(
     var selectedDestination by rememberSaveable { mutableIntStateOf(GradesDestination.Overview.ordinal) }
     val waitingForNotificationGrant = rememberSaveable { mutableStateOf(false) }
     val waitingForBatteryOptimizationGrant = rememberSaveable { mutableStateOf(false) }
-    var isNotificationPermissionGranted by remember { mutableStateOf(context.arePostNotificationsGranted()) }
+    var notificationPermissionDenied by rememberSaveable { mutableStateOf(false) }
+    var isNotificationPermissionGranted by remember { mutableStateOf(context.hasPostNotificationsPermission()) }
     var isBatteryOptimizationIgnored by remember { mutableStateOf(BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) }
 
     var showStudentSheet by rememberSaveable { mutableStateOf(false) }
@@ -217,7 +226,7 @@ fun GradesScreen(
     }
 
     fun refreshReminderPrerequisites() {
-        isNotificationPermissionGranted = context.arePostNotificationsGranted()
+        isNotificationPermissionGranted = context.hasPostNotificationsPermission()
         isBatteryOptimizationIgnored = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
     }
 
@@ -239,18 +248,32 @@ fun GradesScreen(
         }
     }
 
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        isNotificationPermissionGranted = granted
+        if (granted) {
+            currentOnSetNotificationsEnabled(true)
+            requestBatteryOptimizationOrStart()
+        } else {
+            notificationPermissionDenied = true
+            currentOnGradeReminderPrerequisiteFailed("未取得通知權限，可再次嘗試啟用")
+        }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver observer@{ _, event ->
             if (event != Lifecycle.Event.ON_RESUME) {
                 return@observer
             }
-            val notificationGranted = context.arePostNotificationsGranted()
+            val notificationGranted = context.hasPostNotificationsPermission()
+            val canPostNotifications = context.canPostNotifications()
             val batteryOptimizationIgnored = BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
             isNotificationPermissionGranted = notificationGranted
             isBatteryOptimizationIgnored = batteryOptimizationIgnored
             if (waitingForNotificationGrant.value) {
                 waitingForNotificationGrant.value = false
-                if (notificationGranted) {
+                if (canPostNotifications) {
                     currentOnSetNotificationsEnabled(true)
                     requestBatteryOptimizationOrStart()
                 } else {
@@ -274,15 +297,24 @@ fun GradesScreen(
     }
 
     fun beginGradeReminderEnablement() {
-        if (!context.arePostNotificationsGranted()) {
+        if (context.canPostNotifications()) {
+            currentOnSetNotificationsEnabled(true)
+            requestBatteryOptimizationOrStart()
+        } else if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !context.hasPostNotificationsPermission() &&
+            (
+                !notificationPermissionDenied ||
+                    context.shouldShowPostNotificationsRationale()
+            )
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
             waitingForNotificationGrant.value = true
             if (!context.openAppNotificationSettings()) {
                 waitingForNotificationGrant.value = false
                 currentOnGradeReminderPrerequisiteFailed("無法開啟通知設定，請手動到系統設定開啟")
             }
-        } else {
-            currentOnSetNotificationsEnabled(true)
-            requestBatteryOptimizationOrStart()
         }
     }
     state.gradeReminderChangeSet?.let { changeSet ->

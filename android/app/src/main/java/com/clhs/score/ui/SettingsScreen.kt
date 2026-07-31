@@ -1,9 +1,12 @@
 package com.clhs.score.ui
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -80,6 +83,10 @@ import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.data.YearTermOption
+import com.clhs.score.notifications.canPostNotifications
+import com.clhs.score.notifications.hasPostNotificationsPermission
+import com.clhs.score.notifications.openAppNotificationSettings
+import com.clhs.score.notifications.shouldShowPostNotificationsRationale
 import com.clhs.score.ui.components.PinSetupDialog
 import com.clhs.score.ui.theme.OutfitFontFamily
 import com.clhs.score.R
@@ -799,9 +806,24 @@ internal fun SettingsContent(
     var showExportDialog by remember { mutableStateOf(false) }
     var showPinSetupDialog by remember { mutableStateOf(false) }
     var awaitingNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    var notificationPermissionDenied by rememberSaveable { mutableStateOf(false) }
     val currentOnSetNotificationsEnabled by rememberUpdatedState(onSetNotificationsEnabled)
     val currentOnDismissDeveloperToast by rememberUpdatedState(onDismissDeveloperToast)
     val currentOnDismissExportResult by rememberUpdatedState(onDismissExportResult)
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        currentOnSetNotificationsEnabled(granted)
+        if (!granted) {
+            notificationPermissionDenied = true
+        }
+        Toast.makeText(
+            context,
+            if (granted) "已開啟推播通知" else "未取得通知權限，可再次嘗試開啟",
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
 
     DisposableEffect(lifecycleOwner, settings.notificationsEnabled) {
         val observer = LifecycleEventObserver { _, event ->
@@ -810,14 +832,14 @@ internal fun SettingsContent(
             }
             if (awaitingNotificationSettings) {
                 awaitingNotificationSettings = false
-                if (context.arePostNotificationsGranted()) {
+                if (context.canPostNotifications()) {
                     currentOnSetNotificationsEnabled(true)
                     Toast.makeText(context, "已開啟推播通知", Toast.LENGTH_SHORT).show()
                 } else {
                     currentOnSetNotificationsEnabled(false)
                     Toast.makeText(context, "未取得通知權限，暫不接收推播通知", Toast.LENGTH_SHORT).show()
                 }
-            } else if (settings.notificationsEnabled && !context.arePostNotificationsGranted()) {
+            } else if (settings.notificationsEnabled && !context.canPostNotifications()) {
                 currentOnSetNotificationsEnabled(false)
                 Toast.makeText(context, "系統通知權限已關閉，已同步關閉通知", Toast.LENGTH_SHORT).show()
             }
@@ -829,7 +851,18 @@ internal fun SettingsContent(
     val onNotificationToggle: (Boolean) -> Unit = { enabled ->
         if (!enabled) {
             onSetNotificationsEnabled(false)
-        } else if (!context.arePostNotificationsGranted()) {
+        } else if (context.canPostNotifications()) {
+            onSetNotificationsEnabled(true)
+        } else if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !context.hasPostNotificationsPermission() &&
+            (
+                !notificationPermissionDenied ||
+                    context.shouldShowPostNotificationsRationale()
+            )
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
             awaitingNotificationSettings = true
             if (context.openAppNotificationSettings()) {
                 Toast.makeText(context, "請在系統設定中開啟通知", Toast.LENGTH_SHORT).show()
@@ -837,8 +870,6 @@ internal fun SettingsContent(
                 awaitingNotificationSettings = false
                 Toast.makeText(context, "無法開啟通知設定，請手動到系統設定開啟", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            onSetNotificationsEnabled(true)
         }
     }
 
