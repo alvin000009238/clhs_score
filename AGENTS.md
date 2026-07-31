@@ -38,10 +38,25 @@
 - Android app 可用 `-PuseFakeData=true` 切到 `FakeGradeRepository`，讓登入後成績列表、平均、班排、各科分析、圖表與模擬器都不依賴 API。
 - Compose Preview 入口在 `android/app/src/main/java/com/clhs/score/ui/ScorePreviews.kt`，應直接使用 `FakeData` 組 `GradesUiState`。
 
+## Android 自適應版面與返回手勢
+
+- 成績頁以可用寬度 `600dp` / `840dp` 為斷點，分別使用底部導覽、Navigation Rail 與側欄；寬畫面內容在頁面內分欄，但仍共用既有 pager 與各頁 scroll state。
+- 成績模擬器在 `600dp` 以上將摘要固定於左側安全區中央、操作內容置於右側捲動；system bar inset 必須讀取目前值，不要跨旋轉快取。
+- 成績頁 pager 只能由導覽控制，不開放手勢切頁；切換時即使 page 相同但仍有 offset，也要完成回正。
+- Predictive Back 由 Navigation Compose 與 Material drawer 的 `drawerState` 管理；不要在登入頁或成績頁另加攔截相同流程的 `BackHandler`。
+- 獨立 Activity 必須呼叫 `enableEdgeToEdge()`；未由 Scaffold 消化 insets 的全畫面內容需自行處理 `safeDrawing`，有文字輸入的畫面也需處理 IME inset。
+
 ## Android Material Symbols subset
 
 - Material Symbols rounded icon 由 `android/app/src/main/res/font/material_symbols_rounded_*_subset.ttf` 提供，不要重新加入 `dev.vicart:compose-material-symbols` 整包依賴。
 - 新增 icon ligature 時，先更新 `android/scripts/generate_material_symbol_subset.py` 的 `ICONS` 清單，再執行 `python android/scripts/generate_material_symbol_subset.py` 重新產生 outline / filled subset font。產生器找不到舊 Gradle AAR 時會下載 Google 官方原始字型；離線環境可用 `--source-font` 指定本機字型。
+
+## Android Material 3 Expressive
+
+- App 根主題使用 `MaterialExpressiveTheme` 與 `MotionScheme.expressive()`；高頻工具型清單、設定與安全流程改用 `MotionScheme.standard()` 的 effects／spatial spec。
+- 一般容器優先使用 `MaterialTheme.shapes` 與 surface container roles；固定小圓角只保留在圖表、課表格與 Widget 等資料幾何。
+- Button、IconButton 與 toggle control 優先使用 Material 3 Expressive 的 `shapes()`／`toggleableShapes()`，並維持至少 48dp 觸控區。
+- Glance Widget 不能直接套用 `MaterialExpressiveTheme`；只同步 App 的色彩、字級與資訊層級，並保留每個條件分支明確設定背景與圓角。
 
 ## Android 品牌字型與開源授權
 
@@ -57,7 +72,7 @@
 - Android app 使用 Firebase Cloud Messaging 接收手動推播；目前發送端預設是 Firebase Console，不需要把 FCM server key、service account 或其他私鑰放進 app。
 - `android/app/google-services.json` 是 Firebase app 設定檔，需保留在 app module 根目錄並允許進版控；不要提交 Firebase service account JSON。
 - 使用者在設定頁開啟通知後，app 會訂閱 `general` 與 `app_updates` topics；關閉通知時會取消訂閱。
-- `POST_NOTIFICATIONS` 權限不要用 Compose `ActivityResultContracts.RequestPermission()` 直接請求；此 app 使用 `FragmentActivity`，實機曾因 requestCode 超過 lower 16 bits 閃退。改開 App 通知設定頁並在返回 App 時檢查權限。
+- Android 13 以上的 `POST_NOTIFICATIONS` 權限使用 Compose `rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission())`，並只在使用者主動開啟推播或段考提醒時請求；Android 12 以下不啟動 launcher。使用者反覆拒絕或系統封鎖通知時，改開 App 通知設定頁並在返回 App 時重新檢查 `checkSelfPermission()` 與 `NotificationManagerCompat.areNotificationsEnabled()`。
 - 系統通知權限與 App 內通知開關的同步由 `ScoreApp` 根層處理；不要只放在設定頁，否則使用者從系統設定封鎖通知後，其他入口回 App 時狀態會不一致。
 - 發送 app 更新通知時使用 `app_updates` topic，一般公告使用 `general` topic。可在 FCM data payload 帶 `url`，使用者點通知時會開啟該網址。
 
@@ -88,15 +103,35 @@
 - 開發者選項內的「段考提醒測試通知」只應在 debug build 顯示，用來測試正式通知 channel 與通知文案；不要把它當成正式背景檢查或 release 使用者功能。
 - `src/debug` 的 `GradeReminderDebugReceiver` 只供 ADB 測完整 worker 鏈：它會把目前提醒 state 的上一版 snapshot 改舊，再 enqueue 真正的 `GradeReminderWorker`；不得移到 main/release，也不得改成會外送成績資料。
 
+## Android 課表
+
+- 課表 grid 預設顯示既有 1–8 節；若 API 實際回傳其他正節次，需以稀疏節次清單追加顯示，避免靜默漏課或為異常大節次建立巨大連續範圍。
+
 ## Android Widget
 
 - 桌面課表小工具 (`ScheduleWidget`) 使用 Jetpack Glance 實作。
 - 自動更新依賴 `AlarmManager.setAndAllowWhileIdle` (`WidgetUpdateReceiver`)，在每日午夜與每節課下課時觸發更新，避開了需申請 `SCHEDULE_EXACT_ALARM` 權限的限制。
+- 有 Widget 實例時，系統會在開機流程重新觸發 `ScheduleWidgetReceiver.onEnabled()` 排程更新；不要另註冊 `BOOT_COMPLETED`，避免沒有 Widget 的使用者也喚醒 App。
 - 測試 Widget UI 時，注意 Glance 的 RemoteViews 資源回收問題：所有動態修飾 (`GlanceModifier`)，包括 `background` 或 `cornerRadius`，在條件分支 (`if-else`) 中都必須明確設置（例如重設為 `Color.Transparent` 與 `0.dp`），否則滑動列表時樣式會錯誤殘留。
 - 從 Widget 或 `scoreapp://schedule` deep link 進入 app 時，不得繞過生物識別鎖；若存在 biometric session，`MainActivity` 必須先顯示 `BiometricLockScreen`。課表頁網路 repository 要優先使用已解鎖的 in-memory active session；存在 biometric session 時不得 fallback 到一般 `SessionStore`，避免繞過鎖或誤顯示未登入。
 - Widget 本體不得讀取一般 session、biometric session、cookie 或 token；只能讀 `GradeCacheStore` 的 widget 專用課表快照。課表查詢成功或從舊的學生課表快取載入成功時，要同步寫入 widget 快照；登出、學生快取清除或生物識別資料失效時要清掉該快照並刷新 widget。
 - `ArchitectureBoundaryTest` 會防止 Widget 重新依賴登入狀態，並檢查 PIN 解鎖必須先 activate in-memory session 再解除鎖定；修改 widget、課表或生物識別流程時要保留這些邊界。
-- Widget 的設定由 Android 原生的 Widget 配置活動（Configuration Activity）即 `WidgetConfigurationActivity` 進行。它支援在新增 Widget 時跳出設定，且在 `schedule_widget_info.xml` 宣告為 `widgetFeatures="reconfigurable"`，使得使用者長按 Widget 時可以重新設定。設定項目會透過 `GradeCacheStore` 持久化，並透過 `syncAllScheduleWidgets(...)` / `syncScheduleWidget(...)` 同步課表資料、顯示偏好與 theme state 到 Glance state 後即時更新。
+- Widget 的設定由 Android 原生的 Widget 配置活動（Configuration Activity）即 `WidgetConfigurationActivity` 進行。它支援在新增 Widget 時跳出設定，且在 `schedule_widget_info.xml` 宣告為 `widgetFeatures="reconfigurable"`，使得使用者長按 Widget 時可以重新設定。教師、地點、時間與下課後切換偏好直接保存在個別 `GlanceId` 的 state；`syncAllScheduleWidgets(...)` 只能同步共用課表快照與 theme state，不得覆蓋個別 Widget 偏好。
+- Widget 預設在午夜隨日期切換課表；使用者也可改為最後一節下課後切換到下一個上課日。顯示目標日期仍需通過本週課表有效範圍檢查。
+- Widget 的「上課中」判定使用含開始、不含結束的時間區間，才能和每節下課後延遲 5 秒觸發的更新 Alarm 一致；不要改回包含結束分鐘，否則會在下課後持續顯示上課中直到下一次 Alarm。
+- Widget 新增時仍以 4×3 為預設尺寸，但 `schedule_widget_info.xml` 透過 `minResizeWidth` / `minResizeHeight` 允許縮小至約 3×2。
+- Widget 頂層版面使用 Glance 官方 `Scaffold`，由系統提供背景圓角；Widget 選擇器在 Android 15 以上使用 generated preview，舊版使用同步維護的 `previewImage`。
+- `schedule_widget_preview.png` 不得手工或用生成式圖片工具修改；連接一台 Android 裝置後執行 `python android/scripts/generate_schedule_widget_preview.py`，由 `ScheduleWidget.providePreview` 的實際 Glance `RemoteViews` 產生 552×406 PNG。
+- Widget 以 `LocalSize.current` 響應尺寸：高度低於 `160dp` 時只顯示上課中或下一堂課，寬度低於 `220dp` 時隱藏教師、地點與週次；高度達 `260dp` 才在底部加入低對比的已下課區塊。無法判定時間的節次必須保留在接下來清單。
+- Widget 設定頁預覽使用相同的課表快照、時間分類、狀態文案與該 Widget 的實際尺寸；調整 Widget 版面時需同步更新預覽。
+- 舊版儲存在 `GradeCacheStore` 的全域 Widget 顯示偏好只用來補上尚未有個別 Glance state 的既有 Widget；同步時不得覆蓋已存在的個別 Widget 偏好。
+- 課表的「週課表」模式會先呼叫 `GetWeekNoList`，依手機本地日期落入的 `StartDateDisplay` / `EndDateDisplay` 範圍選出唯一 `WeekNo`，不得依賴校方可能延遲切換的 `Selected` / `Item.IsSelected`。本週實際最後一堂課下課後自動刷新時，目標日期使用 `weekStartDate + 1 週`；找不到唯一週次或後續查詢失敗時退回學期課表並提示使用者。
+- App 進入課表頁時，本週課表快取只有在整週實際最後一堂課下課後才自動重新查詢，不得把通常落在星期六的 `weekEndDate` 當成刷新門檻；最後上課日有無法辨識的節次時以 16:55 為備援。門檻前直接使用快取，不得每次進頁都重複呼叫課表 API。
+- 手動查詢若先取得已達刷新門檻的本週課表，畫面仍可顯示該結果，但後續重新整理必須改用 `weekStartDate + 1 週` 作為目標日期，不得持續重查同一個已過期週次。
+- 週課表成功後會再查一次學期課表，以星期與節次為鍵，比對科目、教師及教室；`ScheduleItem`、課表快取與差異資料都不得保存未使用的 API `rawData`。比較失敗時仍顯示週課表並提示使用者。
+- Widget 只同步 App 已查詢的本週課表快照；跨出該週日期範圍後必須顯示過期提示並引導開啟 App 更新，不得繼續顯示上週課表，也不得自行讀取登入狀態向學校 API 查詢。
+- App 在前一週最後一堂課下課後可能已同步下一週快照；Widget 與設定預覽選擇顯示日期時不得早於該快照的 `weekStartDate`，避免把下週同星期的課誤當成今天並顯示過期。
+- Widget 不執行週課表差異比較，也不顯示調課摘要；調課提醒只在使用者開啟 App 查詢週課表時產生。
 
 ## Android 成績匯出
 
