@@ -1010,15 +1010,9 @@ class ScoreViewModel(
         fetchSubjectTrendGrades()
     }
 
-    fun toggleSubjectTrendYear(yearValue: String) {
-        _subjectTrendState.update { state ->
-            val next = if (yearValue in state.selectedYearValues) {
-                state.selectedYearValues - yearValue
-            } else {
-                state.selectedYearValues + yearValue
-            }
-            state.copy(selectedYearValues = next)
-        }
+    fun setSubjectTrendYears(yearValues: Set<String>) {
+        if (yearValues == _subjectTrendState.value.selectedYearValues) return
+        _subjectTrendState.update { it.copy(selectedYearValues = yearValues) }
         fetchSubjectTrendGrades()
     }
 

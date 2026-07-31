@@ -18,6 +18,7 @@ ICONS = (
     "arrow_back",
     "arrow_forward",
     "more_horiz",
+    "more_vert",
     "refresh",
     "settings",
     "home",

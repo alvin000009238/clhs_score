@@ -1,5 +1,7 @@
 package com.clhs.score.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -20,14 +23,17 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +68,7 @@ val onboardingPages = listOf(
     )
 )
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun IntroScreen(
     showSkipButton: Boolean = false,
@@ -111,7 +118,10 @@ fun IntroScreen(
                     contentAlignment = Alignment.TopEnd
                 ) {
                     if (showSkipButton) {
-                        TextButton(onClick = onSkipClick) {
+                        TextButton(
+                            onClick = onSkipClick,
+                            shapes = ButtonDefaults.shapes(),
+                        ) {
                             Text(
                                 text = "跳過",
                                 style = MaterialTheme.typography.labelLarge,
@@ -138,13 +148,21 @@ fun IntroScreen(
                             .wrapContentHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        OutlinedRoundedSymbol(
-                            icon = item.icon,
-                            size = 80.dp,
-                            tint = MaterialTheme.colorScheme.primary,
-                            contentDescription = null,
-                        )
-                        Spacer(modifier = Modifier.height(48.dp))
+                        Surface(
+                            modifier = Modifier.size(132.dp),
+                            shape = MaterialShapes.Cookie6Sided.toShape(startAngle = -30),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                OutlinedRoundedSymbol(
+                                    icon = item.icon,
+                                    size = 64.dp,
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(40.dp))
                         Text(
                             text = item.title,
                             style = MaterialTheme.typography.headlineMedium,
@@ -171,12 +189,21 @@ fun IntroScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     repeat(pagerState.pageCount) { iteration ->
-                        val color = if (pagerState.currentPage == iteration) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                        }
-                        val width = if (pagerState.currentPage == iteration) 24.dp else 8.dp
+                        val selected = pagerState.currentPage == iteration
+                        val color by animateColorAsState(
+                            targetValue = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+                            label = "onboardingIndicatorColor",
+                        )
+                        val width by animateDpAsState(
+                            targetValue = if (selected) 32.dp else 8.dp,
+                            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                            label = "onboardingIndicatorWidth",
+                        )
                         Box(
                             modifier = Modifier
                                 .size(width = width, height = 8.dp)
@@ -190,17 +217,15 @@ fun IntroScreen(
 
                 Button(
                     onClick = onLoginClick,
+                    shapes = ButtonDefaults.shapesFor(64.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                        .heightIn(min = 64.dp),
+                    contentPadding = ButtonDefaults.contentPaddingFor(64.dp),
                 ) {
                     Text(
                         text = "使用學校帳號登入",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = ButtonDefaults.textStyleFor(64.dp),
                         fontWeight = FontWeight.Bold
                     )
                 }

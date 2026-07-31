@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PinInputDialog(
     title: String,
@@ -69,13 +72,17 @@ fun PinInputDialog(
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(pin) },
-                enabled = pin.length in 4..6
+                enabled = pin.length in 4..6,
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text("確認")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("取消")
             }
         }

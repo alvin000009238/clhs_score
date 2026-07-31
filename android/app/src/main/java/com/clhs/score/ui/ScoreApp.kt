@@ -1,13 +1,15 @@
 package com.clhs.score.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -51,6 +53,7 @@ private const val UsageStatisticsRoute = "usage-statistics"
 private const val OpenSourceLicensesRoute = "open-source-licenses"
 private const val DeveloperSettingsRoute = "developer-settings"
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ScoreApp(
     scoreViewModel: com.clhs.score.viewmodel.ScoreViewModel,
@@ -90,6 +93,8 @@ fun ScoreApp(
     onSetBiometricEnabled: (Boolean, String?) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val expressiveMotion = MaterialTheme.motionScheme
+    val standardMotion = remember { MotionScheme.standard() }
     SystemNotificationPermissionSync(
         settings = settings,
         onSetNotificationsEnabled = onSetNotificationsEnabled,
@@ -120,10 +125,10 @@ fun ScoreApp(
     AnimatedContent(
         targetState = gradesState.isLoggedIn,
         transitionSpec = {
-            (fadeIn(tween(400)) + scaleIn(
+            (fadeIn(expressiveMotion.defaultEffectsSpec()) + scaleIn(
                 initialScale = 0.92f,
-                animationSpec = tween(400),
-            )).togetherWith(fadeOut(tween(300)))
+                animationSpec = expressiveMotion.defaultSpatialSpec(),
+            )).togetherWith(fadeOut(expressiveMotion.defaultEffectsSpec()))
         },
         label = "loginTransition",
     ) { isLoggedIn ->
@@ -147,10 +152,22 @@ fun ScoreApp(
             NavHost(
                 navController = navController,
                 startDestination = GradesRoute,
-                enterTransition = { fadeIn(tween(150)) + slideInHorizontally(tween(150)) { it / 8 } },
-                exitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { -it / 8 } },
-                popEnterTransition = { fadeIn(tween(150)) + slideInHorizontally(tween(150)) { -it / 8 } },
-                popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(150)) { it / 8 } },
+                enterTransition = {
+                    fadeIn(expressiveMotion.defaultEffectsSpec()) +
+                        slideInHorizontally(expressiveMotion.defaultSpatialSpec()) { it / 8 }
+                },
+                exitTransition = {
+                    fadeOut(expressiveMotion.defaultEffectsSpec()) +
+                        slideOutHorizontally(expressiveMotion.defaultSpatialSpec()) { -it / 8 }
+                },
+                popEnterTransition = {
+                    fadeIn(expressiveMotion.defaultEffectsSpec()) +
+                        slideInHorizontally(expressiveMotion.defaultSpatialSpec()) { -it / 8 }
+                },
+                popExitTransition = {
+                    fadeOut(expressiveMotion.defaultEffectsSpec()) +
+                        slideOutHorizontally(expressiveMotion.defaultSpatialSpec()) { it / 8 }
+                },
             ) {
                 composable(GradesRoute) {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -339,10 +356,10 @@ fun ScoreApp(
             NavHost(
                 navController = loginNavController,
                 startDestination = IntroRoute,
-                enterTransition = { fadeIn(tween(300)) },
-                exitTransition = { fadeOut(tween(300)) },
-                popEnterTransition = { fadeIn(tween(300)) },
-                popExitTransition = { fadeOut(tween(300)) },
+                enterTransition = { fadeIn(standardMotion.defaultEffectsSpec()) },
+                exitTransition = { fadeOut(standardMotion.defaultEffectsSpec()) },
+                popEnterTransition = { fadeIn(standardMotion.defaultEffectsSpec()) },
+                popExitTransition = { fadeOut(standardMotion.defaultEffectsSpec()) },
             ) {
                 composable(IntroRoute) {
                     IntroScreen(

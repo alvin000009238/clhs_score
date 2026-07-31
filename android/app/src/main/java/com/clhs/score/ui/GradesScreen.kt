@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -29,7 +30,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,12 +43,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
@@ -58,10 +57,14 @@ import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +74,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -466,7 +470,7 @@ fun GradesScreen(
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                             .zIndex(1f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -474,15 +478,20 @@ fun GradesScreen(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
                         ) {
-                            IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                            IconButton(
+                                onClick = { coroutineScope.launch { drawerState.open() } },
+                                shapes = IconButtonDefaults.shapes(
+                                    shape = CircleShape,
+                                    pressedShape = CircleShape,
+                                ),
+                            ) {
                                 OutlinedRoundedSymbol(
                                     icon = "menu",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     contentDescription = "選單",
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         GradeSelectionPill(
                             state = state,
                             onSelectYear = onSelectYear,
@@ -493,10 +502,15 @@ fun GradesScreen(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
                         ) {
-                            IconButton(onClick = { showStudentSheet = true }) {
+                            IconButton(
+                                onClick = { showStudentSheet = true },
+                                shapes = IconButtonDefaults.shapes(
+                                    shape = CircleShape,
+                                    pressedShape = CircleShape,
+                                ),
+                            ) {
                                 OutlinedRoundedSymbol(
                                     icon = "account_circle",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     contentDescription = "帳號",
                                 )
                             }
@@ -539,6 +553,7 @@ private fun GradesTabPage(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun GradesAdaptiveNavigation(
     layout: GradesAdaptiveLayout,
@@ -549,30 +564,49 @@ private fun GradesAdaptiveNavigation(
         GradesAdaptiveLayout.SingleColumn -> Unit
         GradesAdaptiveLayout.TwoColumn,
         GradesAdaptiveLayout.ListDetail,
-        -> NavigationRail(
-            modifier = Modifier.fillMaxHeight(),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Spacer(modifier = Modifier.statusBarsPadding())
-            GradesDestination.entries.forEach { destination ->
-                val selected = selectedDestination == destination.ordinal
-                NavigationRailItem(
-                    selected = selected,
-                    onClick = { onSelect(destination) },
-                    icon = {
-                        if (selected) {
-                            FilledRoundedSymbol(
-                                icon = destination.icon,
-                                contentDescription = destination.label,
-                            )
-                        } else {
-                            OutlinedRoundedSymbol(
-                                icon = destination.icon,
-                                contentDescription = destination.label,
-                            )
-                        }
+        -> {
+            val railExpanded = layout == GradesAdaptiveLayout.ListDetail
+            key(layout) {
+                val railState = rememberWideNavigationRailState(
+                    initialValue = if (railExpanded) {
+                        WideNavigationRailValue.Expanded
+                    } else {
+                        WideNavigationRailValue.Collapsed
                     },
                 )
+                WideNavigationRail(
+                    state = railState,
+                    modifier = Modifier.fillMaxHeight(),
+                    arrangement = Arrangement.Center,
+                ) {
+                    GradesDestination.entries.forEach { destination ->
+                        val selected = selectedDestination == destination.ordinal
+                        WideNavigationRailItem(
+                            selected = selected,
+                            onClick = { onSelect(destination) },
+                            railExpanded = railExpanded,
+                            icon = {
+                                if (selected) {
+                                    FilledRoundedSymbol(
+                                        icon = destination.icon,
+                                        contentDescription = null,
+                                    )
+                                } else {
+                                    OutlinedRoundedSymbol(
+                                        icon = destination.icon,
+                                        contentDescription = null,
+                                    )
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = destination.label,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                )
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -636,7 +670,7 @@ private fun GradeSelectionPill(
     var yearMenuExpanded by remember { mutableStateOf(false) }
     var examMenuExpanded by remember { mutableStateOf(false) }
     val buttonContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f)
-    val buttonContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val buttonContentColor = MaterialTheme.colorScheme.onSurface
     val buttonColors = ButtonDefaults.filledTonalButtonColors(
         containerColor = buttonContainerColor,
         contentColor = buttonContentColor,
@@ -858,6 +892,7 @@ private fun OverviewTab(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun GradeReminderDetailsDialog(
     reminderState: GradeReminderState,
@@ -951,6 +986,7 @@ private fun GradeReminderDetailsDialog(
                 TextButton(
                     enabled = !isStarting,
                     onClick = onStop,
+                    shapes = ButtonDefaults.shapes(),
                 ) {
                     Text(primaryActionLabel)
                 }
@@ -958,19 +994,24 @@ private fun GradeReminderDetailsDialog(
                 TextButton(
                     enabled = !isStarting,
                     onClick = onStart,
+                    shapes = ButtonDefaults.shapes(),
                 ) {
                     Text(primaryActionLabel)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("關閉")
             }
         },
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun GradeReminderChangeDialog(
     changeSet: GradeChangeSet,
@@ -1002,7 +1043,10 @@ private fun GradeReminderChangeDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("知道了")
             }
         },
@@ -1077,6 +1121,7 @@ private fun HeroCard(
     val summary = report.examSummary
     val animatedAverage by animateFloatAsState(
         targetValue = analysis.weightedAverage.toFloat(),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "weightedAverage",
     )
     val totalScore = summary?.totalScoreDisplay?.toDoubleOrNull()?.let { "%.0f".format(it) }
@@ -1092,9 +1137,9 @@ private fun HeroCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.largeIncreased,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -1121,7 +1166,7 @@ private fun HeroCard(
                         if (deltaText != null) {
                             val deltaColor = diffColor(analysis.comparison?.averageDelta ?: 0.0)
                             Surface(
-                                shape = RoundedCornerShape(999.dp),
+                                shape = CircleShape,
                                 color = deltaColor.copy(alpha = 0.15f),
                                 modifier = Modifier.padding(bottom = 4.dp),
                             ) {
@@ -1136,7 +1181,10 @@ private fun HeroCard(
                         }
                     }
                 }
-                IconButton(onClick = onOpenGradeReminder) {
+                IconButton(
+                    onClick = onOpenGradeReminder,
+                    shapes = IconButtonDefaults.shapes(),
+                ) {
                     if (showActiveReminderIcon) {
                         FilledRoundedSymbol(
                             icon = "notifications_active",
@@ -1174,7 +1222,7 @@ private fun HeroChip(
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = CircleShape,
         color = containerColor,
     ) {
         Text(
@@ -1256,7 +1304,7 @@ private fun InsightCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("分析", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -1294,7 +1342,7 @@ private fun DashboardInsightRow(label: String, text: String, color: Color) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+            .background(color.copy(alpha = 0.10f), MaterialTheme.shapes.medium)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -1423,7 +1471,7 @@ private fun InlineStatus(
         text = message,
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f), RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.small)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1459,7 +1507,7 @@ private fun SkeletonBlock(height: androidx.compose.ui.unit.Dp) {
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f), MaterialTheme.shapes.medium),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.medium),
     )
 }
 
@@ -1470,8 +1518,25 @@ private fun EmptyPanel(message: String, onReload: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Button(shape = RoundedCornerShape(14.dp), onClick = onReload) {
+        Surface(
+            modifier = Modifier.size(88.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                OutlinedRoundedSymbol(icon = "refresh", size = 40.dp, contentDescription = null)
+            }
+        }
+        Text(
+            text = message,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(
+            onClick = onReload,
+            shapes = ButtonDefaults.shapes(),
+        ) {
             Text("重新整理")
         }
     }
@@ -1574,10 +1639,10 @@ private fun StudentInfoBottomSheet(
             TextButton(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { showLogoutDialog = true },
+                shapes = ButtonDefaults.shapes(),
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
-                shape = RoundedCornerShape(14.dp),
             ) {
                 Text(
                     text = "登出",
@@ -1639,8 +1704,8 @@ private fun GradesNavigationDrawerContent(
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),

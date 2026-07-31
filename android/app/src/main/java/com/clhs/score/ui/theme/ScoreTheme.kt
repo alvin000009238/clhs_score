@@ -4,7 +4,11 @@ import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -32,16 +36,16 @@ data class ScoreSemanticColors(
 )
 
 internal val LightSemanticColors = ScoreSemanticColors(
-    positive = Color(0xFF059669),
-    negative = Color(0xFFDC2626),
-    warning = Color(0xFFD97706),
+    positive = Color(0xFF126738),
+    negative = Color(0xFFBA1A1A),
+    warning = Color(0xFF946C00),
     neutral = Color(0xFF6B7280)
 )
 
 internal val DarkSemanticColors = ScoreSemanticColors(
-    positive = Color(0xFF34D399),
-    negative = Color(0xFFF87171),
-    warning = Color(0xFFFBBF24),
+    positive = Color(0xFF81C995),
+    negative = Color(0xFFFFB4AB),
+    warning = Color(0xFFFDE293),
     neutral = Color(0xFF9CA3AF)
 )
 
@@ -54,10 +58,8 @@ object ScoreTheme {
         get() = LocalScoreSemanticColors.current
 }
 
-internal val ScoreShapes = androidx.compose.material3.Shapes(
-    small = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+internal val ScoreShapes = Shapes(
+    largeIncreased = RoundedCornerShape(36.dp),
 )
 
 internal val OutfitFontFamily = FontFamily(
@@ -65,70 +67,94 @@ internal val OutfitFontFamily = FontFamily(
 )
 
 internal val LightColors = lightColorScheme(
-    primary = Color(0xFF1565C0),
+    primary = Color(0xFF36618E),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFBBDEFB),
-    onPrimaryContainer = Color(0xFF002171),
-    secondary = Color(0xFF4F6354),
+    primaryContainer = Color(0xFFD1E4FF),
+    onPrimaryContainer = Color(0xFF194975),
+    secondary = Color(0xFF535F70),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD2E8D7),
-    onSecondaryContainer = Color(0xFF0D1F13),
-    tertiary = Color(0xFF33618D),
+    secondaryContainer = Color(0xFFD7E3F7),
+    onSecondaryContainer = Color(0xFF3B4858),
+    tertiary = Color(0xFF6B5778),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFD1E4FF),
-    onTertiaryContainer = Color(0xFF001D35),
+    tertiaryContainer = Color(0xFFF2DAFF),
+    onTertiaryContainer = Color(0xFF523F5F),
     error = Color(0xFFBA1A1A),
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
-    onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFFBFCFF),
-    surface = Color(0xFFFBFCFF),
-    surfaceContainer = Color(0xFFEEF2F6),
-    surfaceContainerHigh = Color(0xFFE4EAF0),
-    surfaceVariant = Color(0xFFDDE3EA),
-    onBackground = Color(0xFF1A1C1E),
-    onSurface = Color(0xFF1A1C1E),
+    onErrorContainer = Color(0xFF93000A),
+    background = Color(0xFFF8F9FF),
+    surface = Color(0xFFF8F9FF),
+    surfaceDim = Color(0xFFD8DAE0),
+    surfaceBright = Color(0xFFF8F9FF),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF2F3FA),
+    surfaceContainer = Color(0xFFECEEF4),
+    surfaceContainerHigh = Color(0xFFE6E8EE),
+    surfaceContainerHighest = Color(0xFFE1E2E8),
+    surfaceVariant = Color(0xFFDFE2EB),
+    onBackground = Color(0xFF191C20),
+    onSurface = Color(0xFF191C20),
     onSurfaceVariant = Color(0xFF43474E),
     outline = Color(0xFF73777F),
     outlineVariant = Color(0xFFC3C7CF),
+    inverseSurface = Color(0xFF2E3135),
+    inverseOnSurface = Color(0xFFEFF0F7),
+    inversePrimary = Color(0xFFA0CAFD),
+    scrim = Color.Black,
 )
 
 internal val DarkColors = darkColorScheme(
-    primary = Color(0xFF82B1FF),
-    onPrimary = Color(0xFF00316B),
-    primaryContainer = Color(0xFF004A97),
-    onPrimaryContainer = Color(0xFFD4E3FF),
-    secondary = Color(0xFFB6CCBB),
-    onSecondary = Color(0xFF223527),
-    secondaryContainer = Color(0xFF384B3D),
-    onSecondaryContainer = Color(0xFFD2E8D7),
-    tertiary = Color(0xFFA0CAFD),
-    onTertiary = Color(0xFF003258),
-    tertiaryContainer = Color(0xFF164974),
-    onTertiaryContainer = Color(0xFFD1E4FF),
+    primary = Color(0xFFA0CAFD),
+    onPrimary = Color(0xFF003258),
+    primaryContainer = Color(0xFF194975),
+    onPrimaryContainer = Color(0xFFD1E4FF),
+    secondary = Color(0xFFBBC7DB),
+    onSecondary = Color(0xFF253140),
+    secondaryContainer = Color(0xFF3B4858),
+    onSecondaryContainer = Color(0xFFD7E3F7),
+    tertiary = Color(0xFFD6BEE4),
+    onTertiary = Color(0xFF3B2948),
+    tertiaryContainer = Color(0xFF523F5F),
+    onTertiaryContainer = Color(0xFFF2DAFF),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF121212),
-    surface = Color(0xFF121212),
-    surfaceContainer = Color(0xFF1E2225),
-    surfaceContainerHigh = Color(0xFF282D30),
+    background = Color(0xFF111418),
+    surface = Color(0xFF111418),
+    surfaceDim = Color(0xFF111418),
+    surfaceBright = Color(0xFF36393E),
+    surfaceContainerLowest = Color(0xFF0B0E13),
+    surfaceContainerLow = Color(0xFF191C20),
+    surfaceContainer = Color(0xFF1D2024),
+    surfaceContainerHigh = Color(0xFF272A2F),
+    surfaceContainerHighest = Color(0xFF32353A),
     surfaceVariant = Color(0xFF43474E),
-    onBackground = Color(0xFFE2E2E6),
-    onSurface = Color(0xFFE2E2E6),
+    onBackground = Color(0xFFE1E2E8),
+    onSurface = Color(0xFFE1E2E8),
     onSurfaceVariant = Color(0xFFC3C7CF),
     outline = Color(0xFF8D9199),
     outlineVariant = Color(0xFF43474E),
+    inverseSurface = Color(0xFFE1E2E8),
+    inverseOnSurface = Color(0xFF2E3135),
+    inversePrimary = Color(0xFF36618E),
+    scrim = Color.Black,
 )
 
 internal val AmoledDarkColors = DarkColors.copy(
     background = Color.Black,
     surface = Color.Black,
+    surfaceDim = Color.Black,
+    surfaceBright = Color(0xFF252525),
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = Color(0xFF050505),
     surfaceContainer = Color(0xFF0A0A0A),
     surfaceContainerHigh = Color(0xFF141414),
+    surfaceContainerHighest = Color(0xFF1E1E1E),
 )
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ScoreTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -151,8 +177,13 @@ fun ScoreTheme(
                     base.copy(
                         background = Color.Black,
                         surface = Color.Black,
+                        surfaceDim = Color.Black,
+                        surfaceBright = Color(0xFF252525),
+                        surfaceContainerLowest = Color.Black,
+                        surfaceContainerLow = Color(0xFF050505),
                         surfaceContainer = Color(0xFF0A0A0A),
                         surfaceContainerHigh = Color(0xFF141414),
+                        surfaceContainerHighest = Color(0xFF1E1E1E),
                     )
                 } else base
             } else {
@@ -179,8 +210,9 @@ fun ScoreTheme(
     androidx.compose.runtime.CompositionLocalProvider(
         LocalScoreSemanticColors provides semanticColors
     ) {
-        MaterialTheme(
+        MaterialExpressiveTheme(
             colorScheme = colorScheme,
+            motionScheme = MotionScheme.expressive(),
             shapes = ScoreShapes,
         ) {
             Surface(

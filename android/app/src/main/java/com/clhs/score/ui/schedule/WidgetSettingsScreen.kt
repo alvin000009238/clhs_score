@@ -2,33 +2,36 @@ package com.clhs.score.ui.schedule
 
 import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -47,12 +50,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.clhs.score.ui.OutlinedRoundedSymbol
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.PERIOD_TIMES
 import com.clhs.score.data.ScheduleItem
@@ -69,7 +72,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun WidgetSettingsScreen(
     initialPreferences: ScheduleWidgetPreferences,
@@ -97,20 +100,23 @@ internal fun WidgetSettingsScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         topBar = {
             TopAppBar(
                 title = { Text("此 Widget 的設定") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 navigationIcon = {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    IconButton(
+                        onClick = onDismiss,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        OutlinedRoundedSymbol(icon = "arrow_back", contentDescription = "返回")
                     }
                 },
                 actions = {
@@ -138,9 +144,19 @@ internal fun WidgetSettingsScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 8.dp),
+                        shapes = ButtonDefaults.shapes(),
                     ) {
-                        Text(if (isSaving) "儲存中" else "完成")
+                        if (isSaving) {
+                            LoadingIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("儲存中")
+                        } else {
+                            Text("完成")
+                        }
                     }
                 }
             )
@@ -162,7 +178,7 @@ internal fun WidgetSettingsScreen(
                 modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
             )
 
-            Card(
+                Card(
                 modifier = Modifier
                     .width(previewSize.width)
                     .height(previewSize.height)
@@ -192,30 +208,32 @@ internal fun WidgetSettingsScreen(
                 modifier = Modifier.padding(bottom = 12.dp),
             )
 
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 SettingSwitchRow(
                     title = "任課教師",
                     subtitle = "顯示授課教師；小尺寸會自動隱藏",
                     checked = showTeacher,
                     onCheckedChange = { showTeacher = it },
+                    index = 0,
+                    count = 3,
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingSwitchRow(
                     title = "上課地點",
                     subtitle = "顯示上課地點；小尺寸會自動隱藏",
                     checked = showClassroom,
                     onCheckedChange = { showClassroom = it },
+                    index = 1,
+                    count = 3,
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingSwitchRow(
                     title = "上課時間",
                     subtitle = "顯示每節課的起訖時間",
                     checked = showTime,
                     onCheckedChange = { showTime = it },
+                    index = 2,
+                    count = 3,
                 )
             }
 
@@ -227,58 +245,51 @@ internal fun WidgetSettingsScreen(
                 modifier = Modifier.padding(bottom = 12.dp),
             )
 
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            ) {
-                SettingSwitchRow(
-                    title = "放學後顯示下一個上課日",
-                    subtitle = "開啟後，最後一節下課即切換；關閉則於午夜切換",
-                    checked = afterLastClass,
-                    onCheckedChange = { afterLastClass = it },
-                )
-            }
+            SettingSwitchRow(
+                title = "放學後顯示下一個上課日",
+                subtitle = "開啟後，最後一節下課即切換；關閉則於午夜切換",
+                checked = afterLastClass,
+                onCheckedChange = { afterLastClass = it },
+                index = 0,
+                count = 1,
+            )
 
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SettingSwitchRow(
     title: String,
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    index: Int,
+    count: Int,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = onCheckedChange,
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f).padding(end = 16.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-            )
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        supportingContent = {
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = 4.dp),
             )
-        }
-        Switch(checked = checked, onCheckedChange = null)
+        },
+        trailingContent = {
+            Switch(checked = checked, onCheckedChange = null)
+        },
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(text = title)
     }
 }
 
@@ -475,7 +486,7 @@ private fun PreviewScheduleItemRow(
                 text = "第 ${item.period} 節",
                 fontWeight = FontWeight.Bold,
                 color = periodColor,
-                fontSize = 12.sp,
+                fontSize = if (isCurrent) 13.sp else 12.sp,
             )
             if (showTime) {
                 PERIOD_TIMES.getOrNull(item.period - 1)?.singleLine?.let { periodTime ->
@@ -492,7 +503,7 @@ private fun PreviewScheduleItemRow(
                 text = item.subjectName,
                 fontWeight = FontWeight.Bold,
                 color = contentColor,
-                fontSize = 14.sp,
+                fontSize = if (isCurrent) 16.sp else 14.sp,
             )
             if (details.isNotEmpty()) {
                 Text(

@@ -24,23 +24,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -53,6 +52,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,7 +98,7 @@ import java.time.LocalDateTime
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ScheduleScreen(
     uiState: ScheduleUiState,
@@ -127,6 +128,10 @@ fun ScheduleScreen(
     val refreshBoundaryReached = uiState.report?.shouldRefreshAt(scheduleNow) == true
     val isRefreshingExpiredReport = refreshBoundaryReached && uiState.isLoading
     val isExpiredReport = refreshBoundaryReached && !uiState.isLoading
+    val scheduleColorScheme = MaterialTheme.colorScheme
+    val scheduleShapes = MaterialTheme.shapes
+    val scheduleTypography = MaterialTheme.typography
+    val scheduleMotionScheme = MaterialTheme.motionScheme
 
     LaunchedEffect(uiState.noticeMessage) {
         uiState.noticeMessage?.let { message ->
@@ -141,7 +146,11 @@ fun ScheduleScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("我的課表")
+                        Text(
+                            text = "我的課表",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         uiState.report?.let { report ->
                             Text(
                                 text = scheduleSubtitle(
@@ -149,12 +158,12 @@ fun ScheduleScreen(
                                     isRefreshing = isRefreshingExpiredReport,
                                     isExpired = isExpiredReport,
                                 ),
-                                style = MaterialTheme.typography.labelMedium,
                                 color = if (isExpiredReport) {
                                     MaterialTheme.colorScheme.error
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },
+                                style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -162,13 +171,19 @@ fun ScheduleScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    IconButton(
+                        onClick = onBack,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        OutlinedRoundedSymbol(icon = "arrow_back", contentDescription = "返回")
                     }
                 },
                 actions = {
                     if (isExpiredReport) {
-                        IconButton(onClick = onRefresh) {
+                        IconButton(
+                            onClick = onRefresh,
+                            shapes = IconButtonDefaults.shapes(),
+                        ) {
                             OutlinedRoundedSymbol(
                                 icon = "refresh",
                                 contentDescription = "重新整理課表",
@@ -176,8 +191,11 @@ fun ScheduleScreen(
                         }
                     }
                     if (!uiState.report?.items.isNullOrEmpty()) {
-                        IconButton(onClick = { showMoreMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "更多選項")
+                        IconButton(
+                            onClick = { showMoreMenu = true },
+                            shapes = IconButtonDefaults.shapes(),
+                        ) {
+                            OutlinedRoundedSymbol(icon = "more_vert", contentDescription = "更多選項")
                         }
                         DropdownMenu(
                             expanded = showMoreMenu,
@@ -229,7 +247,10 @@ fun ScheduleScreen(
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         }
     ) { padding ->
@@ -240,7 +261,7 @@ fun ScheduleScreen(
         ) {
             if (uiState.isInitialLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                 }
             } else if (uiState.report == null) {
                 // Selection Screen
@@ -342,10 +363,14 @@ fun ScheduleScreen(
                     Button(
                         onClick = onConfirmSelection,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isLoading && uiState.selectedYearValue != null
+                        enabled = !uiState.isLoading && uiState.selectedYearValue != null,
+                        shapes = ButtonDefaults.shapes(),
                     ) {
                         if (uiState.isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                            LoadingIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
                         } else {
                             Text("查詢課表")
                         }
@@ -361,6 +386,7 @@ fun ScheduleScreen(
                         Button(
                             onClick = onRefresh,
                             modifier = Modifier.padding(top = 12.dp),
+                            shapes = ButtonDefaults.shapes(),
                         ) {
                             Text("重新整理")
                         }
@@ -382,6 +408,7 @@ fun ScheduleScreen(
                     Button(
                         onClick = onClearSelection,
                         modifier = Modifier.padding(top = 16.dp),
+                        shapes = ButtonDefaults.shapes(),
                     ) {
                         Text("重新選擇")
                     }
@@ -400,12 +427,19 @@ fun ScheduleScreen(
                         },
                         update = { composeView ->
                             composeView.setContent {
-                                Surface {
-                                    ScheduleGrid(
-                                        items = report.items,
-                                        changes = report.changes.orEmpty(),
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                                    )
+                                MaterialTheme(
+                                    colorScheme = scheduleColorScheme,
+                                    shapes = scheduleShapes,
+                                    typography = scheduleTypography,
+                                    motionScheme = scheduleMotionScheme,
+                                ) {
+                                    Surface {
+                                        ScheduleGrid(
+                                            items = report.items,
+                                            changes = report.changes.orEmpty(),
+                                            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -628,7 +662,10 @@ fun ScheduleGrid(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clickable { selectedChange = change },
+                                        .clickable(
+                                            role = Role.Button,
+                                            onClick = { selectedChange = change },
+                                        ),
                                     shape = RoundedCornerShape(8.dp),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -659,9 +696,12 @@ fun ScheduleGrid(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clickable {
-                                            if (change != null) selectedChange = change else selectedItem = item
-                                        },
+                                        .clickable(
+                                            role = Role.Button,
+                                            onClick = {
+                                                if (change != null) selectedChange = change else selectedItem = item
+                                            },
+                                        ),
                                     shape = RoundedCornerShape(8.dp),
                                     colors = CardDefaults.cardColors(containerColor = tileColors.container),
                                     border = change?.let {
@@ -734,7 +774,7 @@ private fun scheduleTileColors(subjectColor: Long, isDarkSurface: Boolean): Sche
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 private fun ScheduleDetailSheet(
     item: ScheduleItem,
     onDismiss: () -> Unit,
@@ -796,6 +836,7 @@ private fun ScheduleDetailSheet(
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text("確定", style = MaterialTheme.typography.titleMedium)
             }
@@ -804,7 +845,7 @@ private fun ScheduleDetailSheet(
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 private fun ScheduleChangeDetailSheet(
     change: ScheduleChange,
     onDismiss: () -> Unit,
@@ -852,6 +893,7 @@ private fun ScheduleChangeDetailSheet(
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text("確定", style = MaterialTheme.typography.titleMedium)
             }
@@ -868,9 +910,11 @@ private fun ScheduleComparisonCard(
 ) {
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier

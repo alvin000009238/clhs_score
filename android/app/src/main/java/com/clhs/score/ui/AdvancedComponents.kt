@@ -1,9 +1,7 @@
 package com.clhs.score.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,19 +23,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -60,6 +60,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
@@ -114,9 +116,9 @@ internal fun TrendChart(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("歷次考試趨勢", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -130,7 +132,7 @@ internal fun TrendChart(
                                     .size(10.dp)
                                     .background(
                                         if (index == trend.points.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                        androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                                        CircleShape,
                                     ),
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -167,17 +169,17 @@ internal fun ScoreSimulatorEntryCard(
     historyCount: Int = 0,
     onOpen: () -> Unit,
 ) {
-    val chipContainerColor = MaterialTheme.colorScheme.secondary
-    val chipValueColor = MaterialTheme.colorScheme.onSecondary
-    val chipLabelColor = chipValueColor.copy(alpha = 0.82f)
+    val chipContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val chipValueColor = MaterialTheme.colorScheme.onSurface
+    val chipLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Card(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("成績模擬器", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -216,9 +218,9 @@ internal fun ScheduleEntryCard(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("我的課表", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
@@ -239,9 +241,9 @@ internal fun SubjectTrendEntryCard(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("成績折線圖", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
@@ -410,9 +412,9 @@ internal fun ScoreSimulatorScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -443,9 +445,9 @@ internal fun ScoreSimulatorScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -486,7 +488,6 @@ internal fun ScoreSimulatorScreen(
                                         singleLine = true,
                                     )
                                     Button(
-                                        shape = RoundedCornerShape(14.dp),
                                         onClick = {
                                             val targetAvg = targetAverageStr.toDoubleOrNull() ?: return@Button
                                             val activeList = report.subjects.filter { cleanSubjectName(it.subjectName) in activeSubjects }
@@ -511,6 +512,7 @@ internal fun ScoreSimulatorScreen(
                                                 }
                                             }
                                         },
+                                        shapes = ButtonDefaults.shapes(),
                                     ) {
                                         Text("開始計算")
                                     }
@@ -523,9 +525,9 @@ internal fun ScoreSimulatorScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     ) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -535,10 +537,13 @@ internal fun ScoreSimulatorScreen(
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.SemiBold,
                                 )
-                                TextButton(onClick = {
-                                    adjustedScores = initialScores
-                                    checkedSubjects = report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()
-                                }) {
+                                TextButton(
+                                    onClick = {
+                                        adjustedScores = initialScores
+                                        checkedSubjects = report.subjects.map { cleanSubjectName(it.subjectName) }.toSet()
+                                    },
+                                    shapes = ButtonDefaults.shapes(),
+                                ) {
                                     Text("恢復全部")
                                 }
                             }
@@ -597,14 +602,14 @@ private fun SimulatorSummaryCard(
     val isAdjusted = abs(adjustedAverage - currentAverage) > 0.01 ||
         abs(adjustedTotal - currentTotal) > 0.01
 
-    ElevatedCard(
+    Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.elevatedCardColors(
+        shape = MaterialTheme.shapes.largeIncreased,
+        colors = CardDefaults.cardColors(
             containerColor = containerColor,
             contentColor = contentColor,
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
@@ -684,7 +689,7 @@ private fun SummaryMetricColumn(
         )
         Text(
             modifier = Modifier
-                .background(pillContainerColor, RoundedCornerShape(999.dp))
+                .background(pillContainerColor, CircleShape)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
             text = "總分 ${formatWeightedTotal(total)}",
             style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
@@ -736,7 +741,7 @@ private fun SubjectScoreSlider(
                     checked = isChecked,
                     onCheckedChange = onCheckedChange,
                     colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(48.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
             }
@@ -747,7 +752,8 @@ private fun SubjectScoreSlider(
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         onLockedChange(it)
                     },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(48.dp),
+                    shapes = IconButtonDefaults.toggleableShapes(),
                 ) {
                     OutlinedRoundedSymbol(
                         icon = if (isLocked) "lock" else "lock_open",
@@ -769,13 +775,20 @@ private fun SubjectScoreSlider(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                modifier = Modifier.clickable(onClick = onResetSubject),
-                text = "%.0f".format(value),
-                style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"),
-                color = scoreColor,
-                fontWeight = FontWeight.SemiBold,
-            )
+            TextButton(
+                modifier = Modifier.semantics {
+                    contentDescription = "目前調整分數 ${"%.0f".format(value)}，重設此科目"
+                },
+                onClick = onResetSubject,
+                shapes = ButtonDefaults.shapes(),
+            ) {
+                Text(
+                    text = "%.0f".format(value),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"),
+                    color = scoreColor,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -797,7 +810,7 @@ private fun SubjectScoreSlider(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FlameSlider(
     value: Float,
@@ -805,13 +818,16 @@ private fun FlameSlider(
     modifier: Modifier = Modifier,
     isFlameActive: Boolean = false,
 ) {
+    val utilityMotion = remember { MotionScheme.standard() }
     val trackColor by animateColorAsState(
         targetValue = if (isFlameActive) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
-        animationSpec = tween(500), label = "trackColor",
+        animationSpec = utilityMotion.defaultEffectsSpec(),
+        label = "trackColor",
     )
     val thumbColor by animateColorAsState(
         targetValue = if (isFlameActive) Color(0xFFFF5722) else MaterialTheme.colorScheme.primary,
-        animationSpec = tween(500), label = "thumbColor",
+        animationSpec = utilityMotion.defaultEffectsSpec(),
+        label = "thumbColor",
     )
 
     Slider(
@@ -834,8 +850,8 @@ private fun ScoreStepButton(
 ) {
     FilledTonalButton(
         onClick = onClick,
-        modifier = Modifier.width(52.dp).height(38.dp),
-        shape = RoundedCornerShape(999.dp),
+        shapes = ButtonDefaults.shapesFor(48.dp),
+        modifier = Modifier.width(52.dp).height(48.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
         Text(
@@ -854,7 +870,7 @@ private fun ChartLoadingPlaceholder() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(24.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.small),
             )
         }
     }
@@ -865,7 +881,7 @@ private fun EmptyAnalysisState(message: String) {
     Text(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
             .padding(12.dp),
         text = message,
         style = MaterialTheme.typography.bodyMedium,

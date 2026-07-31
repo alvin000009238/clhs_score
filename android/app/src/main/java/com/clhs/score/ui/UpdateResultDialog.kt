@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -104,6 +105,7 @@ fun UpdateResultDialog(
                 confirmButton = {
                     TextButton(
                         enabled = !isInstalling,
+                        shapes = ButtonDefaults.shapes(),
                         onClick = {
                             val apkUrl = result.apkDownloadUrl
                             if (apkUrl == null) {
@@ -141,6 +143,7 @@ fun UpdateResultDialog(
                 dismissButton = {
                     TextButton(
                         enabled = !isInstalling,
+                        shapes = ButtonDefaults.shapes(),
                         onClick = onDismiss,
                     ) { Text("稍後") }
                 },

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +34,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -89,9 +93,9 @@ private fun ChartCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -143,11 +147,20 @@ fun RadarScoreChart(subjects: List<SubjectScore>) {
     val avgScoreColor = MaterialTheme.colorScheme.outline
     val dotInnerColor = MaterialTheme.colorScheme.surface
     val labels = remember(subjects) { subjects.map { chartSubjectLabel(it.subjectName) } }
+    val chartSummary = remember(subjects, labels) {
+        subjects.zip(labels).joinToString(
+            prefix = "雷達圖。各科我的成績與班級平均：",
+            separator = "；",
+        ) { (subject, label) ->
+            "$label ${subject.scoreValue.formatScore()}，班平均 ${subject.classAverageValue.formatScore()}"
+        }
+    }
 
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(360.dp),
+            .height(360.dp)
+            .semantics { contentDescription = chartSummary },
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = min(size.width, size.height) * 0.28f
@@ -213,7 +226,7 @@ private fun HorizontalSubjectBar(subject: SubjectScore, focused: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(container, RoundedCornerShape(14.dp))
+            .background(container, MaterialTheme.shapes.medium)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -251,13 +264,13 @@ private fun ScoreBarLine(label: String, score: Double, color: Color, trackAlpha:
             modifier = Modifier
                 .weight(1f)
                 .height(10.dp)
-                .background(color.copy(alpha = trackAlpha), RoundedCornerShape(999.dp)),
+                .background(color.copy(alpha = trackAlpha), CircleShape),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth((score / 100.0).toFloat().coerceIn(0f, 1f))
                     .height(10.dp)
-                    .background(color, RoundedCornerShape(999.dp)),
+                    .background(color, CircleShape),
             )
         }
     }
@@ -267,9 +280,9 @@ private fun ScoreBarLine(label: String, score: Double, color: Color, trackAlpha:
 private fun StandardsTable(analysis: GradeAnalysis) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
@@ -283,7 +296,7 @@ private fun StandardsTable(analysis: GradeAnalysis) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -319,9 +332,9 @@ private fun StandardsTable(analysis: GradeAnalysis) {
 private fun DistributionSection(analysis: GradeAnalysis) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -355,8 +368,12 @@ private fun DistributionCard(analysis: SubjectAnalysis, standard: GradeStandard)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded }
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f), RoundedCornerShape(12.dp))
+            .clickable(
+                onClickLabel = if (expanded) "收合完整分佈" else "展開完整分佈",
+                role = Role.Button,
+                onClick = { expanded = !expanded },
+            )
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.medium)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

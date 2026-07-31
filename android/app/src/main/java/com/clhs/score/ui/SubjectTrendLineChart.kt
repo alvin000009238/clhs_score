@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -163,6 +165,20 @@ fun SubjectTrendLineChart(
 
     val minSpacing = 80.dp
     val scrollState = rememberScrollState()
+    val chartSummary = remember(chartData) {
+        chartData.subjectPoints.entries.joinToString(
+            prefix = "${chartData.exams.size} 次考試的成績趨勢。",
+            separator = "；",
+        ) { (subject, points) ->
+            val available = points.filterNotNull()
+            when {
+                available.isEmpty() -> "${shortenSubjectName(subject)}無成績"
+                available.size == 1 -> "${shortenSubjectName(subject)} ${"%.0f".format(available.first())} 分"
+                else -> "${shortenSubjectName(subject)}由 ${"%.0f".format(available.first())} 分到 " +
+                    "${"%.0f".format(available.last())} 分"
+            }
+        }
+    }
 
     BoxWithConstraints(modifier = modifier) {
         val requiredWidth = max(
@@ -176,6 +192,7 @@ fun SubjectTrendLineChart(
             Canvas(modifier = Modifier
                 .width(requiredWidth)
                 .fillMaxHeight()
+                .semantics { contentDescription = chartSummary }
                 .pointerInput(chartData) {
                 detectTapGestures { offset ->
                     val paddingLeft = 64.dp.toPx()

@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -97,7 +98,10 @@ private fun MaterialSymbol(
             fontSize = fontSize,
             lineHeight = lineHeight,
             textAlign = TextAlign.Center,
-            style = TextStyle(fontFeatureSettings = "liga"),
+            style = TextStyle(
+                fontFeatureSettings = "liga",
+                baselineShift = BaselineShift(-0.05f),
+            ),
             maxLines = 1,
             softWrap = false,
         )

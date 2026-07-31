@@ -13,7 +13,6 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -27,12 +26,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -55,6 +55,7 @@ private const val LOGIN_HOOK_LOG_PREFIX = "[ScoreLoginHook]"
 private const val LOGIN_HOOK_SUCCESS_PREFIX = "$LOGIN_HOOK_LOG_PREFIX LoginSuccess "
 private const val WEB_VIEW_LOGIN_TAG = "WebViewLogin"
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun WebViewLoginScreen(
     isProcessingLogin: Boolean,
@@ -66,6 +67,7 @@ fun WebViewLoginScreen(
     var isPageLoading by remember { mutableStateOf(true) }
     var pageProgress by remember { mutableFloatStateOf(0f) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val utilityMotion = remember { MotionScheme.standard() }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -103,11 +105,12 @@ fun WebViewLoginScreen(
         // Floating Back Button
         IconButton(
             onClick = onBack,
+            shapes = IconButtonDefaults.shapes(),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp),
             colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
@@ -120,11 +123,12 @@ fun WebViewLoginScreen(
         // Floating Refresh Button
         IconButton(
             onClick = { webViewRef?.reload() },
+            shapes = IconButtonDefaults.shapes(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(16.dp),
             colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
@@ -136,8 +140,8 @@ fun WebViewLoginScreen(
 
         AnimatedVisibility(
             visible = isProcessingLogin,
-            enter = fadeIn(tween(300)),
-            exit = fadeOut(tween(300)),
+            enter = fadeIn(utilityMotion.defaultEffectsSpec()),
+            exit = fadeOut(utilityMotion.defaultEffectsSpec()),
             modifier = Modifier.fillMaxSize(),
         ) {
             Box(
@@ -149,13 +153,13 @@ fun WebViewLoginScreen(
                 Column(
                     modifier = Modifier
                         .background(
-                            MaterialTheme.colorScheme.surface,
-                            RoundedCornerShape(20.dp),
+                            MaterialTheme.colorScheme.surfaceContainerHigh,
+                            MaterialTheme.shapes.large,
                         )
                         .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                    LoadingIndicator(modifier = Modifier.size(48.dp))
                     Text(
                         text = "正在建立連線…",
                         modifier = Modifier.padding(top = 16.dp),
@@ -173,7 +177,7 @@ fun WebViewLoginScreen(
                     .padding(16.dp)
                     .background(
                         MaterialTheme.colorScheme.errorContainer,
-                        RoundedCornerShape(12.dp),
+                        MaterialTheme.shapes.medium,
                     )
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {

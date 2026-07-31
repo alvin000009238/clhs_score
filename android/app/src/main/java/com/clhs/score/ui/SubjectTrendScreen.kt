@@ -1,13 +1,13 @@
 package com.clhs.score.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -19,30 +19,36 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +57,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -58,12 +67,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.getSubjectBaseName
 import com.clhs.score.data.shortenSubjectName
+import com.clhs.score.data.YearTermOption
 import com.clhs.score.viewmodel.ScoreViewModel
 
 internal fun subjectTrendUsesSplitLayout(width: Dp): Boolean =
     gradesAdaptiveLayoutForWidth(width) != GradesAdaptiveLayout.SingleColumn
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalLayoutApi::class,
+)
 @Composable
 fun SubjectTrendScreen(
     viewModel: ScoreViewModel,
@@ -73,6 +87,7 @@ fun SubjectTrendScreen(
     val gradesState by viewModel.gradesState.collectAsStateWithLifecycle()
     val structure = gradesState.structure
     var showSubjectBottomSheet by remember { mutableStateOf(false) }
+    var showYearTermBottomSheet by remember { mutableStateOf(false) }
     var selectedBaseName by remember { mutableStateOf<String?>(null) }
 
     // Extract all unique subjects from the fetched reports
@@ -119,13 +134,17 @@ fun SubjectTrendScreen(
                 .fillMaxWidth()
                 .heightIn(min = 280.dp, max = 520.dp)
                 .aspectRatio(1.5f),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.largeIncreased,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             if (state.reports.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(if (state.isLoading) "載入中..." else "請選擇學期與科目以顯示圖表")
+                    if (state.isLoading) {
+                        LoadingIndicator()
+                    } else {
+                        Text("請選擇學期與科目以顯示圖表")
+                    }
                 }
             } else {
                 SubjectTrendLineChart(
@@ -156,13 +175,19 @@ fun SubjectTrendScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clickable {
-                            selectedBaseName = if (isSelected) null else baseName
-                        }
+                        .semantics { selected = isSelected }
+                        .toggleable(
+                            value = isSelected,
+                            role = Role.Button,
+                            onValueChange = {
+                                selectedBaseName = if (isSelected) null else baseName
+                            },
+                        )
                         .background(
                             color = if (isSelected) color.copy(alpha = 0.1f) else Color.Transparent,
                             shape = RoundedCornerShape(4.dp)
                         )
+                        .minimumInteractiveComponentSize()
                         .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
                     Box(
@@ -181,24 +206,44 @@ fun SubjectTrendScreen(
     }
 
     val filtersSection = @Composable {
-        Column {
-            Text("選擇學期", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                structure.forEach { yearTerm ->
-                    FilterChip(
-                        selected = state.selectedYearValues.contains(yearTerm.value),
-                        onClick = { viewModel.toggleSubjectTrendYear(yearTerm.value) },
-                        label = { Text(yearTerm.text) }
-                    )
-                }
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            val selectedCount = state.selectedYearValues.size
+            val selectionSummary = when {
+                selectedCount == 0 -> "尚未選擇學期"
+                selectedCount == structure.size -> "全部 $selectedCount 個學期"
+                else -> "已選 $selectedCount 個學期"
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SegmentedListItem(
+                onClick = { showYearTermBottomSheet = true },
+                enabled = structure.isNotEmpty(),
+                shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                supportingContent = {
+                    Text(
+                        text = selectionSummary,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                },
+                trailingContent = {
+                    OutlinedRoundedSymbol(
+                        icon = "keyboard_arrow_right",
+                        size = 24.dp,
+                        contentDescription = null,
+                    )
+                },
+                colors = ListItemDefaults.segmentedColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("選擇學期")
+            }
             ElevatedButton(
                 onClick = { showSubjectBottomSheet = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text("新增 / 變更對比科目")
             }
@@ -210,13 +255,16 @@ fun SubjectTrendScreen(
             TopAppBar(
                 title = { Text("成績折線圖") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    IconButton(
+                        onClick = onBack,
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
+                        OutlinedRoundedSymbol(icon = "arrow_back", contentDescription = "返回")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                )
+                ),
             )
         },
         containerColor = MaterialTheme.colorScheme.surface,
@@ -226,21 +274,21 @@ fun SubjectTrendScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (state.isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 if (subjectTrendUsesSplitLayout(maxWidth)) {
+                    val mainPaneWeight =
+                        if (gradesAdaptiveLayoutForWidth(maxWidth) == GradesAdaptiveLayout.ListDetail) 2f else 1f
                     Row(
                         modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .widthIn(max = 1200.dp)
                             .fillMaxSize()
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         LazyColumn(
                             modifier = Modifier
-                                .weight(2f)
+                                .weight(mainPaneWeight)
                                 .fillMaxHeight(),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
@@ -255,7 +303,20 @@ fun SubjectTrendScreen(
                                 .weight(1f)
                                 .fillMaxHeight(),
                         ) {
-                            item { filtersSection() }
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = MaterialTheme.shapes.large,
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                ) {
+                                    Box(modifier = Modifier.padding(20.dp)) {
+                                        filtersSection()
+                                    }
+                                }
+                            }
                             item { Spacer(modifier = Modifier.height(8.dp)) }
                         }
                     }
@@ -286,9 +347,125 @@ fun SubjectTrendScreen(
             onDismiss = { showSubjectBottomSheet = false },
         )
     }
+
+    if (showYearTermBottomSheet) {
+        YearTermSelectionSheet(
+            yearTerms = structure,
+            selectedYearValues = state.selectedYearValues,
+            onApply = viewModel::setSubjectTrendYears,
+            onDismiss = { showYearTermBottomSheet = false },
+        )
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun YearTermSelectionSheet(
+    yearTerms: List<YearTermOption>,
+    selectedYearValues: Set<String>,
+    onApply: (Set<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var draftSelection by remember(yearTerms, selectedYearValues) {
+        mutableStateOf(selectedYearValues)
+    }
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "選擇學期",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = { draftSelection = yearTerms.mapTo(mutableSetOf()) { it.value } },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text("全選")
+                }
+                TextButton(
+                    onClick = { draftSelection = emptySet() },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text("清除")
+                }
+            }
+            Text(
+                text = "選擇要納入折線圖比較的學期",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                itemsIndexed(yearTerms) { index, yearTerm ->
+                    SegmentedListItem(
+                        checked = yearTerm.value in draftSelection,
+                        onCheckedChange = { checked ->
+                            draftSelection = if (checked) {
+                                draftSelection + yearTerm.value
+                            } else {
+                                draftSelection - yearTerm.value
+                            }
+                        },
+                        shapes = ListItemDefaults.segmentedShapes(index = index, count = yearTerms.size),
+                        leadingContent = {
+                            Checkbox(
+                                checked = yearTerm.value in draftSelection,
+                                onCheckedChange = null,
+                            )
+                        },
+                        colors = ListItemDefaults.segmentedColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(yearTerm.text)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    onApply(draftSelection)
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shapes = ButtonDefaults.shapes(),
+            ) {
+                Text("套用", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SubjectSelectionSheet(
     subjects: List<String>,
@@ -296,8 +473,14 @@ private fun SubjectSelectionSheet(
     onToggleSubject: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
@@ -317,12 +500,15 @@ private fun SubjectSelectionSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
-                items(subjects) { subjectKey ->
+                itemsIndexed(subjects) { index, subjectKey ->
                     SubjectSelectionRow(
                         subjectKey = subjectKey,
                         selected = selectedSubjectKeys.contains(subjectKey),
                         onToggleSubject = onToggleSubject,
+                        index = index,
+                        count = subjects.size,
                     )
                 }
                 item {
@@ -334,6 +520,7 @@ private fun SubjectSelectionSheet(
             Button(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text("確認", style = MaterialTheme.typography.titleMedium)
             }
@@ -341,24 +528,33 @@ private fun SubjectSelectionSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SubjectSelectionRow(
     subjectKey: String,
     selected: Boolean,
     onToggleSubject: (String) -> Unit,
+    index: Int,
+    count: Int,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggleSubject(subjectKey) }
-            .padding(vertical = 12.dp),
+    SegmentedListItem(
+        checked = selected,
+        onCheckedChange = { onToggleSubject(subjectKey) },
+        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        leadingContent = {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = null,
+            )
+        },
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
         verticalAlignment = Alignment.CenterVertically,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Checkbox(
-            checked = selected,
-            onCheckedChange = null,
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(text = subjectKey, style = MaterialTheme.typography.bodyLarge)
+        Text(text = subjectKey)
     }
 }

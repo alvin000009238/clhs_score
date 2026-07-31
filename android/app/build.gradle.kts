@@ -114,8 +114,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.compose.foundation:foundation")
 
-    implementation("androidx.compose.material:material-icons-core")
-    implementation("androidx.compose.material3:material3:1.5.0-alpha08")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha24")
     implementation("androidx.compose.runtime:runtime")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

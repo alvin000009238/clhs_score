@@ -176,6 +176,41 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun subjectCardExpansionKeepsTheValidatedTweenTransition() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/SubjectComponents.kt")
+        val visibilityTransition = source
+            .substringAfter("AnimatedVisibility(")
+            .substringBefore("            ) {")
+
+        assertTrue(visibilityTransition.contains("durationMillis = 140"))
+        assertTrue(visibilityTransition.contains("delayMillis = 40"))
+        assertTrue(visibilityTransition.contains("durationMillis = 300"))
+        assertTrue(visibilityTransition.contains("durationMillis = 90"))
+        assertTrue(visibilityTransition.contains("durationMillis = 220"))
+        assertTrue(visibilityTransition.contains("easing = LinearOutSlowInEasing"))
+        assertTrue(visibilityTransition.countOccurrences("easing = FastOutSlowInEasing") == 3)
+        assertFalse(visibilityTransition.contains("motion."))
+    }
+
+    @Test
+    fun subjectTrendLegendSelectionCoversItsMinimumTouchTarget() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/SubjectTrendScreen.kt")
+        val legendItem = source
+            .substringAfter("groupedLegend.forEach")
+            .substringBefore("val filtersSection")
+
+        val toggleableIndex = legendItem.indexOf(".toggleable(")
+        val backgroundIndex = legendItem.indexOf(".background(")
+        val minimumSizeIndex = legendItem.indexOf(".minimumInteractiveComponentSize()")
+        val paddingIndex = legendItem.indexOf(".padding(horizontal = 4.dp, vertical = 2.dp)")
+
+        assertTrue(toggleableIndex >= 0)
+        assertTrue(backgroundIndex > toggleableIndex)
+        assertTrue(minimumSizeIndex > backgroundIndex)
+        assertTrue(paddingIndex > minimumSizeIndex)
+    }
+
+    @Test
     fun updateDialogKeepsFullMarkdownScrollable() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/UpdateResultDialog.kt")
 

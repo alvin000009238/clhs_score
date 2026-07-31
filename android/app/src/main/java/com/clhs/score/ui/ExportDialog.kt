@@ -1,20 +1,20 @@
 package com.clhs.score.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.clhs.score.data.ExamSelection
 import com.clhs.score.data.YearTermOption
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ExportDialog(
     structure: List<YearTermOption>,
@@ -59,24 +60,28 @@ fun ExportDialog(
                 modifier = Modifier
                     .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val target = !allChecked
-                            allKeys.forEach { checkedState[it] = target }
-                        }
-                        .padding(vertical = 4.dp),
+                SegmentedListItem(
+                    checked = allChecked,
+                    onCheckedChange = { target ->
+                        allKeys.forEach { checkedState[it] = target }
+                    },
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                    leadingContent = {
+                        Checkbox(
+                            checked = allChecked,
+                            onCheckedChange = null,
+                        )
+                    },
+                    colors = ListItemDefaults.segmentedColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Checkbox(
-                        checked = allChecked,
-                        onCheckedChange = { target ->
-                            allKeys.forEach { checkedState[it] = target }
-                        },
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "全選",
                         style = MaterialTheme.typography.bodyLarge,
@@ -84,15 +89,7 @@ fun ExportDialog(
                     )
                 }
 
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-
-                structure.forEachIndexed { yearIndex, yearTerm ->
-                    if (yearIndex > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                structure.forEach { yearTerm ->
                     Text(
                         text = yearTerm.text,
                         style = MaterialTheme.typography.labelLarge,
@@ -100,24 +97,34 @@ fun ExportDialog(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 2.dp),
                     )
-                    yearTerm.exams.forEach { exam ->
-                        val key = "${yearTerm.value}|${exam.value}"
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { checkedState[key] = !(checkedState[key] ?: false) }
-                                .padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                    ) {
+                        yearTerm.exams.forEachIndexed { index, exam ->
+                            val key = "${yearTerm.value}|${exam.value}"
+                            SegmentedListItem(
                                 checked = checkedState[key] == true,
                                 onCheckedChange = { checkedState[key] = it },
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = exam.text,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                                shapes = ListItemDefaults.segmentedShapes(
+                                    index = index,
+                                    count = yearTerm.exams.size,
+                                ),
+                                leadingContent = {
+                                    Checkbox(
+                                        checked = checkedState[key] == true,
+                                        onCheckedChange = null,
+                                    )
+                                },
+                                colors = ListItemDefaults.segmentedColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(text = exam.text)
+                            }
                         }
                     }
                 }
@@ -140,10 +147,14 @@ fun ExportDialog(
                     onConfirm(selections)
                 },
                 enabled = !noneChecked,
+                shapes = ButtonDefaults.shapes(),
             ) { Text("匯出") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
+            ) { Text("取消") }
         },
     )
 }

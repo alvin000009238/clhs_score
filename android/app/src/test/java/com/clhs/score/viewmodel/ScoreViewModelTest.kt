@@ -288,7 +288,7 @@ class ScoreViewModelTest {
     }
 
     @Test
-    fun subjectTrendIgnoresStaleFetchResultAfterYearToggle() = runTest(dispatcher) {
+    fun subjectTrendIgnoresStaleFetchResultAfterYearSelectionChanges() = runTest(dispatcher) {
         val repository = ControllableGradeRepository()
         val viewModel = ScoreViewModel(repository)
         runCurrent()
@@ -313,7 +313,7 @@ class ScoreViewModelTest {
 
         viewModel.initSubjectTrend()
         runCurrent()
-        viewModel.toggleSubjectTrendYear("114_1")
+        viewModel.setSubjectTrendYears(setOf("113_2"))
         runCurrent()
 
         repository.completeFetch("113_2_E1", FakeData.reportFor("113_2", "113_2_E1"))
@@ -321,6 +321,49 @@ class ScoreViewModelTest {
         assertEquals(listOf("第一次段考"), viewModel.subjectTrendState.value.reports.mapNotNull { it.examSummary?.examName })
 
         assertEquals(listOf("第一次段考"), viewModel.subjectTrendState.value.reports.mapNotNull { it.examSummary?.examName })
+    }
+
+    @Test
+    fun subjectTrendYearSelectionLoadsOnceAndSkipsUnchangedSelection() = runTest(dispatcher) {
+        val repository = ControllableGradeRepository()
+        val viewModel = ScoreViewModel(repository)
+        runCurrent()
+
+        repository.structureDeferred.complete(
+            listOf(
+                YearTermOption(
+                    text = "113 學年度 第 2 學期",
+                    value = "113_2",
+                    exams = listOf(ExamOption("第一次段考", "113_2_E1")),
+                ),
+                YearTermOption(
+                    text = "114 學年度 第 1 學期",
+                    value = "114_1",
+                    exams = listOf(ExamOption("期末考", "114_1_E4")),
+                ),
+            ),
+        )
+        runCurrent()
+        repository.completeFetch("114_1_E4", FakeData.latestReport())
+        runCurrent()
+
+        viewModel.initSubjectTrend()
+        runCurrent()
+        val callsBeforeApply = repository.fetchCalls.size
+
+        viewModel.setSubjectTrendYears(setOf("113_2"))
+        runCurrent()
+        assertEquals(callsBeforeApply + 1, repository.fetchCalls.size)
+
+        viewModel.setSubjectTrendYears(setOf("113_2"))
+        runCurrent()
+        assertEquals(callsBeforeApply + 1, repository.fetchCalls.size)
+
+        viewModel.setSubjectTrendYears(emptySet())
+        runCurrent()
+        assertEquals(emptySet<String>(), viewModel.subjectTrendState.value.selectedYearValues)
+        assertEquals(emptyList<GradeReport>(), viewModel.subjectTrendState.value.reports)
+        assertEquals(callsBeforeApply + 1, repository.fetchCalls.size)
     }
 
     @Test

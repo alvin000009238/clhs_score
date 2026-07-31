@@ -77,7 +77,7 @@ val WidgetThemeModeKey = stringPreferencesKey("widget_theme_mode")
 val WidgetDynamicColorKey = booleanPreferencesKey("widget_dynamic_color")
 val WidgetAmoledBlackKey = booleanPreferencesKey("widget_amoled_black")
 private val WidgetJson = Json { ignoreUnknownKeys = true }
-private const val ScheduleWidgetPreviewRevision = 4
+private const val ScheduleWidgetPreviewRevision = 5
 private const val ScheduleWidgetPreviewPreferences = "schedule_widget_preview"
 private const val ScheduleWidgetPreviewSignatureKey = "published_signature"
 private const val ScheduleWidgetPreviewLastAttemptKey = "last_attempt"
@@ -662,7 +662,7 @@ private fun ScheduleItemRow(
                 text = "第 ${item.period} 節",
                 style = TextStyle(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
+                    fontSize = if (isCurrent) 13.sp else 12.sp,
                     color = primaryTextColor,
                 ),
             )
@@ -685,7 +685,7 @@ private fun ScheduleItemRow(
                     style = TextStyle(
                         color = subjectColor,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = if (isCurrent) 16.sp else 14.sp,
                     ),
                 )
             }

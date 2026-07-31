@@ -8,12 +8,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,22 +20,21 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,7 +67,7 @@ import com.clhs.score.data.toReadableSize
 import com.clhs.score.reminders.GradeReminderNotifier
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DeveloperSettingsScreen(
     settings: AppSettings,
@@ -105,6 +103,7 @@ fun DeveloperSettingsScreen(
                         activity?.finishAffinity()
                         kotlin.system.exitProcess(0)
                     },
+                    shapes = ButtonDefaults.shapes(),
                 ) {
                     Text("關閉 App")
                 }
@@ -157,24 +156,27 @@ fun DeveloperSettingsScreen(
         )
     }
 
-    SubpageLayout(onBack = onBack) {
+    val developerItemCount = if (BuildConfig.DEBUG) 4 else 3
+    SubpageLayout(
+        onBack = onBack,
+        title = "開發者選項",
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(start = 16.dp, top = 8.dp, end = 16.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-            Spacer(modifier = Modifier.height(56.dp))
-
             DeveloperSwitchItem(
                 icon = "science",
                 title = "Demo 模式",
                 subtitle = "使用假資料測試畫面，不依賴學校系統登入。",
                 checked = settings.demoMode,
                 onCheckedChange = onSetDemoMode,
+                index = 0,
+                count = developerItemCount,
             )
 
             if (BuildConfig.DEBUG) {
@@ -183,6 +185,8 @@ fun DeveloperSettingsScreen(
                     title = "段考提醒測試通知",
                     subtitle = "發送一則模擬資訊更新通知，測試手機是否能收到提醒。",
                     enabled = !isBusy,
+                    index = 1,
+                    count = developerItemCount,
                     onClick = {
                         showGradeReminderTestNotification(context)
                     },
@@ -194,6 +198,8 @@ fun DeveloperSettingsScreen(
                 title = "本機資料與儲存空間",
                 subtitle = "查看各項資料大小，並只清除選取的本機資料。",
                 enabled = !isBusy,
+                index = if (BuildConfig.DEBUG) 2 else 1,
+                count = developerItemCount,
                 onClick = {
                     isBusy = true
                     scope.launch {
@@ -216,6 +222,8 @@ fun DeveloperSettingsScreen(
                 title = "錯誤診斷包",
                 subtitle = "產生偵錯用診斷文字。",
                 enabled = !isBusy,
+                index = developerItemCount - 1,
+                count = developerItemCount,
                 onClick = {
                     isBusy = true
                     scope.launch {
@@ -245,10 +253,7 @@ fun DeveloperSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
+                    LoadingIndicator(modifier = Modifier.size(32.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "處理中",
@@ -305,6 +310,7 @@ private fun showGradeReminderTestNotification(context: Context) {
     Toast.makeText(context, "已發送段考提醒測試通知", Toast.LENGTH_SHORT).show()
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DeveloperSwitchItem(
     icon: String,
@@ -312,98 +318,87 @@ private fun DeveloperSwitchItem(
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    index: Int,
+    count: Int,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        leadingContent = {
             OutlinedRoundedSymbol(
                 icon = icon,
-                tint = MaterialTheme.colorScheme.primary,
                 size = 24.dp,
                 contentDescription = null,
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
+        },
+        supportingContent = {
+            Text(
+                text = subtitle,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        },
+        trailingContent = {
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
             )
-        }
+        },
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            leadingContentColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(text = title)
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DeveloperActionItem(
     icon: String,
     title: String,
     subtitle: String,
     enabled: Boolean,
+    index: Int,
+    count: Int,
     onClick: () -> Unit,
 ) {
-    val contentAlpha = if (enabled) 1f else 0.42f
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
+    SegmentedListItem(
         onClick = onClick,
         enabled = enabled,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        leadingContent = {
             OutlinedRoundedSymbol(
                 icon = icon,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = contentAlpha),
                 size = 24.dp,
                 contentDescription = null,
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
-                )
-            }
-        }
+        },
+        supportingContent = {
+            Text(
+                text = subtitle,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        },
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            leadingContentColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(text = title)
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LocalDataManagementDialog(
     diagnostics: StorageDiagnostics,
@@ -434,13 +429,19 @@ private fun LocalDataManagementDialog(
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
-                diagnostics.entries.forEach { entry ->
-                    StorageEntryRow(
-                        entry = entry,
-                        checked = entry.category in selectedCategories,
-                        enabled = entry.isClearable && !isBusy,
-                        onToggle = { onToggleCategory(entry.category) },
-                    )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                ) {
+                    diagnostics.entries.forEachIndexed { index, entry ->
+                        StorageEntryRow(
+                            entry = entry,
+                            checked = entry.category in selectedCategories,
+                            enabled = entry.isClearable && !isBusy,
+                            onToggle = { onToggleCategory(entry.category) },
+                            index = index,
+                            count = diagnostics.entries.size,
+                        )
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -462,66 +463,105 @@ private fun LocalDataManagementDialog(
             TextButton(
                 onClick = onClearSelected,
                 enabled = !isBusy && selectedCategories.isNotEmpty(),
+                shapes = ButtonDefaults.shapes(),
             ) {
                 Text(if (selectedCategories.isEmpty()) "請先選擇" else "清除選取")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isBusy) {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isBusy,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("關閉")
             }
         },
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StorageEntryRow(
     entry: StorageEntry,
     checked: Boolean,
     enabled: Boolean,
     onToggle: () -> Unit,
+    index: Int,
+    count: Int,
 ) {
-    val contentAlpha = if (entry.isClearable) 1f else 0.62f
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (enabled) Modifier.clickable(onClick = onToggle) else Modifier)
-            .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val shapes = ListItemDefaults.segmentedShapes(index = index, count = count)
+    val colors = ListItemDefaults.segmentedColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+    )
+    val leadingContent: @Composable () -> Unit = {
         if (entry.isClearable) {
             Checkbox(
                 checked = checked,
-                onCheckedChange = { onToggle() },
+                onCheckedChange = null,
                 enabled = enabled,
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
+                colors = CheckboxDefaults.colors(
+                    checkedColor = MaterialTheme.colorScheme.primary,
+                ),
             )
         } else {
             Spacer(modifier = Modifier.width(48.dp))
         }
-        Column(modifier = Modifier.weight(1f)) {
+    }
+    val supportingContent: (@Composable () -> Unit)? = if (entry.isClearable) {
+        null
+    } else {
+        {
             Text(
-                text = entry.label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                text = "保留設定、Demo 模式與開發者選項",
+                modifier = Modifier.padding(top = 4.dp),
             )
-            if (!entry.isClearable) {
-                Text(
-                    text = "保留設定、Demo 模式與開發者選項",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
+    }
+    val trailingContent: @Composable () -> Unit = {
         Text(
             text = entry.bytes.toReadableSize(),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
             fontWeight = FontWeight.SemiBold,
+        )
+    }
+    val content: @Composable () -> Unit = {
+        Text(text = entry.label)
+    }
+
+    if (entry.isClearable) {
+        SegmentedListItem(
+            checked = checked,
+            onCheckedChange = { onToggle() },
+            enabled = enabled,
+            shapes = shapes,
+            leadingContent = leadingContent,
+            supportingContent = supportingContent,
+            trailingContent = trailingContent,
+            colors = colors,
+            verticalAlignment = Alignment.CenterVertically,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            content = content,
+        )
+    } else {
+        SegmentedListItem(
+            enabled = false,
+            shapes = shapes,
+            leadingContent = leadingContent,
+            supportingContent = supportingContent,
+            trailingContent = trailingContent,
+            colors = colors,
+            verticalAlignment = Alignment.CenterVertically,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            content = content,
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DiagnosticReportDialog(
     report: String,
@@ -539,12 +579,18 @@ private fun DiagnosticReportDialog(
             )
         },
         confirmButton = {
-            OutlinedButton(onClick = onCopy) {
+            OutlinedButton(
+                onClick = onCopy,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("複製")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text("關閉")
             }
         },

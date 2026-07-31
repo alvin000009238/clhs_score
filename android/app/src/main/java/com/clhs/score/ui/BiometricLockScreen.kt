@@ -2,6 +2,7 @@ package com.clhs.score.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -10,12 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.clhs.score.ui.components.PinInputDialog
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BiometricLockScreen(
     isBiometricInvalidated: Boolean,
@@ -55,10 +59,13 @@ fun BiometricLockScreen(
             title = { Text("安全防護提示") },
             text = { Text("系統生物特徵已變更，請輸入備用密碼重新註冊。") },
             confirmButton = {
-                TextButton(onClick = {
-                    showInvalidatedAlert = false
-                    showPinDialog = true
-                }) {
+                TextButton(
+                    onClick = {
+                        showInvalidatedAlert = false
+                        showPinDialog = true
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
                     Text("確定")
                 }
             }
@@ -90,13 +97,17 @@ fun BiometricLockScreen(
                         showLogoutDialog = false
                         onLogout()
                     },
+                    shapes = ButtonDefaults.shapes(),
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
                 ) { Text("登出") }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) { Text("取消") }
+                TextButton(
+                    onClick = { showLogoutDialog = false },
+                    shapes = ButtonDefaults.shapes(),
+                ) { Text("取消") }
             },
         )
     }
@@ -110,12 +121,20 @@ fun BiometricLockScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        OutlinedRoundedSymbol(
-            icon = "lock",
-            tint = MaterialTheme.colorScheme.primary,
-            size = 80.dp,
-            contentDescription = "安全鎖定"
-        )
+        Surface(
+            modifier = Modifier.size(112.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                OutlinedRoundedSymbol(
+                    icon = "lock",
+                    size = 64.dp,
+                    contentDescription = "安全鎖定",
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -141,10 +160,11 @@ fun BiometricLockScreen(
 
         Button(
             onClick = onTriggerBiometric,
-            shape = RoundedCornerShape(14.dp),
+            shapes = ButtonDefaults.shapesFor(52.dp),
             modifier = Modifier
                 .fillMaxWidth(0.8f)
-                .height(50.dp)
+                .height(52.dp),
+            contentPadding = ButtonDefaults.contentPaddingFor(52.dp),
         ) {
             Text(
                 text = "生物識別解鎖",
@@ -157,6 +177,7 @@ fun BiometricLockScreen(
 
         TextButton(
             onClick = { showPinDialog = true },
+            shapes = ButtonDefaults.shapes(),
             colors = ButtonDefaults.textButtonColors(
                 contentColor = MaterialTheme.colorScheme.primary
             )
@@ -172,6 +193,7 @@ fun BiometricLockScreen(
 
         TextButton(
             onClick = { showLogoutDialog = true },
+            shapes = ButtonDefaults.shapes(),
             colors = ButtonDefaults.textButtonColors(
                 contentColor = MaterialTheme.colorScheme.error
             )
