@@ -68,9 +68,9 @@ class GradeReminderNotifier(private val context: Context) {
     }
 
     private fun openAppIntent(): PendingIntent {
-        val intent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)
-            ?: Intent(appContext, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val intent = Intent(appContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         return PendingIntent.getActivity(
             appContext,
             nextRequestCode(),
