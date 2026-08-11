@@ -65,6 +65,7 @@ data class LoginUiState(
 
 data class GradesUiState(
     val isLoggedIn: Boolean = false,
+    val isRestoringSession: Boolean = true,
     val studentNo: String = "",
     val isLoadingStructure: Boolean = false,
     val isLoadingGrades: Boolean = false,
@@ -329,7 +330,7 @@ class ScoreViewModel(
             }
         }
         session = null
-        _gradesState.value = GradesUiState()
+        _gradesState.value = GradesUiState(isRestoringSession = false)
         _loginState.value = LoginUiState()
     }
 
@@ -662,14 +663,22 @@ class ScoreViewModel(
         viewModelScope.launch {
             runCatching { repository.restoreSession() }
                 .onSuccess { restored ->
-                    if (restored == null) return@onSuccess
+                    if (restored == null) {
+                        _gradesState.update { it.copy(isRestoringSession = false) }
+                        return@onSuccess
+                    }
                     session = restored
                     _gradesState.update {
-                        it.copy(isLoggedIn = true, studentNo = restored.studentNo)
+                        it.copy(
+                            isLoggedIn = true,
+                            isRestoringSession = false,
+                            studentNo = restored.studentNo,
+                        )
                     }
                     loadStructure()
                 }
                 .onFailure {
+                    _gradesState.update { it.copy(isRestoringSession = false) }
                     _loginState.update {
                         it.copy(errorMessage = "無法讀取登入資訊，請重新登入")
                     }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -36,6 +37,20 @@ class ScoreViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun sessionRestoreRemainsPendingUntilRepositoryReturns() = runTest(dispatcher) {
+        val restoreDeferred = CompletableDeferred<AuthenticatedSession?>()
+        val viewModel = ScoreViewModel(ControllableGradeRepository(restoreDeferred))
+        runCurrent()
+
+        assertTrue(viewModel.gradesState.value.isRestoringSession)
+
+        restoreDeferred.complete(null)
+        runCurrent()
+
+        assertFalse(viewModel.gradesState.value.isRestoringSession)
     }
 
     @Test
@@ -456,14 +471,16 @@ class ScoreViewModelTest {
         assertFalse(analytics.containsSensitiveKey())
     }
 
-    private class ControllableGradeRepository : GradeRepository {
+    private class ControllableGradeRepository(
+        private val restoreDeferred: CompletableDeferred<AuthenticatedSession?>? = null,
+    ) : GradeRepository {
         val structureDeferred = CompletableDeferred<List<YearTermOption>>()
         val fetchCalls = mutableListOf<Triple<String, String, Boolean>>()
         var loggedOutSession: AuthenticatedSession? = null
         private val session = AuthenticatedSession("DEMO-000", "token", emptyMap())
         private val fetches = mutableMapOf<Pair<String, String>, CompletableDeferred<GradeReport>>()
 
-        override suspend fun restoreSession(): AuthenticatedSession = session
+        override suspend fun restoreSession(): AuthenticatedSession? = restoreDeferred?.await() ?: session
 
         override fun activateSession(session: AuthenticatedSession) = Unit
 

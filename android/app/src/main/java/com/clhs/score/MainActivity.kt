@@ -55,6 +55,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val isBiometricInvalidated = mutableStateOf(false)
     private val isInitialLockResolved = mutableStateOf(false)
     private val launchSettings = mutableStateOf<AppSettings?>(null)
+    private val isSessionRestoreComplete = mutableStateOf(false)
     private var wasInBackground = false
     private var shouldLockOnInitialReady = false
     private var isBiometricPromptShowing = false
@@ -63,7 +64,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { launchSettings.value == null }
+        splashScreen.setKeepOnScreenCondition {
+            launchSettings.value == null || !isSessionRestoreComplete.value
+        }
         splashScreen.setOnExitAnimationListener { splashScreenView ->
             val iconView = runCatching { splashScreenView.iconView }.getOrNull()
             if (iconView == null) {
@@ -181,6 +184,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 )
                 val loginState by scoreVm.loginState.collectAsStateWithLifecycle()
                 val gradesState by scoreVm.gradesState.collectAsStateWithLifecycle()
+
+                LaunchedEffect(gradesState.isRestoringSession) {
+                    isSessionRestoreComplete.value = !gradesState.isRestoringSession
+                }
 
                 LaunchedEffect(scoreVm) {
                     gradeReminderOpenChannel.receiveAsFlow().collect { (yearValue, examValue) ->

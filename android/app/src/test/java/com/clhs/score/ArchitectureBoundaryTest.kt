@@ -531,7 +531,8 @@ class ArchitectureBoundaryTest {
         val readyGateIndex = activitySource.indexOf("if (!isReady)", scoreThemeIndex)
 
         assertTrue("MainActivity must use the Android SplashScreen API while loading settings", activitySource.contains("installSplashScreen()"))
-        assertTrue(activitySource.contains("splashScreen.setKeepOnScreenCondition { launchSettings.value == null }"))
+        assertTrue(activitySource.contains("launchSettings.value == null || !isSessionRestoreComplete.value"))
+        assertTrue(activitySource.contains("isSessionRestoreComplete.value = !gradesState.isRestoringSession"))
         assertTrue(activitySource.contains("splashScreen.setOnExitAnimationListener"))
         assertTrue(activitySource.contains("val iconView = runCatching { splashScreenView.iconView }.getOrNull()"))
         assertTrue(activitySource.contains("if (iconView == null)"))
