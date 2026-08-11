@@ -37,6 +37,7 @@
 - **重要規則**：`CHANGELOG.md` 僅用於記錄與 Android app 有關的更新。若僅修改展示素材、文件或 workflow，請勿新增版本號。
 - GitHub Secrets 需設定 `ANDROID_RELEASE_KEYSTORE_BASE64`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、`ANDROID_RELEASE_KEY_ALIAS`、`ANDROID_RELEASE_KEY_PASSWORD`。不要提交 keystore 或密碼。
 - App 內更新只能下載 APK 後呼叫系統安裝器；Android 不允許靜默安裝。下載的 APK 透過 `FileProvider` 暫存在 app cache 的 `updates/`，若系統要求，使用者需在安裝流程中允許此 App 安裝未知應用。
+- App 內更新只能安裝 GitHub Release API 同時提供合法下載網址與 SHA-256 digest 的 APK；下載完成後必須驗證 digest，相異或缺少時不得交給系統安裝器。
 
 ## Android UI fake data
 

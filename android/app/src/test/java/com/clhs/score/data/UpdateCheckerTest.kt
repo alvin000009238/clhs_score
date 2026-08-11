@@ -37,6 +37,7 @@ class UpdateCheckerTest {
                   "assets": [
                     {
                       "name": "clhs-score.apk",
+                      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
                       "browser_download_url": "https://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk"
                     }
                   ]
@@ -52,7 +53,11 @@ class UpdateCheckerTest {
         assertEquals("Bug fixes", result.releaseNotes)
         assertEquals(
             "https://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk",
-            result.apkDownloadUrl,
+            result.apkAsset?.downloadUrl,
+        )
+        assertEquals(
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+            result.apkAsset?.sha256,
         )
     }
 
@@ -86,6 +91,7 @@ class UpdateCheckerTest {
                   "assets": [
                     {
                       "name": "clhs-score.apk",
+                      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
                       "browser_download_url": "file:///tmp/app.apk"
                     }
                   ]
@@ -112,6 +118,7 @@ class UpdateCheckerTest {
                   "assets": [
                     {
                       "name": "clhs-score.apk",
+                      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
                       "browser_download_url": "intent://download"
                     }
                   ]
@@ -123,8 +130,44 @@ class UpdateCheckerTest {
         val result = checker().check("1.1.9")
 
         result as UpdateResult.NewVersion
-        assertNull(result.apkDownloadUrl)
+        assertNull(result.apkAsset)
         assertTrue(result.htmlUrl.startsWith("https://github.com/"))
+    }
+
+    @Test
+    fun missingMalformedOrUnsupportedDigestFallsBackToValidHtmlUrl() = runTest {
+        val digestFields = listOf(
+            "",
+            "\"digest\": \"sha256:1234\",",
+            "\"digest\": \"sha512:${"a".repeat(128)}\",",
+        )
+
+        digestFields.forEach { digestField ->
+            server.enqueue(
+                jsonResponse(
+                    """
+                    {
+                      "tag_name": "v1.2.0",
+                      "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.2.0",
+                      "body": "",
+                      "assets": [
+                        {
+                          "name": "clhs-score.apk",
+                          $digestField
+                          "browser_download_url": "https://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk"
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                ),
+            )
+
+            val result = checker().check("1.1.9")
+
+            result as UpdateResult.NewVersion
+            assertNull(result.apkAsset)
+            assertTrue(result.htmlUrl.startsWith("https://github.com/"))
+        }
     }
 
     private fun checker(): UpdateChecker =

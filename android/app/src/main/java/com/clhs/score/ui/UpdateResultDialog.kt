@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import com.clhs.score.data.ApkAsset
 import com.clhs.score.data.UpdateResult
 import com.mikepenz.markdown.m3.Markdown
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.InputStream
+import java.security.MessageDigest
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -61,8 +64,8 @@ fun UpdateResultDialog(
             }
         }
         is UpdateResult.NewVersion -> {
-            var isInstalling by remember(result.apkDownloadUrl) { mutableStateOf(false) }
-            var downloadProgress by remember(result.apkDownloadUrl) { mutableStateOf<Float?>(null) }
+            var isInstalling by remember(result.apkAsset) { mutableStateOf(false) }
+            var downloadProgress by remember(result.apkAsset) { mutableStateOf<Float?>(null) }
             val scope = rememberCoroutineScope()
             AlertDialog(
                 onDismissRequest = { if (!isInstalling) onDismiss() },
@@ -107,8 +110,8 @@ fun UpdateResultDialog(
                         enabled = !isInstalling,
                         shapes = ButtonDefaults.shapes(),
                         onClick = {
-                            val apkUrl = result.apkDownloadUrl
-                            if (apkUrl == null) {
+                            val apkAsset = result.apkAsset
+                            if (apkAsset == null) {
                                 openUrl(context, result.htmlUrl)
                                 onDismiss()
                                 return@TextButton
@@ -117,11 +120,17 @@ fun UpdateResultDialog(
                                 isInstalling = true
                                 downloadProgress = 0f
                                 try {
-                                    val apk = downloadUpdateApk(context.applicationContext, apkUrl) {
+                                    val apk = downloadUpdateApk(context.applicationContext, apkAsset) {
                                         downloadProgress = it
                                     }
                                     openApkInstaller(context, apk)
                                     onDismiss()
+                                } catch (_: ChecksumMismatchException) {
+                                    Toast.makeText(
+                                        context,
+                                        "更新檔驗證失敗，請重新下載",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
                                 } catch (_: Exception) {
                                     Toast.makeText(context, "下載或安裝失敗", Toast.LENGTH_LONG).show()
                                 } finally {
@@ -134,7 +143,7 @@ fun UpdateResultDialog(
                         Text(
                             when {
                                 isInstalling -> "下載中..."
-                                result.apkDownloadUrl != null -> "安裝 APK"
+                                result.apkAsset != null -> "安裝 APK"
                                 else -> "前往 GitHub"
                             },
                         )
@@ -164,7 +173,7 @@ private fun openUrl(context: Context, url: String) {
 
 private suspend fun downloadUpdateApk(
     context: Context,
-    url: String,
+    asset: ApkAsset,
     onProgress: suspend (Float?) -> Unit,
 ): File =
     withContext(Dispatchers.IO) {
@@ -179,21 +188,15 @@ private suspend fun downloadUpdateApk(
         val apk = File(dir, "clhs-score-update.apk")
         apk.delete()
 
-        val request = Request.Builder().url(url).get().build()
-        updateDownloadClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("HTTP ${response.code}")
-            val totalBytes = response.body.contentLength()
-            if (totalBytes <= 0) reportProgress(null)
-            response.body.byteStream().use { input ->
-                apk.outputStream().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var copiedBytes = 0L
-                    var lastPercent = -1
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        output.write(buffer, 0, read)
-                        copiedBytes += read
+        val request = Request.Builder().url(asset.downloadUrl).get().build()
+        try {
+            updateDownloadClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) error("HTTP ${response.code}")
+                val totalBytes = response.body.contentLength()
+                if (totalBytes <= 0) reportProgress(null)
+                var lastPercent = -1
+                response.body.byteStream().use { input ->
+                    writeVerifiedApk(input, apk, asset.sha256) { copiedBytes ->
                         if (totalBytes > 0) {
                             val percent = ((copiedBytes * 100) / totalBytes).toInt()
                             if (percent != lastPercent) {
@@ -203,11 +206,45 @@ private suspend fun downloadUpdateApk(
                         }
                     }
                 }
+                if (totalBytes > 0) reportProgress(1f)
             }
-            if (totalBytes > 0) reportProgress(1f)
+        } catch (error: Exception) {
+            apk.delete()
+            throw error
         }
         apk
     }
+
+internal suspend fun writeVerifiedApk(
+    input: InputStream,
+    destination: File,
+    expectedSha256: String,
+    onBytesCopied: suspend (Long) -> Unit = {},
+): File {
+    val digest = MessageDigest.getInstance("SHA-256")
+    try {
+        destination.outputStream().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var copiedBytes = 0L
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                output.write(buffer, 0, read)
+                digest.update(buffer, 0, read)
+                copiedBytes += read
+                onBytesCopied(copiedBytes)
+            }
+        }
+        val actualSha256 = digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+        if (actualSha256 != expectedSha256) throw ChecksumMismatchException()
+        return destination
+    } catch (error: Exception) {
+        destination.delete()
+        throw error
+    }
+}
+
+internal class ChecksumMismatchException : Exception()
 
 private fun openApkInstaller(context: Context, apk: File) {
     val uri = FileProvider.getUriForFile(

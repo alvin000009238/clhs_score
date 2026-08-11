@@ -15,11 +15,16 @@ sealed class UpdateResult {
     data class NewVersion(
         val versionName: String,
         val htmlUrl: String,
-        val apkDownloadUrl: String?,
+        val apkAsset: ApkAsset?,
         val releaseNotes: String,
     ) : UpdateResult()
     data class Error(val message: String) : UpdateResult()
 }
+
+data class ApkAsset(
+    val downloadUrl: String,
+    val sha256: String,
+)
 
 class UpdateChecker(
     private val client: OkHttpClient = defaultClient,
@@ -43,22 +48,36 @@ class UpdateChecker(
                 val remoteVersion = tagName.removePrefix("v")
                 val htmlUrl = json["html_url"]?.jsonPrimitive?.content.orEmpty().takeIfValidHttpUrl()
                 val releaseBody = json["body"]?.jsonPrimitive?.content.orEmpty()
-                val apkUrl = json["assets"]?.jsonArray
+                val apkAsset = json["assets"]?.jsonArray
                     ?.firstOrNull { asset ->
                         asset.jsonObject["name"]?.jsonPrimitive?.content?.endsWith(".apk") == true
-                    }?.jsonObject?.get("browser_download_url")?.jsonPrimitive?.content
-                    ?.takeIfValidHttpUrl()
+                    }?.jsonObject
+                    ?.let { asset ->
+                        val downloadUrl = asset["browser_download_url"]
+                            ?.jsonPrimitive
+                            ?.content
+                            ?.takeIfValidHttpUrl()
+                        val sha256 = asset["digest"]
+                            ?.jsonPrimitive
+                            ?.content
+                            ?.takeIfValidSha256()
+                        if (downloadUrl != null && sha256 != null) {
+                            ApkAsset(downloadUrl, sha256)
+                        } else {
+                            null
+                        }
+                    }
 
                 if (!isNewer(remoteVersion, currentVersionName)) {
                     return@withContext UpdateResult.UpToDate
                 }
-                if (htmlUrl == null && apkUrl == null) {
+                if (htmlUrl == null && apkAsset == null) {
                     return@withContext UpdateResult.Error("更新連結格式不正確")
                 }
                 UpdateResult.NewVersion(
                     versionName = remoteVersion,
                     htmlUrl = htmlUrl.orEmpty(),
-                    apkDownloadUrl = apkUrl,
+                    apkAsset = apkAsset,
                     releaseNotes = releaseBody,
                 )
             }
@@ -88,7 +107,18 @@ class UpdateChecker(
                 value.startsWith("http://", ignoreCase = true)
         }
 
+    private fun String.takeIfValidSha256(): String? =
+        takeIf { value ->
+            value.length == SHA256_PREFIX.length + SHA256_HEX_LENGTH &&
+                value.startsWith(SHA256_PREFIX) &&
+                value.drop(SHA256_PREFIX.length).all { char ->
+                    char in '0'..'9' || char in 'a'..'f' || char in 'A'..'F'
+                }
+        }?.removePrefix(SHA256_PREFIX)?.lowercase()
+
     private companion object {
+        const val SHA256_PREFIX = "sha256:"
+        const val SHA256_HEX_LENGTH = 64
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/alvin000009238/clhs_score/releases/latest"
 
