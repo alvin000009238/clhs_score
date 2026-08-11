@@ -7,7 +7,6 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
-import java.security.SecureRandom
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -49,25 +48,19 @@ internal class SessionStorageUnavailableException(cause: Throwable? = null) :
 
 internal class AesGcmSessionCipher(
     private val keyProvider: SessionKeyProvider,
-    private val secureRandom: SecureRandom = SecureRandom(),
 ) : SessionCipher {
     override suspend fun encrypt(
         plaintext: ByteArray,
         associatedData: ByteArray,
     ): EncryptedPayload = withContext(Dispatchers.IO) {
-        val iv = ByteArray(IV_SIZE_BYTES).also(secureRandom::nextBytes)
         try {
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(
-                Cipher.ENCRYPT_MODE,
-                keyProvider.getOrCreateEncryptionKey(CURRENT_KEY_VERSION),
-                GCMParameterSpec(TAG_LENGTH_BITS, iv),
-            )
+            cipher.init(Cipher.ENCRYPT_MODE, keyProvider.getOrCreateEncryptionKey(CURRENT_KEY_VERSION))
             cipher.updateAAD(associatedData)
             EncryptedPayload(
                 version = CURRENT_PAYLOAD_VERSION,
                 keyVersion = CURRENT_KEY_VERSION,
-                iv = iv,
+                iv = cipher.iv,
                 ciphertext = cipher.doFinal(plaintext),
             )
         } catch (error: SessionStorageException) {
