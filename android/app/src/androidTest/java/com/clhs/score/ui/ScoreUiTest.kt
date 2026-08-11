@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamOption
 import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
@@ -28,6 +29,7 @@ import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.GradesUiState
+import com.clhs.score.viewmodel.SettingsUiState
 import org.junit.Rule
 import org.junit.Test
 
@@ -197,17 +199,40 @@ class ScoreUiTest {
                 insights = LocalScoreInsightProvider().buildInsights(report, analysis, trend),
                 expandedSubjectKeys = expanded,
             ),
+            settings = AppSettings(),
+            settingsUiState = SettingsUiState(),
+            isExporting = false,
+            exportResult = null,
             snackbarHost = {},
             onSelectYear = {},
             onSelectExam = {},
             onReload = {},
-            onOpenSettings = {},
             onToggleSubject = { subjectName ->
                 val key = cleanSubjectName(subjectName)
                 expanded = if (key in expanded) expanded - key else expanded + key
             },
+            onStartGradeReminder = {},
+            onStopGradeReminder = {},
+            onSetNotificationsEnabled = {},
+            onGradeReminderPrerequisiteFailed = {},
+            onDismissGradeReminderChanges = {},
+            onSetThemeMode = {},
+            onSetDynamicColor = {},
+            onSetAmoledBlack = {},
+            onCheckUpdate = {},
+            onOpenSchoolWebsite = {},
+            onOpenSchoolAnnouncements = {},
+            onOpenAbout = {},
+            onDismissDeveloperToast = {},
+            onOpenDeveloperSettings = {},
+            onExportGrades = {},
+            onDismissExportResult = {},
+            onLogout = {},
+            onSetBiometricEnabled = { _, _ -> },
             onOpenScoreSimulator = {},
             onOpenSchedule = {},
+            onOpenSchoolCalendar = {},
+            onOpenSubjectTrend = {},
         )
     }
 }

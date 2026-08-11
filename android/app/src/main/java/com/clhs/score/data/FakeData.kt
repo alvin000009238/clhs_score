@@ -1,6 +1,7 @@
 package com.clhs.score.data
 
 import kotlinx.serialization.json.JsonObject
+import java.time.Instant
 import java.time.LocalDate
 
 enum class StudentScenario {
@@ -199,6 +200,53 @@ object FakeData {
 
     val currentYearValue = "114_1"
     val currentExamValue = "114_1_E4"
+
+    val announcementPage = SchoolAnnouncementPage(
+        announcements = listOf(
+            SchoolAnnouncement(
+                id = "45072",
+                title = "圖書館八月閉館時間異動公告",
+                date = "2026/08/06",
+                category = "公告",
+                unit = "讀者服務組",
+                issuer = "讀者服務組",
+                isPinned = true,
+                contentType = "content",
+            ),
+            SchoolAnnouncement(
+                id = "45068",
+                title = "中央研究院高中生命科學研究人才培育計畫",
+                date = "2026/08/06",
+                category = "最新消息",
+                unit = "設備組",
+                issuer = "設備組",
+                isPinned = false,
+                contentType = "content",
+            ),
+        ),
+        pageIndex = 0,
+        totalPages = 2,
+        fetchedAt = Instant.parse("2026-08-09T05:00:00Z"),
+    )
+
+    val announcementDetail = SchoolAnnouncementDetail(
+        id = "45072",
+        title = "圖書館八月閉館時間異動公告",
+        date = "2026-08-06 11:38:16",
+        category = "公告",
+        unit = "圖書館官網",
+        issuer = "讀者服務組",
+        htmlContent = "<p><strong>八月份閉館日期調整</strong></p><p>請同學留意開放時間，不便之處敬請見諒。</p>",
+        images = emptyList(),
+        attachments = listOf(
+            SchoolAnnouncementAttachment(
+                name = "八月開館時間.pdf",
+                sizeBytes = 245_760,
+                url = "https://www.clhs.tyc.edu.tw/ischool/news/attached/45072/sample.pdf",
+            ),
+        ),
+        officialUrl = "https://www.clhs.tyc.edu.tw/ischool/public/news_view/show.php?nid=45072",
+    )
 
     private val reports: Map<Pair<String, String>, GradeReport> by lazy {
         mapOf(

@@ -46,10 +46,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.clhs.score.data.AuthenticatedSession
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 private const val LOGIN_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC/Auth/Auth/CloudLogin"
+private const val SCHOOL_HOME_URL = "https://shcloud2.k12ea.gov.tw/CLHSTYC/ICampus/Home/Index2"
 private const val SCHOOL_DOMAIN = "shcloud2.k12ea.gov.tw"
 private const val LOGIN_HOOK_LOG_PREFIX = "[ScoreLoginHook]"
 private const val LOGIN_HOOK_SUCCESS_PREFIX = "$LOGIN_HOOK_LOG_PREFIX LoginSuccess "
@@ -71,7 +73,7 @@ fun WebViewLoginScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            webViewRef?.clearLoginWebData(clearCookies = true)
+            webViewRef?.clearSchoolWebData(clearCookies = true)
             webViewRef?.destroy()
             webViewRef = null
         }
@@ -102,41 +104,7 @@ fun WebViewLoginScreen(
             )
         }
 
-        // Floating Back Button
-        IconButton(
-            onClick = onBack,
-            shapes = IconButtonDefaults.shapes(),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            OutlinedRoundedSymbol(
-                icon = "arrow_back",
-                contentDescription = "返回",
-            )
-        }
-
-        // Floating Refresh Button
-        IconButton(
-            onClick = { webViewRef?.reload() },
-            shapes = IconButtonDefaults.shapes(),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            OutlinedRoundedSymbol(
-                icon = "refresh",
-                contentDescription = "重新載入",
-            )
-        }
+        WebViewNavigationControls(webView = webViewRef, onBack = onBack)
 
         AnimatedVisibility(
             visible = isProcessingLogin,
@@ -191,6 +159,140 @@ fun WebViewLoginScreen(
     }
 }
 
+@Composable
+fun SchoolWebsiteScreen(
+    session: AuthenticatedSession,
+    onBack: () -> Unit,
+) {
+    var isPageLoading by remember { mutableStateOf(true) }
+    var pageProgress by remember { mutableFloatStateOf(0f) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.clearSchoolWebData(clearCookies = true)
+            webViewRef?.destroy()
+            webViewRef = null
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .imePadding(),
+    ) {
+        AuthenticatedSchoolWebView(
+            session = session,
+            onWebViewCreated = { webViewRef = it },
+            onPageStarted = { isPageLoading = true },
+            onPageFinished = { isPageLoading = false },
+            onProgressChanged = { pageProgress = it / 100f },
+        )
+
+        AnimatedVisibility(
+            visible = isPageLoading,
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            LinearProgressIndicator(
+                progress = { pageProgress },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        WebViewNavigationControls(webView = webViewRef, onBack = onBack)
+    }
+}
+
+@Composable
+private fun WebViewNavigationControls(
+    webView: WebView?,
+    onBack: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        IconButton(
+            onClick = onBack,
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp),
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        ) {
+            OutlinedRoundedSymbol(
+                icon = "arrow_back",
+                contentDescription = "返回",
+            )
+        }
+
+        IconButton(
+            onClick = { webView?.reload() },
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp),
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        ) {
+            OutlinedRoundedSymbol(
+                icon = "refresh",
+                contentDescription = "重新載入",
+            )
+        }
+    }
+}
+
+@Suppress("DEPRECATION")
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun AuthenticatedSchoolWebView(
+    session: AuthenticatedSession,
+    onWebViewCreated: (WebView) -> Unit,
+    onPageStarted: () -> Unit,
+    onPageFinished: () -> Unit,
+    onProgressChanged: (Int) -> Unit,
+) {
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            WebView(context).apply {
+                configureForSchoolSite()
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                    ): Boolean {
+                        val url = request?.url?.toString() ?: return true
+                        return !isTrustedSchoolUrl(url)
+                    }
+
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        onPageStarted()
+                    }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        onPageFinished()
+                    }
+                }
+                webChromeClient = object : WebChromeClient() {
+                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                        onProgressChanged(newProgress)
+                    }
+                }
+                onWebViewCreated(this)
+                loadAuthenticatedSchoolSite(session)
+            }
+        },
+    )
+}
+
 @Suppress("DEPRECATION")
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -208,35 +310,7 @@ private fun WebViewContent(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
             android.webkit.WebView(context).apply {
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                
-                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
-
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    setSupportZoom(true)
-                    builtInZoomControls = true
-                    displayZoomControls = false
-                    textZoom = 100
-                    cacheMode = WebSettings.LOAD_NO_CACHE
-                    allowFileAccess = false
-                    allowContentAccess = false
-                    javaScriptCanOpenWindowsAutomatically = false
-                    setSupportMultipleWindows(false)
-                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                    userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
-                    saveFormData = false
-                }
-
-                val cookieManager = CookieManager.getInstance()
-                cookieManager.setAcceptCookie(true)
-                cookieManager.setAcceptThirdPartyCookies(this, false)
+                configureForSchoolSite()
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(
@@ -309,7 +383,47 @@ private fun isTrustedSchoolLoginUrl(url: String?): Boolean {
         uri.encodedPath.orEmpty().contains("/CLHSTYC/Auth/Auth/CloudLogin")
 }
 
-private fun WebView.clearLoginWebData(clearCookies: Boolean) {
+@SuppressLint("SetJavaScriptEnabled")
+private fun WebView.configureForSchoolSite() {
+    layoutParams = android.view.ViewGroup.LayoutParams(
+        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+    )
+    importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+    settings.apply {
+        javaScriptEnabled = true
+        domStorageEnabled = true
+        setSupportZoom(true)
+        builtInZoomControls = true
+        displayZoomControls = false
+        textZoom = 100
+        cacheMode = WebSettings.LOAD_NO_CACHE
+        allowFileAccess = false
+        allowContentAccess = false
+        javaScriptCanOpenWindowsAutomatically = false
+        setSupportMultipleWindows(false)
+        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        loadWithOverviewMode = true
+        useWideViewPort = true
+        userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+        saveFormData = false
+    }
+    CookieManager.getInstance().apply {
+        setAcceptCookie(true)
+        setAcceptThirdPartyCookies(this@configureForSchoolSite, false)
+    }
+}
+
+private fun WebView.loadAuthenticatedSchoolSite(session: AuthenticatedSession) {
+    val cookieManager = CookieManager.getInstance()
+    session.cookies.forEach { (name, value) ->
+        cookieManager.setCookie(SCHOOL_HOME_URL, "$name=$value; Path=/; Secure")
+    }
+    cookieManager.flush()
+    loadUrl(SCHOOL_HOME_URL)
+}
+
+private fun WebView.clearSchoolWebData(clearCookies: Boolean) {
     stopLoading()
     clearHistory()
     clearFormData()

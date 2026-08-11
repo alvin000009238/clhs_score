@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -44,6 +45,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -85,11 +87,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -180,6 +185,8 @@ fun GradesScreen(
     onSetDynamicColor: (Boolean) -> Unit,
     onSetAmoledBlack: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
+    onOpenSchoolWebsite: () -> Unit,
+    onOpenSchoolAnnouncements: () -> Unit,
     onOpenAbout: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
     onOpenDeveloperSettings: () -> Unit,
@@ -189,6 +196,7 @@ fun GradesScreen(
     onSetBiometricEnabled: (Boolean, String?) -> Unit,
     onOpenScoreSimulator: () -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenSchoolCalendar: () -> Unit,
     onOpenSubjectTrend: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -352,6 +360,18 @@ fun GradesScreen(
                     onSetAmoledBlack = onSetAmoledBlack,
                     onSetNotificationsEnabled = onSetNotificationsEnabled,
                     onCheckUpdate = onCheckUpdate,
+                    onOpenSchoolWebsite = {
+                        coroutineScope.launch { drawerState.close() }
+                        onOpenSchoolWebsite()
+                    },
+                    onOpenSchoolAnnouncements = {
+                        coroutineScope.launch { drawerState.close() }
+                        onOpenSchoolAnnouncements()
+                    },
+                    onOpenSchoolCalendar = {
+                        coroutineScope.launch { drawerState.close() }
+                        onOpenSchoolCalendar()
+                    },
                     onOpenAbout = {
                         coroutineScope.launch { drawerState.close() }
                         onOpenAbout()
@@ -1717,6 +1737,9 @@ private fun GradesNavigationDrawerContent(
     onSetAmoledBlack: (Boolean) -> Unit,
     onSetNotificationsEnabled: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
+    onOpenSchoolWebsite: () -> Unit,
+    onOpenSchoolAnnouncements: () -> Unit,
+    onOpenSchoolCalendar: () -> Unit,
     onOpenAbout: () -> Unit,
     onDismissDeveloperToast: () -> Unit,
     onOpenDeveloperSettings: () -> Unit,
@@ -1740,7 +1763,7 @@ private fun GradesNavigationDrawerContent(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
                         text = headerTitleText(state),
@@ -1749,10 +1772,10 @@ private fun GradesNavigationDrawerContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = "鍥而不舍，金石可鏤。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    DrawerSchoolActions(
+                        onOpenSchoolWebsite = onOpenSchoolWebsite,
+                        onOpenSchoolAnnouncements = onOpenSchoolAnnouncements,
+                        onOpenSchoolCalendar = onOpenSchoolCalendar,
                     )
                 }
             }
@@ -1793,6 +1816,116 @@ private fun GradesNavigationDrawerContent(
                 .align(Alignment.TopStart)
                 .padding(start = 16.dp, top = 16.dp),
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DrawerSchoolActions(
+    onOpenSchoolWebsite: () -> Unit,
+    onOpenSchoolAnnouncements: () -> Unit,
+    onOpenSchoolCalendar: () -> Unit,
+) {
+    val today = Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilledTonalButton(
+            onClick = onOpenSchoolWebsite,
+            modifier = Modifier
+                .weight(1f)
+                .height(72.dp),
+            contentPadding = PaddingValues(8.dp),
+            shapes = ButtonDefaults.shapes(),
+        ) {
+            Column(
+                modifier = Modifier.clearAndSetSemantics {
+                    contentDescription = "開啟校務系統"
+                },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                OutlinedRoundedSymbol(
+                    icon = "school",
+                    size = 28.dp,
+                    contentDescription = null,
+                )
+                Text(
+                    text = "校務",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                )
+            }
+        }
+        FilledTonalButton(
+            onClick = onOpenSchoolAnnouncements,
+            modifier = Modifier
+                .weight(1f)
+                .height(72.dp),
+            contentPadding = PaddingValues(8.dp),
+            shapes = ButtonDefaults.shapes(),
+        ) {
+            Column(
+                modifier = Modifier.clearAndSetSemantics {
+                    contentDescription = "查看學校最新消息"
+                },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                OutlinedRoundedSymbol(
+                    icon = "campaign",
+                    size = 28.dp,
+                    contentDescription = null,
+                )
+                Text(
+                    text = "公告",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                )
+            }
+        }
+        FilledTonalButton(
+            onClick = onOpenSchoolCalendar,
+            modifier = Modifier
+                .weight(1f)
+                .height(72.dp),
+            contentPadding = PaddingValues(8.dp),
+            shapes = ButtonDefaults.shapes(),
+        ) {
+            Column(
+                modifier = Modifier.clearAndSetSemantics {
+                    contentDescription = "開啟學校行事曆，今天 $today 日"
+                },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Box(
+                    modifier = Modifier.size(28.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    OutlinedRoundedSymbol(
+                        icon = "calendar_today",
+                        size = 28.dp,
+                        contentDescription = null,
+                    )
+                    Text(
+                        text = today.toString(),
+                        modifier = Modifier.padding(top = 7.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            lineHeight = 9.sp,
+                        ),
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Text(
+                    text = "行事曆",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 

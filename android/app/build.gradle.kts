@@ -132,6 +132,11 @@ dependencies {
     implementation("com.google.firebase:firebase-config")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.5.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
+    implementation("net.sf.biweekly:biweekly:0.6.8") {
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
+    }
     implementation("com.mikepenz:multiplatform-markdown-renderer-android:0.40.2")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3-android:0.40.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

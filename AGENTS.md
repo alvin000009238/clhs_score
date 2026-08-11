@@ -16,6 +16,12 @@
 - 文件預設使用繁體中文；程式碼註解只在能降低理解成本時加入。
 - **Cookie 與 Session 同步安全**：為避免並行 API 呼叫時出現 Cookie 覆蓋或競態條件導致 HTTP 401 錯誤，請勿在各個 API 請求方法中無條件呼叫 `cookieJar.replace(session.cookies, ...)`。應經由以學號過濾與鎖保護的 `prepareSession(session)` 進行按需載入。且 `SchoolCookieJar` 的讀寫方法（`saveFromResponse`, `loadForRequest`, `replace`, `clear`）都必須在 `synchronized` 同步鎖保護下執行，確保執行緒安全。
 
+## Android 校務系統 WebView
+
+- 登入後的校務系統 WebView 只能使用 `ScoreViewModel.getCurrentSession()` 提供的已解鎖記憶體 session；不得自行讀取一般、生物識別或提醒專用 session。
+- WebView 只能導向 `https://shcloud2.k12ea.gov.tw`，不得把登入 cookie 送往其他網域。
+- 離開 WebView 或登出時必須清除 WebView cookie 與網站資料；`ArchitectureBoundaryTest` 會檢查這些邊界。
+
 ## 常用驗證
 
 - Android：在 `android/` 內執行 `.\gradlew.bat test`
@@ -107,6 +113,14 @@
 
 - 課表 grid 預設顯示既有 1–8 節；若 API 實際回傳其他正節次，需以稀疏節次清單追加顯示，避免靜默漏課或為異常大節次建立巨大連續範圍。
 
+## Android 學校最新消息
+
+- 學校最新消息是公開資料，列表與詳情只能使用 `NetworkSchoolAnnouncementsRepository` 的無 Cookie client；不得讀取或回退到校務系統、一般登入、生物識別或提醒專用 session。
+- 公告列表使用 Material 3 Expressive 下拉重新整理，不顯示來源摘要卡、獨立重新整理按鈕或更新時間。
+- 列表直接查詢校網首頁消息，表單參數 `flock` 必須保持空字串；回應陣列第一筆是分頁 metadata，其餘才是消息，第一頁會寫入 App cache 供離線備援。
+- 詳情先從 `show.php?nid=...` 擷取 `g_news_unique_id`，再查詢 content endpoint。HTML 必須先清除主動內容與危險 URL scheme；只有 HTTPS 的 `www.clhs.tyc.edu.tw` 圖片可自動載入，其他連結需由使用者主動開啟。
+- `SchoolAnnouncementsTest` 固定公開 API 的列表、詳情與附件契約；CI 不直接依賴校網即時回應。
+
 ## Android Widget
 
 - 桌面課表小工具 (`ScheduleWidget`) 使用 Jetpack Glance 實作。
@@ -149,3 +163,12 @@
 - **冷啟動與背景鎖定**：利用 `DefaultLifecycleObserver` 監聽 App 生命週期。當 App 冷啟動或從背景喚醒時，若開啟了生物識別，會將 App 鎖定（`isAppLocked = true`）並顯示 `BiometricLockScreen` 覆蓋層以防洩漏隱私。解鎖後的 Session 絕不寫回硬碟的普通明文儲存，以維持最高安全性。
 - `BiometricPrompt` 顯示期間可能造成 Activity lifecycle 變化；不得把 prompt 覆蓋造成的 `onStop/onStart` 當作真正背景回來。`MainActivity` 必須用 single-flight 狀態避免重複呼叫 `authenticate(...)`，並在 prompt 顯示期間暫停背景鎖定判斷，避免從 Widget/deep link 進入時連續要求兩次解鎖。
 - **多工頁面防護**：只要生物識別已啟用、存在生物識別 session，或 App 正在鎖定狀態，`MainActivity` 會套用 `WindowManager.LayoutParams.FLAG_SECURE`，讓系統多工縮圖與截圖/錄影無法顯示成績畫面；關閉生物識別後才移除此 flag。
+
+## Android 校務行事曆
+
+- 校務行事曆只讀取 `SchoolCalendar.kt` 內固定的學校公開 Google Calendar ICS，不得使用登入 session、cookie、`SchoolGradeClient` 或校務系統 API；專用 OkHttp client 必須保留 `CookieJar.NO_COOKIES`。
+- ICS 使用 `biweekly` 解析，Gradle 必須排除非必要的 Jackson；開源授權頁需保留 biweekly、Vinnie 與其內嵌 Apache 元件的逐項授權。
+- ICS 最多下載 5 MiB，快取於 `cacheDir` 六小時；更新失敗時可顯示舊快取，但不得把原始網路錯誤或回應內容顯示給使用者。
+- 行事曆議程使用 Material 3 Expressive 下拉重新整理，不顯示來源摘要卡、獨立重新整理按鈕或更新時間；離開清單頂端且停止滑動後，以淡入與垂直位移顯示具無障礙描述的「回到頂端」浮動圖示按鈕。AnimatedVisibility 內需保留 12dp 陰影空間，避免 elevation 陰影在轉場結束時跳動。
+- 漢堡選單問候卡下方集中放置校務系統、學校公告與校務行事曆三個圖示入口；公告功能完成前維持 disabled。行事曆圖示疊加手機當日日期，設定頁與「更多」頁不保留重複入口。
+- 目前來源沒有週期活動，若日後出現 RRULE，App 先略過並顯示提示；只有來源實際開始使用時，才加入有日期範圍上限的 recurrence 展開。

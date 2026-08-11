@@ -17,6 +17,8 @@ import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
+import com.clhs.score.viewmodel.SchoolAnnouncementDetailUiState
+import com.clhs.score.viewmodel.SchoolAnnouncementsUiState
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.SettingsUiState
@@ -28,6 +30,59 @@ class ScenarioProvider : PreviewParameterProvider<StudentScenario> {
         StudentScenario.STRUGGLING,
         StudentScenario.SPECIAL
     )
+}
+
+class AnnouncementStateProvider : PreviewParameterProvider<SchoolAnnouncementsUiState> {
+    override val values = sequenceOf(
+        SchoolAnnouncementsUiState(),
+        SchoolAnnouncementsUiState(
+            isInitialLoading = false,
+            announcements = FakeData.announcementPage.announcements,
+            pageIndex = 0,
+            hasMore = true,
+            lastUpdatedAt = FakeData.announcementPage.fetchedAt,
+        ),
+        SchoolAnnouncementsUiState(isInitialLoading = false),
+        SchoolAnnouncementsUiState(
+            isInitialLoading = false,
+            errorMessage = "暫時無法取得學校消息，請檢查網路後再試一次。",
+        ),
+    )
+}
+
+@Preview(name = "School Announcements", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun SchoolAnnouncementsPreview(
+    @PreviewParameter(AnnouncementStateProvider::class) state: SchoolAnnouncementsUiState,
+) {
+    ScoreTheme {
+        com.clhs.score.ui.announcements.SchoolAnnouncementsScreen(
+            uiState = state,
+            onBack = {},
+            onRefresh = {},
+            onLoadMore = {},
+            onOpenAnnouncement = {},
+            onOpenOfficialWebsite = {},
+            onNoticeShown = {},
+        )
+    }
+}
+
+@Preview(name = "School Announcement Detail", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun SchoolAnnouncementDetailPreview() {
+    ScoreTheme {
+        com.clhs.score.ui.announcements.SchoolAnnouncementDetailScreen(
+            uiState = SchoolAnnouncementDetailUiState(
+                isLoading = false,
+                detail = FakeData.announcementDetail,
+            ),
+            onBack = {},
+            onRetry = {},
+            onOpenUrl = {},
+            officialUrl = FakeData.announcementDetail.officialUrl,
+        )
+    }
 }
 
 @Preview(name = "Score App - Fake Data", showBackground = true, widthDp = 390, heightDp = 844)
@@ -113,6 +168,8 @@ private fun GradesScreenFakePreview(
             onSetDynamicColor = {},
             onSetAmoledBlack = {},
             onCheckUpdate = {},
+            onOpenSchoolWebsite = {},
+            onOpenSchoolAnnouncements = {},
             onOpenAbout = {},
             onDismissDeveloperToast = {},
             onOpenDeveloperSettings = {},
@@ -122,6 +179,7 @@ private fun GradesScreenFakePreview(
             onSetBiometricEnabled = { _, _ -> },
             onOpenScoreSimulator = {},
             onOpenSchedule = {},
+            onOpenSchoolCalendar = {},
             onOpenSubjectTrend = {},
         )
     }

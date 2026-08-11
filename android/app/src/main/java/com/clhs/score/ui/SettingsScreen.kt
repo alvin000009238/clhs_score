@@ -107,6 +107,18 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """.trimIndent()
 
+private val BSD_2_CLAUSE_LICENSE_TEXT = """
+Copyright (c) 2013-2024, Michael Angstadt
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+""".trimIndent()
+
 private val APACHE_LICENSE_TEXT = """
                                  Apache License
                            Version 2.0, January 2004
@@ -183,8 +195,12 @@ private val APACHE_COMPONENTS = listOf(
     "AndroidX Navigation Compose",
     "AndroidX Security Crypto",
     "AndroidX WorkManager Runtime KTX",
+    "Apache Commons Codec subset (bundled with biweekly)",
+    "Coil Compose",
+    "Coil Network OkHttp",
     "Firebase Cloud Messaging",
     "Firebase Remote Config",
+    "Google RFC 2445 recurrence utility (bundled with biweekly)",
     "Kotlin Standard Library",
     "kotlinx.coroutines Android",
     "kotlinx.serialization JSON",
@@ -203,8 +219,10 @@ internal fun buildThirdPartyLicenses(outfitLicenseText: String): List<LicenseEnt
     (APACHE_COMPONENTS.map {
         LicenseEntry(it, "Apache License 2.0", APACHE_LICENSE_TEXT)
     } + listOf(
+        LicenseEntry("biweekly", "BSD 2-Clause License", BSD_2_CLAUSE_LICENSE_TEXT),
         LicenseEntry("jsoup", "MIT License", MIT_LICENSE_TEXT),
         LicenseEntry("Outfit", "SIL Open Font License 1.1", outfitLicenseText),
+        LicenseEntry("Vinnie", "MIT License", MIT_LICENSE_TEXT),
     )).sortedBy { it.componentName.lowercase() }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -23,9 +23,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.clhs.score.analytics.AnalyticsEvents
 import com.clhs.score.analytics.AnalyticsLogger
 import com.clhs.score.analytics.AnalyticsParameterSanitizer
@@ -35,11 +37,18 @@ import com.clhs.score.analytics.NoOpAnalyticsLogger
 import com.clhs.score.analytics.UsageStatisticsStore
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamSelection
+import com.clhs.score.data.SCHOOL_CALENDAR_WEB_URL
+import com.clhs.score.data.SCHOOL_ANNOUNCEMENTS_WEB_URL
 import com.clhs.score.data.ThemeMode
+import com.clhs.score.data.safeAnnouncementWebUrl
+import com.clhs.score.data.schoolAnnouncementOfficialUrl
 import com.clhs.score.notifications.canPostNotifications
 import com.clhs.score.viewmodel.GradesUiState
 import com.clhs.score.viewmodel.LoginUiState
 import com.clhs.score.viewmodel.ScheduleViewModel
+import com.clhs.score.viewmodel.SchoolCalendarViewModel
+import com.clhs.score.viewmodel.SchoolAnnouncementDetailViewModel
+import com.clhs.score.viewmodel.SchoolAnnouncementsViewModel
 import com.clhs.score.viewmodel.SettingsUiState
 
 private const val IntroRoute = "intro"
@@ -48,6 +57,11 @@ private const val GradesRoute = "grades"
 private const val ScoreSimulatorRoute = "score-simulator"
 private const val SubjectTrendRoute = "subject-trend"
 private const val ScheduleRoute = "schedule"
+private const val SchoolCalendarRoute = "school-calendar"
+private const val SchoolAnnouncementsRoute = "school-announcements"
+private const val SchoolAnnouncementDetailRoute =
+    "school-announcement/{announcementId}?category={category}"
+private const val SchoolWebsiteRoute = "school-website"
 private const val SettingsRoute = "settings"
 private const val AboutRoute = "about"
 private const val UsageStatisticsRoute = "usage-statistics"
@@ -204,6 +218,8 @@ fun ScoreApp(
                         onSetDynamicColor = onSetDynamicColor,
                         onSetAmoledBlack = onSetAmoledBlack,
                         onCheckUpdate = onCheckUpdate,
+                        onOpenSchoolWebsite = { navController.navigate(SchoolWebsiteRoute) },
+                        onOpenSchoolAnnouncements = { navController.navigate(SchoolAnnouncementsRoute) },
                         onOpenAbout = { navController.navigate(AboutRoute) },
                         onDismissDeveloperToast = onDismissDeveloperToast,
                         onOpenDeveloperSettings = {
@@ -234,6 +250,9 @@ fun ScoreApp(
                                 mapOf(AnalyticsParams.SOURCE to AnalyticsValues.SOURCE_TAB),
                             )
                             navController.navigate(ScheduleRoute)
+                        },
+                        onOpenSchoolCalendar = {
+                            navController.navigate(SchoolCalendarRoute)
                         },
                         onOpenSubjectTrend = {
                             analyticsLogger.logEvent(
@@ -288,6 +307,101 @@ fun ScoreApp(
                         onConfirmSelection = { viewModel.confirmSelection() },
                         onClearSelection = { viewModel.clearSelection() },
                         onNoticeShown = { viewModel.consumeNotice() },
+                    )
+                }
+                composable(SchoolCalendarRoute) {
+                    val context = LocalContext.current
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<SchoolCalendarViewModel>(
+                        factory = SchoolCalendarViewModel.factory(context),
+                    )
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    com.clhs.score.ui.calendar.SchoolCalendarScreen(
+                        uiState = uiState,
+                        onBack = { navController.popBackStack() },
+                        onRefresh = viewModel::refresh,
+                        onOpenGoogleCalendar = {
+                            runCatching {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(SCHOOL_CALENDAR_WEB_URL),
+                                    ),
+                                )
+                            }.onFailure {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "無法開啟 Google 行事曆",
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        onNoticeShown = viewModel::consumeNotice,
+                    )
+                }
+                composable(SchoolAnnouncementsRoute) {
+                    val context = LocalContext.current
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<SchoolAnnouncementsViewModel>(
+                        factory = SchoolAnnouncementsViewModel.factory(context),
+                    )
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    com.clhs.score.ui.announcements.SchoolAnnouncementsScreen(
+                        uiState = uiState,
+                        onBack = { navController.popBackStack() },
+                        onRefresh = viewModel::refresh,
+                        onLoadMore = viewModel::loadMore,
+                        onOpenAnnouncement = { announcement ->
+                            if (announcement.contentType.equals("url", ignoreCase = true)) {
+                                announcement.externalUrl?.let(context::openAnnouncementUrl)
+                                    ?: android.widget.Toast.makeText(
+                                        context,
+                                        "這則消息的連結無法開啟",
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
+                            } else {
+                                navController.navigate(
+                                    "school-announcement/${android.net.Uri.encode(announcement.id)}" +
+                                        "?category=${android.net.Uri.encode(announcement.category)}",
+                                )
+                            }
+                        },
+                        onOpenOfficialWebsite = {
+                            context.openAnnouncementUrl(SCHOOL_ANNOUNCEMENTS_WEB_URL)
+                        },
+                        onNoticeShown = viewModel::consumeNotice,
+                    )
+                }
+                composable(
+                    route = SchoolAnnouncementDetailRoute,
+                    arguments = listOf(
+                        navArgument("announcementId") { type = NavType.StringType },
+                        navArgument("category") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                    ),
+                ) { backStackEntry ->
+                    val context = LocalContext.current
+                    val announcementId = backStackEntry.arguments?.getString("announcementId")
+                        ?: return@composable
+                    val category = backStackEntry.arguments?.getString("category").orEmpty()
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<SchoolAnnouncementDetailViewModel>(
+                        key = "school-announcement-detail-$announcementId",
+                        factory = SchoolAnnouncementDetailViewModel.factory(context, announcementId, category),
+                    )
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    com.clhs.score.ui.announcements.SchoolAnnouncementDetailScreen(
+                        uiState = uiState,
+                        onBack = { navController.popBackStack() },
+                        onRetry = viewModel::retry,
+                        onOpenUrl = context::openAnnouncementUrl,
+                        officialUrl = schoolAnnouncementOfficialUrl(announcementId),
+                    )
+                }
+                composable(SchoolWebsiteRoute) {
+                    val session = scoreViewModel.getCurrentSession() ?: return@composable
+                    SchoolWebsiteScreen(
+                        session = session,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable(SettingsRoute) {
@@ -380,6 +494,19 @@ fun ScoreApp(
                 }
             }
         }
+    }
+}
+
+private fun android.content.Context.openAnnouncementUrl(value: String) {
+    val url = safeAnnouncementWebUrl(value)
+    if (url == null) {
+        android.widget.Toast.makeText(this, "這個連結無法開啟", android.widget.Toast.LENGTH_SHORT).show()
+        return
+    }
+    runCatching {
+        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+    }.onFailure {
+        android.widget.Toast.makeText(this, "無法開啟連結", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 

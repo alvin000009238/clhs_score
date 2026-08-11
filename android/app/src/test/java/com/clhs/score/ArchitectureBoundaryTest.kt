@@ -9,6 +9,44 @@ import java.nio.file.Paths
 
 class ArchitectureBoundaryTest {
     @Test
+    fun schoolCalendarIsPublicAndNeverUsesSchoolAuthentication() {
+        val dataSource = readSource("app/src/main/java/com/clhs/score/data/SchoolCalendar.kt")
+        val viewModelSource = readSource("app/src/main/java/com/clhs/score/viewmodel/SchoolCalendarViewModel.kt")
+        val combined = "$dataSource\n$viewModelSource"
+
+        assertTrue(dataSource.contains("CookieJar.NO_COOKIES"))
+        assertTrue(dataSource.contains("https://calendar.google.com/calendar/ical/"))
+        listOf("SchoolGradeClient", "SessionStore", "AuthenticatedSession", "SchoolCookieJar").forEach { term ->
+            assertFalse("Public calendar must not access school authentication: $term", combined.contains(term))
+        }
+    }
+
+    @Test
+    fun schoolCalendarHasLoadingEmptyErrorAndCachedStates() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/calendar/SchoolCalendarScreen.kt")
+
+        assertTrue(source.contains("uiState.isInitialLoading"))
+        assertTrue(source.contains("rememberInfiniteTransition"))
+        assertTrue(source.contains("Brush.linearGradient"))
+        assertTrue(source.contains("contentDescription = \"正在載入行事曆\""))
+        assertTrue(source.contains("暫時無法取得行事曆"))
+        assertTrue(source.contains("目前沒有接下來的活動"))
+        assertTrue(source.contains("PullToRefreshBox"))
+        assertTrue(source.contains("PullToRefreshDefaults.LoadingIndicator"))
+        assertFalse(source.contains("CalendarSummaryCard"))
+        assertFalse(source.contains("更新於"))
+        assertTrue(source.contains("animateScrollToItem(0)"))
+        assertTrue(source.contains("FloatingActionButton("))
+        assertTrue(source.contains("!listState.isScrollInProgress"))
+        assertFalse(source.contains("scaleIn("))
+        assertTrue(source.contains("slideInVertically("))
+        assertTrue(source.contains("Box(modifier = Modifier.padding(12.dp))"))
+        assertTrue(source.contains("icon = \"keyboard_arrow_up\""))
+        assertTrue(source.contains("contentDescription = \"回到頂端\""))
+        assertTrue(source.contains("Text(\"Google 行事曆\")"))
+    }
+
+    @Test
     fun scheduleWidgetDoesNotDependOnAuthenticationState() {
         val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
 
@@ -149,6 +187,93 @@ class ArchitectureBoundaryTest {
         assertTrue(source.contains("isTrustedLoginPage = isTrustedSchoolLoginUrl(url)"))
         assertTrue(source.contains("uri.scheme == \"https\""))
         assertTrue(source.contains("SCHOOL_DOMAIN"))
+    }
+
+    @Test
+    fun authenticatedSchoolWebsiteUsesActiveSessionAndTrustedDomain() {
+        val webViewSource = readSource("app/src/main/java/com/clhs/score/ui/WebViewLoginScreen.kt")
+        val appSource = readSource("app/src/main/java/com/clhs/score/ui/ScoreApp.kt")
+        val gradesSource = readSource("app/src/main/java/com/clhs/score/ui/GradesScreen.kt")
+
+        assertTrue(gradesSource.contains("contentDescription = \"開啟校務系統\""))
+        assertTrue(appSource.contains("scoreViewModel.getCurrentSession() ?: return@composable"))
+        assertTrue(webViewSource.contains("session.cookies.forEach"))
+        assertTrue(webViewSource.contains("return !isTrustedSchoolUrl(url)"))
+        assertTrue(webViewSource.contains("clearSchoolWebData(clearCookies = true)"))
+        assertFalse(webViewSource.contains("SessionStore"))
+    }
+
+    @Test
+    fun schoolAnnouncementsArePublicAndHandleEveryDataState() {
+        val dataSource = readSource("app/src/main/java/com/clhs/score/data/SchoolAnnouncements.kt")
+        val viewModelSource = readSource("app/src/main/java/com/clhs/score/viewmodel/SchoolAnnouncementsViewModel.kt")
+        val screenSource = readSource("app/src/main/java/com/clhs/score/ui/announcements/SchoolAnnouncementsScreen.kt")
+        val combined = "$dataSource\n$viewModelSource"
+
+        assertTrue(dataSource.contains("CookieJar.NO_COOKIES"))
+        assertTrue(dataSource.contains("followRedirects(false)"))
+        assertTrue(dataSource.contains(".add(\"flock\", \"\")"))
+        listOf("SchoolGradeClient", "SessionStore", "AuthenticatedSession", "SchoolCookieJar").forEach { term ->
+            assertFalse("Public announcements must not access school authentication: $term", combined.contains(term))
+        }
+        assertTrue(screenSource.contains("uiState.isInitialLoading"))
+        assertTrue(screenSource.contains("正在載入學校消息"))
+        assertTrue(screenSource.contains("目前沒有最新消息"))
+        assertTrue(screenSource.contains("暫時無法取得學校消息"))
+        assertTrue(screenSource.contains("uiState.loadMoreError"))
+        assertTrue(screenSource.contains("PullToRefreshDefaults.LoadingIndicator"))
+        assertTrue(screenSource.contains("contentDescription = image.description"))
+        assertTrue(screenSource.contains("clickable(onClickLabel = \"開啟原圖\")"))
+        assertTrue(screenSource.contains("PullToRefreshBox"))
+        assertFalse(screenSource.contains("AnnouncementSummaryCard"))
+        assertFalse(screenSource.contains("更新於"))
+    }
+
+    @Test
+    fun announcementDetailLoadingKeepsTheHeaderCornerShape() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/announcements/SchoolAnnouncementsScreen.kt")
+        val detailLoading = source.substringAfter("private fun AnnouncementDetailLoading()")
+            .substringBefore("private fun AnnouncementLoadingBlock(")
+
+        assertTrue(detailLoading.contains("shape = MaterialTheme.shapes.largeIncreased"))
+    }
+
+    @Test
+    fun announcementHtmlLinksRemainClickable() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/announcements/SchoolAnnouncementsScreen.kt")
+        val textViewSetup = source.substringAfter("TextView(context).apply {")
+            .substringBefore("textSize = 16f")
+
+        assertTrue(textViewSetup.contains("movementMethod = LinkMovementMethod.getInstance()"))
+        assertTrue(textViewSetup.contains("linksClickable = true"))
+        assertFalse(
+            "Text selection replaces LinkMovementMethod and makes announcement links unclickable",
+            textViewSetup.contains("setTextIsSelectable(true)"),
+        )
+    }
+
+    @Test
+    fun drawerOwnsSchoolWebsiteAnnouncementAndCalendarEntrances() {
+        val gradesSource = readSource("app/src/main/java/com/clhs/score/ui/GradesScreen.kt")
+        val drawerActions = gradesSource.substringAfter("private fun DrawerSchoolActions(")
+            .substringBefore("private fun TopFadeOverlay(")
+        val settingsSource = readSource("app/src/main/java/com/clhs/score/ui/SettingsScreen.kt")
+        val advancedSource = readSource("app/src/main/java/com/clhs/score/ui/AdvancedComponents.kt")
+
+        assertTrue(drawerActions.contains("icon = \"school\""))
+        assertTrue(drawerActions.contains("icon = \"campaign\""))
+        assertTrue(drawerActions.contains("onClick = onOpenSchoolAnnouncements"))
+        assertTrue(drawerActions.contains("contentDescription = \"查看學校最新消息\""))
+        assertFalse(drawerActions.contains("enabled = false"))
+        assertTrue(drawerActions.contains("icon = \"calendar_today\""))
+        assertTrue(drawerActions.contains("text = \"校務\""))
+        assertTrue(drawerActions.contains("text = \"公告\""))
+        assertTrue(drawerActions.contains("text = \"行事曆\""))
+        assertTrue(drawerActions.contains("Calendar.getInstance().get(Calendar.DAY_OF_MONTH)"))
+        assertTrue(drawerActions.contains("contentDescription = \"開啟學校行事曆，今天 ${'$'}today 日\""))
+        assertFalse(gradesSource.contains("鍥而不舍，金石可鏤。"))
+        assertFalse(settingsSource.contains("title = \"開啟校務系統\""))
+        assertFalse(advancedSource.contains("SchoolCalendarEntryCard"))
     }
 
     @Test
@@ -524,6 +649,17 @@ class ArchitectureBoundaryTest {
         assertFalse("Diagnostic reports must not be sent through ACTION_SEND", source.contains("ACTION_SEND"))
         assertFalse("Diagnostic reports must not be embedded in EXTRA_TEXT", source.contains("EXTRA_TEXT"))
         assertFalse("Diagnostic reports must not keep a broad share helper", source.contains("shareText("))
+    }
+
+    @Test
+    fun recurringOnlyCalendarStillExplainsSkippedEvents() {
+        val source = readSource("app/src/main/java/com/clhs/score/ui/calendar/SchoolCalendarScreen.kt")
+        val emptyState = source
+            .substringAfter("uiState.events.isEmpty() ->")
+            .substringBefore("else -> CalendarAgenda")
+
+        assertTrue(emptyState.contains("uiState.skippedRecurringEvents"))
+        assertTrue(emptyState.contains("部分重複活動"))
     }
 
     private fun readSource(relativePath: String): String {
