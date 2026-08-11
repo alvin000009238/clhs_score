@@ -9,6 +9,37 @@ import java.nio.file.Paths
 
 class ArchitectureBoundaryTest {
     @Test
+    fun sessionStorageKeepsCryptoMigrationAndBackupBoundaries() {
+        val sessionStore = readSource("app/src/main/java/com/clhs/score/data/SessionStore.kt")
+        val crypto = readSource("app/src/main/java/com/clhs/score/data/SessionCrypto.kt")
+        val legacy = readSource("app/src/main/java/com/clhs/score/data/LegacySessionMigration.kt")
+        val worker = readSource("app/src/main/java/com/clhs/score/reminders/GradeReminderWorker.kt")
+        val proto = readSource("app/src/main/proto/session_storage.proto")
+        val backupRules = readSource("app/src/main/res/xml/backup_rules.xml")
+        val extractionRules = readSource("app/src/main/res/xml/data_extraction_rules.xml")
+
+        assertFalse(sessionStore.contains("import androidx.security.crypto"))
+        assertTrue(legacy.contains("EncryptedSharedPreferencesLegacySessionSource"))
+        assertTrue(crypto.contains("AES/GCM/NoPadding"))
+        assertTrue(crypto.contains("setKeySize(256)"))
+        assertTrue(sessionStore.contains("app/session/general/v1"))
+        assertTrue(sessionStore.contains("app/session/reminder/v1"))
+        assertTrue(sessionStore.contains("generalWriteGeneration"))
+        assertTrue(sessionStore.contains("reminderWriteGeneration"))
+        assertFalse(proto.contains("token"))
+        assertFalse(proto.contains("cookie"))
+        assertFalse(proto.contains("student"))
+        assertFalse("$sessionStore\n$crypto\n$legacy".contains("AnalyticsLogger"))
+        assertFalse("$sessionStore\n$crypto\n$legacy".contains("android.util.Log"))
+        assertTrue(worker.contains("loadReminderSession(now, state.studentNo)"))
+        assertFalse(worker.contains("loadSession()"))
+        listOf("session_storage.pb", "score_biometric_session.xml", "score_session.xml").forEach { file ->
+            assertTrue(backupRules.contains(file))
+            assertTrue(extractionRules.contains(file))
+        }
+    }
+
+    @Test
     fun schoolCalendarIsPublicAndNeverUsesSchoolAuthentication() {
         val dataSource = readSource("app/src/main/java/com/clhs/score/data/SchoolCalendar.kt")
         val viewModelSource = readSource("app/src/main/java/com/clhs/score/viewmodel/SchoolCalendarViewModel.kt")

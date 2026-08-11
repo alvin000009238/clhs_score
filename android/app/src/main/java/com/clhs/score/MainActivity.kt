@@ -31,6 +31,7 @@ import com.clhs.score.data.AuthenticatedSession
 import com.clhs.score.data.BiometricHelper
 import com.clhs.score.data.GradeCacheStore
 import com.clhs.score.data.SessionStore
+import com.clhs.score.data.SessionStorageException
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
 import com.clhs.score.notifications.NotificationChannels
@@ -86,7 +87,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         super.onCreate(savedInstanceState)
         sessionStore = SessionStore(applicationContext)
         analyticsLogger = FirebaseAnalyticsLogger(applicationContext)
-        val hasBiometricSession = sessionStore.hasBiometricSession()
+        val hasBiometricSession = hasBiometricSessionForLock()
         isAppLocked.value = savedInstanceState?.getBoolean(KEY_APP_LOCKED, false) == true &&
             hasBiometricSession
         pendingScheduleOpen.value = savedInstanceState?.getBoolean(KEY_PENDING_SCHEDULE_OPEN, false) == true
@@ -102,7 +103,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 super.onStart(owner)
                 if (wasInBackground && !isBiometricPromptShowing) {
                     wasInBackground = false
-                    if (sessionStore.hasBiometricSession()) {
+                    if (hasBiometricSessionForLock()) {
                         isAppLocked.value = true
                     }
                 }
@@ -147,7 +148,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 LaunchedEffect(isReady) {
                     if (!isInitialLockResolved.value) {
                         if (shouldLockOnInitialReady &&
-                            sessionStore.hasBiometricSession()
+                            hasBiometricSessionForLock()
                         ) {
                             isAppLocked.value = true
                         }
@@ -161,7 +162,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
                 val shouldSecureWindow = appSettings.biometricEnabled ||
                     isAppLocked.value ||
-                    sessionStore.hasBiometricSession()
+                    hasBiometricSessionForLock()
                 LaunchedEffect(shouldSecureWindow) {
                     applySecureWindowPolicy(shouldSecureWindow)
                 }
@@ -201,8 +202,15 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             showBiometricUnlockPrompt(scoreVm, settingsVm)
                         },
                         onUnlockWithPin = { pin ->
-                            val session = sessionStore.loadSessionWithPin(pin)
-                            if (session != null) {
+                            val sessionResult = runCatching { sessionStore.loadSessionWithPin(pin) }
+                            val session = sessionResult.getOrNull()
+                            if (sessionResult.exceptionOrNull() is SessionStorageException) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "無法讀取解鎖資訊，請登出後重新登入",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            } else if (session != null) {
                                 scoreVm.loginWithBiometricSession(session)
                                 analyticsLogger.logEvent(
                                     AnalyticsEvents.BIOMETRIC_UNLOCK_RESULT,
@@ -237,7 +245,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             android.webkit.CookieManager.getInstance().flush()
                             scoreVm.logout(AnalyticsValues.SOURCE_LOCK_SCREEN)
                             clearWidgetScheduleCache()
-                            sessionStore.clearBiometricSession()
                             settingsVm.setBiometricEnabled(false)
                             isAppLocked.value = false
                             isBiometricInvalidated.value = false
@@ -261,7 +268,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             android.webkit.CookieManager.getInstance().flush()
                             scoreVm.logout()
                             clearWidgetScheduleCache()
-                            sessionStore.clearBiometricSession()
                         },
                         onToggleSubject = scoreVm::toggleSubjectExpanded,
                         onDismissLoginError = scoreVm::clearLoginError,
@@ -295,13 +301,28 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                                 }
                             } else {
                                 val currentSession = scoreVm.getCurrentSession()
-                                if (currentSession != null) {
-                                    // 關閉時，將 session 寫回普通儲存以確保後續登入可用
-                                    sessionStore.saveSession(currentSession)
+                                lifecycleScope.launch {
+                                    runCatching {
+                                        if (currentSession != null) {
+                                            // 先持久化並驗證一般 session，成功後才能刪除 biometric session。
+                                            sessionStore.saveSession(currentSession)
+                                        }
+                                        sessionStore.clearBiometricSession()
+                                    }.onSuccess {
+                                        settingsVm.setBiometricEnabled(false)
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "已關閉生物識別解鎖",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }.onFailure {
+                                        Toast.makeText(
+                                            applicationContext,
+                                            "無法安全保存登入資訊，生物識別解鎖維持開啟",
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
                                 }
-                                sessionStore.clearBiometricSession()
-                                settingsVm.setBiometricEnabled(false)
-                                Toast.makeText(applicationContext, "已關閉生物識別解鎖", Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
@@ -388,7 +409,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 AnalyticsEvents.APP_OPEN_ROUTE,
                 mapOf(
                     AnalyticsParams.SOURCE to source,
-                    AnalyticsParams.LOCKED to (isAppLocked.value || sessionStore.hasBiometricSession()),
+                    AnalyticsParams.LOCKED to (isAppLocked.value || hasBiometricSessionForLock()),
                 ),
             )
         }
@@ -399,7 +420,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         settingsVm: SettingsViewModel
     ) {
         if (isBiometricPromptShowing) return
-        val iv = sessionStore.getBiometricIv()
+        val iv = try {
+            sessionStore.getBiometricIv()
+        } catch (_: SessionStorageException) {
+            isBiometricInvalidated.value = true
+            return
+        }
         if (iv == null) {
             handleKeyInvalidated(scoreVm, settingsVm, "解鎖資訊不完整，請重新登入")
             return
@@ -452,7 +478,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 isBiometricPromptShowing = false
                 val decryptCipher = result.cryptoObject?.cipher
                 if (decryptCipher != null) {
-                    val session = sessionStore.loadBiometricSession(decryptCipher)
+                    val session = try {
+                        sessionStore.loadBiometricSession(decryptCipher)
+                    } catch (_: SessionStorageException) {
+                        handleKeyInvalidated(scoreVm, settingsVm, "無法讀取解鎖資訊，請重新登入")
+                        return
+                    }
                     if (session != null) {
                         scoreVm.loginWithBiometricSession(session)
                         analyticsLogger.logEvent(
@@ -497,7 +528,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     AnalyticsParams.RESULT to AnalyticsValues.RESULT_FAILURE,
                 ),
             )
-            Toast.makeText(this, "啟動生物識別失敗: ${error.message ?: "未知錯誤"}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "無法啟動生物識別，請稍後再試", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -534,23 +565,29 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 isBiometricPromptShowing = false
                 val encryptCipher = result.cryptoObject?.cipher
                 if (encryptCipher != null) {
-                    runCatching {
-                        sessionStore.saveBiometricSession(currentSession, pin, encryptCipher)
-                        sessionStore.clearNormalSession()
-                    }.onSuccess {
-                        settingsVm.setBiometricEnabled(true)
-                        Toast.makeText(this@MainActivity, "已開啟生物識別解鎖", Toast.LENGTH_SHORT).show()
-                    }.onFailure { error ->
-                        if (replaceInvalidatedKey) {
-                            fallBackToNormalSession(currentSession, settingsVm)
-                        } else {
-                            sessionStore.clearBiometricSession()
+                    lifecycleScope.launch {
+                        runCatching {
+                            sessionStore.saveBiometricSession(currentSession, pin, encryptCipher)
+                            sessionStore.clearNormalSession()
+                        }.onSuccess {
+                            settingsVm.setBiometricEnabled(true)
+                            Toast.makeText(
+                                this@MainActivity,
+                                "已開啟生物識別解鎖",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }.onFailure {
+                            if (replaceInvalidatedKey) {
+                                fallBackToNormalSession(currentSession, settingsVm)
+                            } else {
+                                runCatching { sessionStore.clearBiometricSession() }
+                            }
+                            Toast.makeText(
+                                this@MainActivity,
+                                "無法安全保存生物識別解鎖資訊",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         }
-                        Toast.makeText(
-                            this@MainActivity,
-                            "啟用生物識別解鎖失敗: ${error.message ?: "未知錯誤"}",
-                            Toast.LENGTH_SHORT,
-                        ).show()
                     }
                 }
             }
@@ -569,7 +606,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
         }.onFailure { error ->
             isBiometricPromptShowing = false
-            Toast.makeText(this, "啟動生物識別失敗: ${error.message ?: "未知錯誤"}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "無法啟動生物識別，請稍後再試", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -579,8 +616,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         message: String
     ) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        sessionStore.clearBiometricSession()
-        sessionStore.clearNormalSession()
+        try {
+            sessionStore.clearBiometricSession()
+        } catch (_: SessionStorageException) {
+            // Logout below still clears the authoritative DataStore and in-memory session.
+        }
         settingsVm.setBiometricEnabled(false)
         scoreVm.logout(AnalyticsValues.SOURCE_LOCK_SCREEN)
         clearWidgetScheduleCache()
@@ -591,10 +631,21 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         currentSession: AuthenticatedSession,
         settingsVm: SettingsViewModel,
     ) {
-        sessionStore.saveSession(currentSession)
-        sessionStore.clearBiometricSession()
-        settingsVm.setBiometricEnabled(false)
-        isBiometricInvalidated.value = false
+        lifecycleScope.launch {
+            runCatching {
+                sessionStore.saveSession(currentSession)
+                sessionStore.clearBiometricSession()
+            }.onSuccess {
+                settingsVm.setBiometricEnabled(false)
+                isBiometricInvalidated.value = false
+            }.onFailure {
+                Toast.makeText(
+                    this@MainActivity,
+                    "無法安全保存登入資訊，請稍後再試",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
     }
 
     private fun applySecureWindowPolicy(enabled: Boolean) {
@@ -606,6 +657,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
+    }
+
+    private fun hasBiometricSessionForLock(): Boolean = try {
+        sessionStore.hasBiometricSession()
+    } catch (_: SessionStorageException) {
+        isBiometricInvalidated.value = true
+        true
     }
 
     private fun applyLaunchSystemBarAppearance() {

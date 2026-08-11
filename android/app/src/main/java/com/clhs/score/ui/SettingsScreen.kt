@@ -187,6 +187,7 @@ private val APACHE_COMPONENTS = listOf(
     "AndroidX Compose UI Graphics",
     "AndroidX Compose UI Tooling Preview",
     "AndroidX Core Splashscreen",
+    "AndroidX DataStore Proto",
     "AndroidX DataStore Preferences",
     "AndroidX Glance AppWidget",
     "AndroidX Glance Material 3",
@@ -207,6 +208,7 @@ private val APACHE_COMPONENTS = listOf(
     "Material Symbols Rounded",
     "Multiplatform Markdown Renderer",
     "OkHttp",
+    "Protocol Buffers Java Lite",
 )
 
 internal data class LicenseEntry(

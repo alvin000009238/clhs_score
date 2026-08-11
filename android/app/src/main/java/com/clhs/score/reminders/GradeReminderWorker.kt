@@ -12,6 +12,7 @@ import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SchoolGradeRepository
 import com.clhs.score.data.SchoolTransientException
 import com.clhs.score.data.SessionStore
+import com.clhs.score.data.SessionStorageException
 import kotlinx.coroutines.CancellationException
 import java.io.IOException
 
@@ -44,18 +45,23 @@ class GradeReminderWorker(
 
         if (now >= state.expiresAtMillis) {
             reminderRepository.stop("段考提醒已超過 48 小時")
-            sessionStore.clearReminderSession()
             scheduler.cancel()
+            try {
+                sessionStore.clearReminderSession()
+            } catch (_: SessionStorageException) {
+                // State and work are already stopped; encrypted storage cleanup can retry later.
+            }
             return Result.success()
         }
 
-        val session = sessionStore.loadReminderSession(now)
-        if (session == null) {
+        val session = try {
+            sessionStore.loadReminderSession(now, state.studentNo)
+        } catch (_: SessionStorageException) {
             stopAndNotify(sessionStore, "登入狀態已失效，段考提醒已停止")
             return Result.success()
         }
-        if (session.studentNo != state.studentNo) {
-            stopAndNotify(sessionStore, "登入學生已變更，段考提醒已停止")
+        if (session == null) {
+            stopAndNotify(sessionStore, "登入狀態已失效，段考提醒已停止")
             return Result.success()
         }
 
@@ -124,8 +130,12 @@ class GradeReminderWorker(
 
     private suspend fun stopAndNotify(sessionStore: SessionStore, reason: String) {
         reminderRepository.stop(reason)
-        sessionStore.clearReminderSession()
         scheduler.cancel()
+        try {
+            sessionStore.clearReminderSession()
+        } catch (_: SessionStorageException) {
+            // The reminder state and work are already stopped; the fixed user message avoids leaking crypto details.
+        }
         notifier.showStoppedNotification(reason)
     }
 

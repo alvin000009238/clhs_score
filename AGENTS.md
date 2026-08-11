@@ -164,6 +164,15 @@
 - `BiometricPrompt` 顯示期間可能造成 Activity lifecycle 變化；不得把 prompt 覆蓋造成的 `onStop/onStart` 當作真正背景回來。`MainActivity` 必須用 single-flight 狀態避免重複呼叫 `authenticate(...)`，並在 prompt 顯示期間暫停背景鎖定判斷，避免從 Widget/deep link 進入時連續要求兩次解鎖。
 - **多工頁面防護**：只要生物識別已啟用、存在生物識別 session，或 App 正在鎖定狀態，`MainActivity` 會套用 `WindowManager.LayoutParams.FLAG_SECURE`，讓系統多工縮圖與截圖/錄影無法顯示成績畫面；關閉生物識別後才移除此 flag。
 
+## Android Session 加密儲存
+
+- 一般與段考提醒 session 先由 `SessionSerializer` 序列化，再由 `SessionCipher` 使用 Android Keystore 的 AES-256-GCM 金鑰加密；Proto DataStore `session_storage.pb` 只能保存 payload/key version、IV 與 ciphertext。
+- 一般與提醒 session 共用 application-wide、版本化的 `clhs_session_key_v*`，但必須分別使用穩定且不同的 AAD。解密失敗不得退回明文或其他 session 類型。
+- `SessionStore` 的 DataStore API 是 suspend；caller 不得用 `runBlocking` 包裝。登入、登出、提醒與 migration 的寫入須保留原子更新及 generation guard，避免 clear 後舊 coroutine 把 session 寫回。
+- `EncryptedSharedPreferencesLegacySessionSource` 是唯一允許依賴 deprecated AndroidX Security Crypto 的位置，而且只讀取舊版資料。新 payload 寫入並重新解密核對成功前不得清除 legacy keys。
+- 生物識別仍採 PIN-derived session key + biometric-bound PIN wrapping。`score_biometric_session.xml` 只能保存已加密的 session/PIN ciphertext、IV 與 salt。
+- `session_storage.pb`、`score_biometric_session.xml` 與 transition 期間的 `score_session.xml` 都必須排除 cloud backup 與 device transfer；Manifest 仍維持 `allowBackup=false`。
+
 ## Android 校務行事曆
 
 - 校務行事曆只讀取 `SchoolCalendar.kt` 內固定的學校公開 Google Calendar ICS，不得使用登入 session、cookie、`SchoolGradeClient` 或校務系統 API；專用 OkHttp client 必須保留 `CookieJar.NO_COOKIES`。

@@ -30,6 +30,7 @@ import com.clhs.score.data.SchoolGradeRepository
 import com.clhs.score.data.ScoreInsightProvider
 import com.clhs.score.data.ScoreInsightSet
 import com.clhs.score.data.SessionStore
+import com.clhs.score.data.SessionStorageException
 import com.clhs.score.data.SimulationHistorySource
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.buildGradeAnalysis
@@ -142,7 +143,11 @@ class ScoreViewModel(
                     ensuredGradeReminderWorkKey = null
                     reminderRepository.stop("段考提醒已超過 48 小時")
                     gradeReminderScheduler?.cancel()
-                    sessionStore?.clearReminderSession()
+                    try {
+                        sessionStore?.clearReminderSession()
+                    } catch (_: SessionStorageException) {
+                        // State and scheduled work are already stopped; retry cleanup on a later lifecycle path.
+                    }
                     _gradesState.update {
                         it.copy(
                             gradeReminderState = GradeReminderState(stoppedReason = "段考提醒已超過 48 小時"),
@@ -310,10 +315,18 @@ class ScoreViewModel(
         resetSubjectTrendState()
         val sessionToClear = session
         viewModelScope.launch {
-            repository.logout(sessionToClear)
+            try {
+                repository.logout(sessionToClear)
+            } catch (_: SessionStorageException) {
+                // UI state is already logged out; continue clearing reminder state and work below.
+            }
             gradeReminderRepository?.stop("使用者登出")
             gradeReminderScheduler?.cancel()
-            sessionStore?.clearReminderSession()
+            try {
+                sessionStore?.clearReminderSession()
+            } catch (_: SessionStorageException) {
+                // Repository logout already attempted the authoritative session clear.
+            }
         }
         session = null
         _gradesState.value = GradesUiState()
@@ -559,7 +572,11 @@ class ScoreViewModel(
                     it.copy(
                         isStartingGradeReminder = false,
                         isLoadingGrades = false,
-                        gradeReminderError = error.message ?: "啟用段考提醒失敗",
+                        gradeReminderError = if (error is SessionStorageException) {
+                            "無法安全保存段考提醒登入資訊"
+                        } else {
+                            error.message ?: "啟用段考提醒失敗"
+                        },
                     )
                 }
             }
@@ -575,7 +592,11 @@ class ScoreViewModel(
         viewModelScope.launch {
             gradeReminderRepository?.stop("使用者關閉")
             gradeReminderScheduler?.cancel()
-            sessionStore?.clearReminderSession()
+            try {
+                sessionStore?.clearReminderSession()
+            } catch (_: SessionStorageException) {
+                // State and scheduled work are already stopped; no crypto detail belongs in UI state.
+            }
         }
         _gradesState.update {
             it.copy(
@@ -638,15 +659,22 @@ class ScoreViewModel(
     }
 
     private fun restoreSession() {
-        val restored = repository.restoreSession()
-        if (restored == null) {
-            return
+        viewModelScope.launch {
+            runCatching { repository.restoreSession() }
+                .onSuccess { restored ->
+                    if (restored == null) return@onSuccess
+                    session = restored
+                    _gradesState.update {
+                        it.copy(isLoggedIn = true, studentNo = restored.studentNo)
+                    }
+                    loadStructure()
+                }
+                .onFailure {
+                    _loginState.update {
+                        it.copy(errorMessage = "無法讀取登入資訊，請重新登入")
+                    }
+                }
         }
-        session = restored
-        _gradesState.update {
-            it.copy(isLoggedIn = true, studentNo = restored.studentNo)
-        }
-        loadStructure()
     }
 
     private fun loadStructure(forceRefresh: Boolean = false) {

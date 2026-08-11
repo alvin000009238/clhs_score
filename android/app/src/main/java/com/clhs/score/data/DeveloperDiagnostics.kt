@@ -141,7 +141,9 @@ class DeveloperDiagnostics(private val context: Context) {
             ),
             StorageEntry(
                 LocalDataCategory.Session,
-                dataDir.resolve("shared_prefs/score_session.xml").safeSize(),
+                dataDir.resolve("files/datastore/session_storage.pb").safeSize() +
+                    dataDir.resolve("shared_prefs/score_biometric_session.xml").safeSize() +
+                    dataDir.resolve("shared_prefs/score_session.xml").safeSize(),
             ),
             StorageEntry(LocalDataCategory.WebView, dataDir.resolve("app_webview").safeSize()),
             StorageEntry(LocalDataCategory.Cache, appContext.cacheDir.safeSize()),

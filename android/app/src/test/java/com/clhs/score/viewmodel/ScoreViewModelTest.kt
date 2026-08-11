@@ -463,7 +463,7 @@ class ScoreViewModelTest {
         private val session = AuthenticatedSession("DEMO-000", "token", emptyMap())
         private val fetches = mutableMapOf<Pair<String, String>, CompletableDeferred<GradeReport>>()
 
-        override fun restoreSession(): AuthenticatedSession = session
+        override suspend fun restoreSession(): AuthenticatedSession = session
 
         override fun activateSession(session: AuthenticatedSession) = Unit
 

@@ -2,8 +2,12 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="score_session.xml" />
+        <exclude domain="sharedpref" path="score_biometric_session.xml" />
+        <exclude domain="file" path="datastore/session_storage.pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="score_session.xml" />
+        <exclude domain="sharedpref" path="score_biometric_session.xml" />
+        <exclude domain="file" path="datastore/session_storage.pb" />
     </device-transfer>
 </data-extraction-rules>

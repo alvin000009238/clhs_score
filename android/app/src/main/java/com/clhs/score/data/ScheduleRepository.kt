@@ -75,16 +75,16 @@ class NetworkScheduleRepository(
 
 internal class ActiveSessionResolver(
     private val activeSessionProvider: () -> AuthenticatedSession?,
-    private val storedSessionProvider: () -> AuthenticatedSession?,
+    private val storedSessionProvider: suspend () -> AuthenticatedSession?,
     private val biometricSessionPresentProvider: () -> Boolean,
 ) {
-    fun currentSession(): AuthenticatedSession? {
+    suspend fun currentSession(): AuthenticatedSession? {
         activeSessionProvider()?.let { return it }
         if (biometricSessionPresentProvider()) return null
         return storedSessionProvider()
     }
 
-    fun requireSession(): AuthenticatedSession =
+    suspend fun requireSession(): AuthenticatedSession =
         currentSession() ?: throw SchoolException("未登入")
 }
 

@@ -311,7 +311,7 @@ object FakeData {
 class FakeGradeRepository : GradeRepository {
     private var activeSession: AuthenticatedSession? = null
 
-    override fun restoreSession(): AuthenticatedSession? = activeSession
+    override suspend fun restoreSession(): AuthenticatedSession? = activeSession
 
     override fun activateSession(session: AuthenticatedSession) {
         activeSession = session

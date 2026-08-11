@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import com.google.protobuf.gradle.*
 
 val releaseVersionCode = providers.gradleProperty("versionCode")
     .map { it.toInt() }
@@ -22,9 +23,23 @@ val hasReleaseSigning = listOf(
 
 plugins {
     id("com.android.application")
+    id("com.google.protobuf")
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.35.1"
+    }
+    generateProtoTasks {
+        all().configureEach {
+            builtins {
+                id("java") { option("lite") }
+            }
+        }
+    }
 }
 
 android {
@@ -120,17 +135,20 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+    implementation("androidx.datastore:datastore:1.2.1")
     implementation("androidx.glance:glance-appwidget:1.2.0-rc01")
     implementation("androidx.glance:glance-material3:1.2.0-rc01")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.navigation:navigation-compose:2.9.8")
+    // Legacy reader only. Remove when direct upgrades from the last pre-Proto release are unsupported.
     implementation("androidx.security:security-crypto:1.1.0")
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-config")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.protobuf:protobuf-javalite:4.35.1")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
     implementation("io.coil-kt.coil3:coil-compose:3.5.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")

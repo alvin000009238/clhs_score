@@ -1,5 +1,6 @@
 package com.clhs.score.data
 
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -7,7 +8,7 @@ import org.junit.Test
 
 class ActiveSessionResolverTest {
     @Test
-    fun currentSessionPrefersUnlockedActiveSession() {
+    fun currentSessionPrefersUnlockedActiveSession() = runTest {
         val stored = AuthenticatedSession("stored", "stored-token", mapOf("a" to "1"))
         val active = AuthenticatedSession("active", "active-token", mapOf("b" to "2"))
         val resolver = ActiveSessionResolver(
@@ -20,7 +21,7 @@ class ActiveSessionResolverTest {
     }
 
     @Test
-    fun currentSessionFallsBackToStoredSessionWhenBiometricSessionIsAbsent() {
+    fun currentSessionFallsBackToStoredSessionWhenBiometricSessionIsAbsent() = runTest {
         val stored = AuthenticatedSession("stored", "stored-token", mapOf("a" to "1"))
         val resolver = ActiveSessionResolver(
             activeSessionProvider = { null },
@@ -32,7 +33,7 @@ class ActiveSessionResolverTest {
     }
 
     @Test
-    fun currentSessionDoesNotUseStoredSessionWhenBiometricSessionIsPresent() {
+    fun currentSessionDoesNotUseStoredSessionWhenBiometricSessionIsPresent() = runTest {
         val stored = AuthenticatedSession("stored", "stored-token", mapOf("a" to "1"))
         val resolver = ActiveSessionResolver(
             activeSessionProvider = { null },
@@ -44,7 +45,7 @@ class ActiveSessionResolverTest {
     }
 
     @Test
-    fun requireSessionReportsNotLoggedInWhenNoAllowedSessionExists() {
+    fun requireSessionReportsNotLoggedInWhenNoAllowedSessionExists() = runTest {
         val resolver = ActiveSessionResolver(
             activeSessionProvider = { null },
             storedSessionProvider = { null },

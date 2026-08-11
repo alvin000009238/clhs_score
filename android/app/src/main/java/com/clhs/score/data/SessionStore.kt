@@ -1,187 +1,294 @@
-@file:Suppress("DEPRECATION")
-
 package com.clhs.score.data
 
 import android.content.Context
-import android.util.Base64
-import androidx.core.content.edit
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
-import java.security.SecureRandom
+import androidx.datastore.core.CorruptionException
+import androidx.datastore.core.DataStore
+import com.clhs.score.data.proto.EncryptedSessionPayload
+import com.clhs.score.data.proto.SessionStorage
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import javax.crypto.Cipher
 
-class SessionStore(context: Context) {
-    private val appContext = context.applicationContext
-    private val secureRandom = SecureRandom()
-    private val masterKey = MasterKey.Builder(appContext)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-    private val prefs = EncryptedSharedPreferences.create(
-        appContext,
-        PREFS_NAME,
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+private data class SessionStoreDependencies(
+    val dataStore: DataStore<SessionStorage>,
+    val cipher: SessionCipher,
+    val legacySource: LegacySessionSource,
+    val biometricStorage: BiometricSessionStorage,
+)
+
+private fun productionSessionStoreDependencies(context: Context): SessionStoreDependencies {
+    val appContext = context.applicationContext
+    val legacySource = EncryptedSharedPreferencesLegacySessionSource(appContext)
+    return SessionStoreDependencies(
+        dataStore = appContext.sessionDataStore,
+        cipher = AesGcmSessionCipher(AndroidKeystoreSessionKeyProvider()),
+        legacySource = legacySource,
+        biometricStorage = SharedPreferencesBiometricSessionStorage(appContext, legacySource),
     )
+}
 
-    fun saveSession(session: AuthenticatedSession) {
-        prefs.edit {
-            putString(KEY_STUDENT_NO, session.studentNo)
-            putString(KEY_API_TOKEN, session.apiToken)
-            putString(KEY_COOKIES, session.cookiesJson())
+class SessionStore private constructor(
+    private val dependencies: SessionStoreDependencies,
+) {
+    constructor(context: Context) : this(productionSessionStoreDependencies(context))
+
+    internal constructor(
+        dataStore: DataStore<SessionStorage>,
+        cipher: SessionCipher,
+        legacySource: LegacySessionSource,
+        biometricStorage: BiometricSessionStorage,
+    ) : this(SessionStoreDependencies(dataStore, cipher, legacySource, biometricStorage))
+
+    private val dataStore = dependencies.dataStore
+    private val cipher = dependencies.cipher
+    private val legacySource = dependencies.legacySource
+    private val biometricStorage = dependencies.biometricStorage
+
+    suspend fun saveSession(session: AuthenticatedSession) {
+        val generation = generalWriteGeneration.get()
+        storageMutex.withLock {
+            if (generation != generalWriteGeneration.get()) return@withLock
+            migrateLegacyIfNeeded()
+            val payload = cipher.encrypt(SessionSerializer.serialize(session), GENERAL_AAD)
+            if (generation != generalWriteGeneration.get()) return@withLock
+            updateStorage { storage -> storage.toBuilder().setGeneralSession(payload.toProto()).build() }
         }
     }
 
-    fun loadSession(): AuthenticatedSession? {
-        return loadSessionFromKeys(KEY_STUDENT_NO, KEY_API_TOKEN, KEY_COOKIES)
+    suspend fun loadSession(): AuthenticatedSession? = storageMutex.withLock {
+        migrateLegacyIfNeeded()
+        val storage = readStorage()
+        if (!storage.hasGeneralSession()) return@withLock null
+        decodeGeneral(storage.generalSession)
     }
 
-    fun saveReminderSession(session: AuthenticatedSession, expiresAtMillis: Long) {
-        prefs.edit {
-            putString(KEY_REMINDER_STUDENT_NO, session.studentNo)
-            putString(KEY_REMINDER_API_TOKEN, session.apiToken)
-            putString(KEY_REMINDER_COOKIES, session.cookiesJson())
-            putLong(KEY_REMINDER_EXPIRES_AT, expiresAtMillis)
+    suspend fun saveReminderSession(session: AuthenticatedSession, expiresAtMillis: Long) {
+        val generation = reminderWriteGeneration.get()
+        storageMutex.withLock {
+            if (generation != reminderWriteGeneration.get()) return@withLock
+            migrateLegacyIfNeeded()
+            val payload = cipher.encrypt(
+                SessionSerializer.serialize(session, expiresAtMillis),
+                REMINDER_AAD,
+            )
+            if (generation != reminderWriteGeneration.get()) return@withLock
+            updateStorage { storage -> storage.toBuilder().setReminderSession(payload.toProto()).build() }
         }
     }
 
-    fun loadReminderSession(nowMillis: Long = System.currentTimeMillis()): AuthenticatedSession? {
-        val expiresAt = prefs.getLong(KEY_REMINDER_EXPIRES_AT, 0L)
-        if (expiresAt <= nowMillis) {
-            clearReminderSession()
-            return null
+    suspend fun loadReminderSession(
+        nowMillis: Long = System.currentTimeMillis(),
+        expectedStudentNo: String? = null,
+    ): AuthenticatedSession? =
+        storageMutex.withLock {
+            migrateLegacyIfNeeded()
+            val storage = readStorage()
+            if (!storage.hasReminderSession()) return@withLock null
+            val reminder = decodeReminder(storage.reminderSession)
+            if (reminder.expiresAtMillis!! <= nowMillis) {
+                reminderWriteGeneration.incrementAndGet()
+                updateStorage { current -> current.toBuilder().clearReminderSession().build() }
+                return@withLock null
+            }
+            if (expectedStudentNo != null && reminder.session.studentNo != expectedStudentNo) {
+                reminderWriteGeneration.incrementAndGet()
+                updateStorage { current -> current.toBuilder().clearReminderSession().build() }
+                return@withLock null
+            }
+            reminder.session
         }
-        return loadSessionFromKeys(
-            studentNoKey = KEY_REMINDER_STUDENT_NO,
-            tokenKey = KEY_REMINDER_API_TOKEN,
-            cookiesKey = KEY_REMINDER_COOKIES,
-        )
-    }
 
-    fun clearReminderSession() {
-        prefs.edit {
-            remove(KEY_REMINDER_STUDENT_NO)
-            remove(KEY_REMINDER_API_TOKEN)
-            remove(KEY_REMINDER_COOKIES)
-            remove(KEY_REMINDER_EXPIRES_AT)
+    suspend fun clearReminderSession() {
+        reminderWriteGeneration.incrementAndGet()
+        storageMutex.withLock {
+            migrateLegacyIfNeeded()
+            updateStorage { storage -> storage.toBuilder().clearReminderSession().build() }
+            legacySource.clearReminder()
         }
     }
 
     fun saveBiometricSession(session: AuthenticatedSession, pin: String, cipher: Cipher) {
-        val salt = ByteArray(16).also(secureRandom::nextBytes)
-        val encryptedSession = BiometricHelper.encryptWithPin(session, pin, salt)
-        val encryptedPin = BiometricHelper.encryptPin(pin, cipher)
+        biometricStorage.save(session, pin, cipher)
+    }
 
-        prefs.edit {
-            putString(KEY_BIOMETRIC_SESSION_CIPHER_TEXT, encryptedSession.cipherTextBase64)
-            putString(KEY_BIOMETRIC_SESSION_IV, encryptedSession.ivBase64)
-            putString(KEY_BIOMETRIC_SESSION_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
-            putString(KEY_BIOMETRIC_PIN_CIPHER_TEXT, encryptedPin.cipherTextBase64)
-            putString(KEY_BIOMETRIC_PIN_IV, encryptedPin.ivBase64)
+    fun loadBiometricSession(cipher: Cipher): AuthenticatedSession? = biometricStorage.load(cipher)
+
+    fun loadSessionWithPin(pin: String): AuthenticatedSession? = biometricStorage.loadWithPin(pin)
+
+    fun hasBiometricSession(): Boolean = biometricStorage.hasSession()
+
+    fun getBiometricIv(): ByteArray? = biometricStorage.pinIv()
+
+    fun clearBiometricSession() = biometricStorage.clear()
+
+    suspend fun clearNormalSession() {
+        generalWriteGeneration.incrementAndGet()
+        storageMutex.withLock {
+            migrateLegacyIfNeeded()
+            legacySource.clearGeneral()
+            updateStorage { storage -> storage.toBuilder().clearGeneralSession().build() }
         }
     }
 
-    fun loadBiometricSession(cipher: Cipher): AuthenticatedSession? {
-        val pinCipherText = prefs.getString(KEY_BIOMETRIC_PIN_CIPHER_TEXT, null) ?: return null
-        val pin = runCatching {
-            BiometricHelper.decryptPin(pinCipherText, cipher)
-        }.getOrNull() ?: return null
-
-        return loadSessionWithPin(pin)
-    }
-
-    fun loadSessionWithPin(pin: String): AuthenticatedSession? {
-        return runCatching {
-            val sessionCipherText = prefs.getString(KEY_BIOMETRIC_SESSION_CIPHER_TEXT, null)
-                ?: return@runCatching null
-            val sessionIv = prefs.getString(KEY_BIOMETRIC_SESSION_IV, null)
-                ?: return@runCatching null
-            val saltStr = prefs.getString(KEY_BIOMETRIC_SESSION_SALT, null)
-                ?: return@runCatching null
-            val salt = Base64.decode(saltStr, Base64.NO_WRAP)
-            BiometricHelper.decryptWithPin(sessionCipherText, sessionIv, pin, salt)
-        }.getOrNull()
-    }
-
-    fun hasBiometricSession(): Boolean {
-        return !prefs.getString(KEY_BIOMETRIC_PIN_CIPHER_TEXT, null).isNullOrBlank() &&
-               !prefs.getString(KEY_BIOMETRIC_SESSION_CIPHER_TEXT, null).isNullOrBlank()
-    }
-
-    fun getBiometricIv(): ByteArray? {
-        val ivStr = prefs.getString(KEY_BIOMETRIC_PIN_IV, null) ?: return null
-        return runCatching { Base64.decode(ivStr, Base64.NO_WRAP) }.getOrNull()
-    }
-
-    fun clearBiometricSession() {
-        prefs.edit {
-            remove(KEY_BIOMETRIC_CIPHER_TEXT) // old
-            remove(KEY_BIOMETRIC_IV) // old
-            remove(KEY_BIOMETRIC_SESSION_CIPHER_TEXT)
-            remove(KEY_BIOMETRIC_SESSION_IV)
-            remove(KEY_BIOMETRIC_SESSION_SALT)
-            remove(KEY_BIOMETRIC_PIN_CIPHER_TEXT)
-            remove(KEY_BIOMETRIC_PIN_IV)
-        }
-        runCatching { BiometricHelper.deleteSecretKey() }
-    }
-
-    fun clearNormalSession() {
-        prefs.edit {
-            remove(KEY_STUDENT_NO)
-            remove(KEY_API_TOKEN)
-            remove(KEY_COOKIES)
+    suspend fun clear() {
+        generalWriteGeneration.incrementAndGet()
+        reminderWriteGeneration.incrementAndGet()
+        storageMutex.withLock {
+            updateStorage {
+                SessionStorage.newBuilder()
+                    .setLegacyMigrationComplete(true)
+                    .build()
+            }
+            var failure: SessionStorageException? = null
+            try {
+                legacySource.clearAll()
+            } catch (error: SessionStorageException) {
+                failure = error
+            }
+            try {
+                biometricStorage.clear()
+            } catch (error: SessionStorageException) {
+                failure = failure?.also { it.addSuppressed(error) } ?: error
+            }
+            failure?.let { throw it }
         }
     }
 
-    fun clear() {
-        prefs.edit { clear() }
-        runCatching { BiometricHelper.deleteSecretKey() }
+    private suspend fun migrateLegacyIfNeeded() {
+        var storage = readStorage()
+        if (storage.legacyMigrationComplete) return
+
+        var generalToVerify: AuthenticatedSession? = null
+        var reminderToVerify: LegacyReminderSession? = null
+        var legacyCleanupComplete = true
+        val builder = storage.toBuilder()
+
+        if (storage.hasGeneralSession()) {
+            try {
+                decodeGeneral(storage.generalSession)
+                try {
+                    legacySource.clearGeneral()
+                } catch (_: SessionStorageException) {
+                    legacyCleanupComplete = false
+                }
+            } catch (error: SessionStorageException) {
+                val legacy = legacySource.readGeneral() ?: throw error
+                builder.generalSession = cipher.encrypt(
+                    SessionSerializer.serialize(legacy),
+                    GENERAL_AAD,
+                ).toProto()
+                generalToVerify = legacy
+            }
+        } else {
+            legacySource.readGeneral()?.let { legacy ->
+                builder.generalSession = cipher.encrypt(
+                    SessionSerializer.serialize(legacy),
+                    GENERAL_AAD,
+                ).toProto()
+                generalToVerify = legacy
+            }
+        }
+
+        if (storage.hasReminderSession()) {
+            try {
+                decodeReminder(storage.reminderSession)
+                try {
+                    legacySource.clearReminder()
+                } catch (_: SessionStorageException) {
+                    legacyCleanupComplete = false
+                }
+            } catch (error: SessionStorageException) {
+                val legacy = legacySource.readReminder() ?: throw error
+                builder.reminderSession = cipher.encrypt(
+                    SessionSerializer.serialize(legacy.session, legacy.expiresAtMillis),
+                    REMINDER_AAD,
+                ).toProto()
+                reminderToVerify = legacy
+            }
+        } else {
+            legacySource.readReminder()?.let { legacy ->
+                builder.reminderSession = cipher.encrypt(
+                    SessionSerializer.serialize(legacy.session, legacy.expiresAtMillis),
+                    REMINDER_AAD,
+                ).toProto()
+                reminderToVerify = legacy
+            }
+        }
+
+        if (generalToVerify != null || reminderToVerify != null) {
+            updateStorage { builder.build() }
+            storage = readStorage()
+            generalToVerify?.let { expected ->
+                if (!storage.hasGeneralSession() || decodeGeneral(storage.generalSession) != expected) {
+                    throw SessionMigrationException()
+                }
+                try {
+                    legacySource.clearGeneral()
+                } catch (_: SessionStorageException) {
+                    legacyCleanupComplete = false
+                }
+            }
+            reminderToVerify?.let { expected ->
+                if (!storage.hasReminderSession()) throw SessionMigrationException()
+                val actual = decodeReminder(storage.reminderSession)
+                if (actual.session != expected.session || actual.expiresAtMillis != expected.expiresAtMillis) {
+                    throw SessionMigrationException()
+                }
+                try {
+                    legacySource.clearReminder()
+                } catch (_: SessionStorageException) {
+                    legacyCleanupComplete = false
+                }
+            }
+        }
+
+        if (legacyCleanupComplete) {
+            updateStorage { current -> current.toBuilder().setLegacyMigrationComplete(true).build() }
+        }
     }
 
-    private fun JsonObject.toStringMap(): Map<String, String> = entries.associate { (key, value) ->
-        key to value.asPrimitiveOrNull()?.contentOrNull.orEmpty()
-    }.filterValues { it.isNotBlank() }
+    private suspend fun decodeGeneral(payload: EncryptedSessionPayload): AuthenticatedSession {
+        val decoded = SessionSerializer.deserialize(cipher.decrypt(payload.toDomain(), GENERAL_AAD))
+        if (decoded.expiresAtMillis != null) {
+            throw SessionCorruptedException("General session contains reminder metadata")
+        }
+        return decoded.session
+    }
 
-    private fun AuthenticatedSession.cookiesJson(): String = buildJsonObject {
-        cookies.forEach { (name, value) -> put(name, value) }
-    }.toString()
+    private suspend fun decodeReminder(payload: EncryptedSessionPayload): DecodedSession {
+        val decoded = SessionSerializer.deserialize(cipher.decrypt(payload.toDomain(), REMINDER_AAD))
+        if (decoded.expiresAtMillis == null || decoded.expiresAtMillis <= 0L) {
+            throw SessionCorruptedException("Reminder session expiry is missing")
+        }
+        return decoded
+    }
 
-    private fun loadSessionFromKeys(
-        studentNoKey: String,
-        tokenKey: String,
-        cookiesKey: String,
-    ): AuthenticatedSession? {
-        val studentNo = prefs.getString(studentNoKey, null)?.takeIf { it.isNotBlank() } ?: return null
-        val token = prefs.getString(tokenKey, null)?.takeIf { it.isNotBlank() } ?: return null
-        val rawCookies = prefs.getString(cookiesKey, "{}").orEmpty()
-        val cookies = runCatching {
-            SchoolJson.parseToJsonElement(rawCookies).jsonObject.toStringMap()
-        }.getOrElse { emptyMap() }
-        if (cookies.isEmpty()) return null
-        return AuthenticatedSession(studentNo = studentNo, apiToken = token, cookies = cookies)
+    private suspend fun readStorage(): SessionStorage = try {
+        dataStore.data.first()
+    } catch (error: CorruptionException) {
+        throw SessionCorruptedException("Encrypted session DataStore is corrupted", error)
+    } catch (error: IOException) {
+        throw SessionStorageUnavailableException(error)
+    }
+
+    private suspend fun updateStorage(transform: (SessionStorage) -> SessionStorage): SessionStorage = try {
+        dataStore.updateData(transform)
+    } catch (error: CorruptionException) {
+        throw SessionCorruptedException("Encrypted session DataStore is corrupted", error)
+    } catch (error: IOException) {
+        throw SessionStorageUnavailableException(error)
     }
 
     private companion object {
-        const val PREFS_NAME = "score_session"
-        const val KEY_STUDENT_NO = "student_no"
-        const val KEY_API_TOKEN = "api_token"
-        const val KEY_COOKIES = "cookies"
-        const val KEY_REMINDER_STUDENT_NO = "reminder_student_no"
-        const val KEY_REMINDER_API_TOKEN = "reminder_api_token"
-        const val KEY_REMINDER_COOKIES = "reminder_cookies"
-        const val KEY_REMINDER_EXPIRES_AT = "reminder_expires_at"
-        const val KEY_BIOMETRIC_CIPHER_TEXT = "biometric_cipher_text" // old
-        const val KEY_BIOMETRIC_IV = "biometric_iv" // old
-        const val KEY_BIOMETRIC_SESSION_CIPHER_TEXT = "biometric_session_cipher_text"
-        const val KEY_BIOMETRIC_SESSION_IV = "biometric_session_iv"
-        const val KEY_BIOMETRIC_SESSION_SALT = "biometric_session_salt"
-        const val KEY_BIOMETRIC_PIN_CIPHER_TEXT = "biometric_pin_cipher_text"
-        const val KEY_BIOMETRIC_PIN_IV = "biometric_pin_iv"
+        val GENERAL_AAD = "app/session/general/v1".encodeToByteArray()
+        val REMINDER_AAD = "app/session/reminder/v1".encodeToByteArray()
+
+        // ponytail: one process-wide lock keeps migration/logout atomic; split only if measured contention appears.
+        val storageMutex = Mutex()
+        val generalWriteGeneration = AtomicLong()
+        val reminderWriteGeneration = AtomicLong()
     }
 }
