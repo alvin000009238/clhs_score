@@ -33,7 +33,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -139,20 +144,23 @@ fun WebViewLoginScreen(
         }
 
         errorMessage?.let { msg ->
-            Box(
+            Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
-                    .background(
-                        MaterialTheme.colorScheme.errorContainer,
-                        MaterialTheme.shapes.medium,
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+                action = {
+                    TextButton(onClick = onDismissError) {
+                        Text("關閉")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                actionContentColor = MaterialTheme.colorScheme.onErrorContainer,
             ) {
                 Text(
                     text = msg,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
         }

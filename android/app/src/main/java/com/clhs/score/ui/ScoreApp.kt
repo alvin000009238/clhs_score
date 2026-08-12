@@ -116,11 +116,6 @@ fun ScoreApp(
         analyticsLogger = analyticsLogger,
     )
 
-    LaunchedEffect(loginState.errorMessage) {
-        val message = loginState.errorMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message)
-        onDismissLoginError()
-    }
     LaunchedEffect(gradesState.errorMessage) {
         val message = gradesState.errorMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
