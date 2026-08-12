@@ -1,5 +1,6 @@
 package com.clhs.score.ui
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -16,7 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -41,7 +42,7 @@ import org.junit.Test
 
 class ScoreUiTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun introScreenExposesLoginEntryPoint() {
@@ -52,7 +53,7 @@ class ScoreUiTest {
             }
         }
 
-        composeRule.onNodeWithText("成績", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("即時掌握成績").assertIsDisplayed()
         composeRule.onNode(hasClickAction()).performClick()
         composeRule.runOnIdle {
             assert(clicked)
@@ -110,6 +111,7 @@ class ScoreUiTest {
                 TestGradesScreen()
             }
         }
+        settleUi()
 
         composeRule.onNodeWithText("總覽").assertIsDisplayed()
         composeRule.onNodeWithText("科目").assertIsDisplayed()
@@ -119,19 +121,9 @@ class ScoreUiTest {
         composeRule.onNodeWithContentDescription("更多").assertIsDisplayed()
         composeRule.onAllNodesWithText("全部科目").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表").assertCountEquals(0)
-        composeRule.onNodeWithText("範例學生", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("加權平均").assertIsDisplayed()
-        composeRule.onNodeWithText("班排 15/38（前 39%）").assertIsDisplayed()
-        composeRule.onNodeWithText("類排 88/226（前 38%）").assertIsDisplayed()
-        composeRule.onNodeWithText("科目數 7 ｜ 最高分 80").assertIsDisplayed()
-        composeRule.onNodeWithText("重點解讀").assertIsDisplayed()
-        composeRule.onNodeWithText("最值得補強").assertIsDisplayed()
-        composeRule.onNodeWithText("最具優勢").assertIsDisplayed()
-        composeRule.onNodeWithText("排名推估").assertIsDisplayed()
-        composeRule.onNodeWithText("查看科目分析").assertIsDisplayed()
-        composeRule.onNodeWithText("查看圖表分析").assertIsDisplayed()
-        composeRule.onNodeWithText("查看排名分布").assertIsDisplayed()
-        composeRule.onNodeWithText("強弱科摘要").assertIsDisplayed()
+        composeRule.onAllNodesWithText("範例學生", substring = true).assertCountEquals(1)
+        composeRule.onAllNodesWithText("加權平均").assertCountEquals(1)
+        composeRule.onAllNodesWithText("班排 15/38 ・ 類排 88/226").assertCountEquals(1)
         composeRule.onAllNodesWithText("科目分析").assertCountEquals(0)
         composeRule.onAllNodesWithText("圖表分析").assertCountEquals(0)
         composeRule.onAllNodesWithText("更多資料").assertCountEquals(0)
@@ -146,54 +138,65 @@ class ScoreUiTest {
         }
 
         composeRule.onNodeWithText("科目").performClick()
-        composeRule.onAllNodesWithText("五標落點").assertCountEquals(0)
-        composeRule.onNodeWithText("國語文").performScrollTo().performClick()
-        composeRule.onNodeWithText("五標落點").assertIsDisplayed()
-        composeRule.onNodeWithText("分佈摘要").assertIsDisplayed()
-        composeRule.onNodeWithText("上一考比較").assertIsDisplayed()
-        composeRule.onAllNodesWithText("班級平均").assertCountEquals(0)
-        composeRule.onAllNodesWithText("校排").assertCountEquals(0)
+        settleUi()
+        composeRule.onAllNodesWithText("班級五標").assertCountEquals(0)
+        composeRule.onNodeWithText("國文").performScrollTo().performClick()
+        settleUi()
+        composeRule.onNodeWithText("班級五標").assertIsDisplayed()
+        composeRule.onNodeWithText("分數分布").assertIsDisplayed()
+        composeRule.onNodeWithText("上次成績").assertIsDisplayed()
 
-        composeRule.onNodeWithText("國語文").performScrollTo().performClick()
-        composeRule.waitForIdle()
-        composeRule.onAllNodesWithText("五標落點").assertCountEquals(0)
+        composeRule.onNodeWithText("國文").performScrollTo().performClick()
+        settleUi()
+        composeRule.onAllNodesWithText("班級五標").assertCountEquals(0)
     }
 
     @Test
-    fun quickActionsNavigateToSubjectsAndAdvanced() {
+    fun navigationSwitchesBetweenSubjectsAndAdvanced() {
         composeRule.setContent {
             ScoreTheme {
                 TestGradesScreen()
             }
         }
+        settleUi()
 
-        composeRule.onNodeWithText("查看科目分析").performScrollTo().performClick()
-        composeRule.onNodeWithText("國語文").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("科目").performClick()
+        settleUi()
+        composeRule.onNodeWithText("國文").performScrollTo().assertIsDisplayed()
 
-        composeRule.onNodeWithText("總覽").performClick()
-        composeRule.onNodeWithText("查看圖表分析").performScrollTo().performClick()
-        composeRule.onNodeWithText("五標分析").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("更多").performClick()
+        settleUi()
+        composeRule.onNodeWithText("成績模擬器").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun overviewShowsTrendLoadingAndNoHistoryStates() {
+        var isLoadingTrend by mutableStateOf(true)
+        var showTrend by mutableStateOf(true)
+        var trendError by mutableStateOf<String?>(null)
         composeRule.setContent {
             ScoreTheme {
-                TestGradesScreen(isLoadingTrend = true, trendError = null)
+                TestGradesScreen(
+                    isLoadingTrend = isLoadingTrend,
+                    showTrend = showTrend,
+                    trendError = trendError,
+                )
             }
         }
-        composeRule.onNodeWithText("正在載入歷次趨勢...").assertIsDisplayed()
+        settleUi()
+        composeRule.onNodeWithText("正在載入歷次趨勢...").performScrollTo().assertIsDisplayed()
 
-        composeRule.setContent {
-            ScoreTheme {
-                TestGradesScreen(showTrend = false, trendError = "尚無歷次趨勢可比較")
-            }
+        composeRule.runOnIdle {
+            isLoadingTrend = false
+            showTrend = false
+            trendError = "尚無歷次趨勢可比較"
         }
-        composeRule.onNodeWithText("尚無歷次趨勢可比較").assertIsDisplayed()
+        settleUi()
+        composeRule.onNodeWithText("尚無歷次趨勢可比較").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun analysisSectionShowsDistributionCollapsedThenExpanded() {
+    fun analysisSectionShowsChartsAndStandards() {
         composeRule.setContent {
             ScoreTheme {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -206,9 +209,12 @@ class ScoreUiTest {
         composeRule.onNodeWithText("雷達分析").assertIsDisplayed()
         composeRule.onNodeWithText("成績比較").assertIsDisplayed()
         composeRule.onNodeWithText("五標分析").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("分數分布").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("展開完整分佈").performScrollTo().performClick()
-        composeRule.onNodeWithText("收合完整分佈").assertIsDisplayed()
+    }
+
+    private fun settleUi() {
+        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(1_000)
+        composeRule.waitForIdle()
     }
 
     @Composable

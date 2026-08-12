@@ -4,7 +4,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,10 +21,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -34,7 +30,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -43,11 +38,9 @@ import androidx.compose.ui.unit.dp
 import com.clhs.score.data.GradeAnalysis
 import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeStandard
-import com.clhs.score.data.SubjectAnalysis
 import com.clhs.score.data.SubjectScore
 import com.clhs.score.data.buildGradeAnalysis
 import com.clhs.score.data.gradeLevel
-import com.clhs.score.data.scoreDistributions
 import com.clhs.score.data.shortenSubjectName
 import kotlin.math.abs
 import kotlin.math.cos
@@ -325,115 +318,6 @@ private fun StandardsTable(analysis: GradeAnalysis) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DistributionSection(analysis: GradeAnalysis) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "分數分布",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "預設只顯示自己所在級距；點擊科目可展開完整分布。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            analysis.subjects.forEach { subjectAnalysis ->
-                val standard = subjectAnalysis.standard ?: return@forEach
-                DistributionCard(analysis = subjectAnalysis, standard = standard)
-            }
-        }
-    }
-}
-
-@Composable
-private fun DistributionCard(analysis: SubjectAnalysis, standard: GradeStandard) {
-    var expanded by remember { mutableStateOf(false) }
-    val subject = analysis.subject
-    val distributions = scoreDistributions(subject.scoreValue, standard)
-    val visibleDistributions = if (expanded) distributions else distributions.filter { it.isMine }
-    val total = max(distributions.sumOf { it.count }, 1)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                onClickLabel = if (expanded) "收合完整分佈" else "展開完整分佈",
-                role = Role.Button,
-                onClick = { expanded = !expanded },
-            )
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.medium)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = shortenSubjectName(subject.subjectName),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        analysis.distributionSummary?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        visibleDistributions.forEach { item ->
-            val widthFraction = (item.count.toFloat() / total).coerceIn(0f, 1f)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    modifier = Modifier.width(58.dp),
-                    text = item.label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(18.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(widthFraction)
-                            .height(18.dp)
-                            .background(distributionColor(item.label), RoundedCornerShape(6.dp)),
-                    )
-                    if (item.isMine) {
-                        Text(
-                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp),
-                            text = "我",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-                Text(
-                    modifier = Modifier.width(42.dp),
-                    text = "${item.count}人",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Text(
-            text = if (expanded) "收合完整分佈" else "展開完整分佈",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-        )
     }
 }
 
