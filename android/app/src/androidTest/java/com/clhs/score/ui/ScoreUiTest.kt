@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
@@ -79,6 +81,28 @@ class ScoreUiTest {
             .performClick()
         composeRule.runOnIdle {
             assert(clicked)
+        }
+    }
+
+    @Test
+    fun webViewProcessingOverlayBlocksNavigationTouch() {
+        var backClicked = false
+        composeRule.setContent {
+            ScoreTheme {
+                WebViewLoginScreen(
+                    isProcessingLogin = true,
+                    errorMessage = null,
+                    onLoginSuccess = { _, _ -> },
+                    onBack = { backClicked = true },
+                    onDismissError = {},
+                )
+            }
+        }
+        settleUi()
+
+        composeRule.onNodeWithContentDescription("返回").performTouchInput { click() }
+        composeRule.runOnIdle {
+            assert(!backClicked)
         }
     }
 
