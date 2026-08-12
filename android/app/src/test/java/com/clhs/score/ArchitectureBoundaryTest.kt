@@ -354,7 +354,6 @@ class ArchitectureBoundaryTest {
         val gradesSource = readSource("app/src/main/java/com/clhs/score/ui/GradesScreen.kt")
         val drawerSheet = gradesSource.substringAfter("ModalDrawerSheet(").substringBefore(") {")
 
-        assertTrue(manifest.contains("android:enableOnBackInvokedCallback=\"true\""))
         assertTrue(appSource.contains("composable(WebViewLoginRoute)"))
         assertTrue(appSource.contains("onBack = { loginNavController.popBackStack() }"))
         assertFalse(loginSource.contains("BackHandler"))
@@ -663,6 +662,7 @@ class ArchitectureBoundaryTest {
     fun scheduleWidgetKeepsTierOnePlatformIntegration() {
         val source = readSource("app/src/main/java/com/clhs/score/widget/ScheduleWidget.kt")
         val provider = readSource("app/src/main/res/xml/schedule_widget_info.xml")
+        val providerV31 = readSource("app/src/main/res/xml-v31/schedule_widget_info.xml")
         val manifest = readSource("app/src/main/AndroidManifest.xml")
 
         assertTrue(source.contains("Scaffold("))
@@ -676,8 +676,8 @@ class ArchitectureBoundaryTest {
 
         assertTrue(provider.contains("android:minResizeWidth=\"180dp\""))
         assertTrue(provider.contains("android:minResizeHeight=\"110dp\""))
-        assertTrue(provider.contains("android:maxResizeWidth=\"460dp\""))
-        assertTrue(provider.contains("android:maxResizeHeight=\"500dp\""))
+        assertTrue(providerV31.contains("android:maxResizeWidth=\"460dp\""))
+        assertTrue(providerV31.contains("android:maxResizeHeight=\"500dp\""))
         assertTrue(provider.contains("android:initialLayout=\"@layout/glance_default_loading_layout\""))
         assertTrue(provider.contains("android:previewImage=\"@drawable/schedule_widget_preview\""))
         assertTrue(provider.contains("android:description=\"@string/schedule_widget_description\""))

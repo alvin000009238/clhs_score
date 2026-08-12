@@ -16,11 +16,6 @@ fun formatRank(rank: Int?, count: Int?, emptyValue: String = "--"): String {
     return "$rank / $count"
 }
 
-fun formatExportRank(rank: Int?, count: Int?): String {
-    if (rank == null) return ""
-    return if (count != null && count > 0) "$rank/$count" else "$rank"
-}
-
 fun subjectPercentLabel(rank: Int?, count: Int?): String {
     if (rank == null || count == null || count <= 0) return "--"
     val percent = ((rank.toDouble() / count) * 100.0).toInt().coerceIn(1, 100)

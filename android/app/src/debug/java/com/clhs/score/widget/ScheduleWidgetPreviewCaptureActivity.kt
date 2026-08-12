@@ -10,7 +10,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.PixelFormat
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -22,6 +21,8 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toDrawable
 import androidx.glance.appwidget.composeForPreview
 import com.clhs.score.data.SettingsRepository
 import com.clhs.score.data.ThemeMode
@@ -44,7 +45,7 @@ class ScheduleWidgetPreviewCaptureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             setFormat(PixelFormat.TRANSLUCENT)
             setGravity(Gravity.TOP or Gravity.START)
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
@@ -116,7 +117,7 @@ class ScheduleWidgetPreviewCaptureActivity : Activity() {
             awaitHardwareFrame(hostView)
             delay(2_000)
 
-            val bitmap = Bitmap.createBitmap(
+            val bitmap = createBitmap(
                 OUTPUT_WIDTH,
                 OUTPUT_HEIGHT,
                 Bitmap.Config.ARGB_8888,

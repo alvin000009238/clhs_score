@@ -1,6 +1,7 @@
 package com.clhs.score.analytics
 
 import android.content.Context
+import androidx.core.content.edit
 
 enum class UsageMetric {
     APP_OPEN,
@@ -29,12 +30,12 @@ class UsageStatisticsStore(context: Context) {
         val metric = usageMetricForEvent(name, parameters) ?: return
         synchronized(lock) {
             val key = metric.preferenceKey()
-            val editor = preferences.edit()
-                .putLong(key, preferences.getLong(key, 0L) + 1L)
-            if (!preferences.contains(KEY_STARTED_AT)) {
-                editor.putLong(KEY_STARTED_AT, System.currentTimeMillis())
+            preferences.edit {
+                putLong(key, preferences.getLong(key, 0L) + 1L)
+                if (!preferences.contains(KEY_STARTED_AT)) {
+                    putLong(KEY_STARTED_AT, System.currentTimeMillis())
+                }
             }
-            editor.apply()
         }
     }
 

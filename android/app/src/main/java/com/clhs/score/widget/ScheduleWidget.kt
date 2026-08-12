@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -332,16 +333,16 @@ suspend fun refreshScheduleWidgetPreview(context: Context, settings: AppSettings
     }
 
     // ponytail: fixed cooldown matches the platform's default limit; schedule work only if launch-time retry is insufficient.
-    preferences.edit().putLong(ScheduleWidgetPreviewLastAttemptKey, nowMillis).apply()
+    preferences.edit { putLong(ScheduleWidgetPreviewLastAttemptKey, nowMillis) }
     runCatching {
         GlanceAppWidgetManager(context).setWidgetPreviews(ScheduleWidgetReceiver::class)
     }.onSuccess { result ->
         if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_RATE_LIMITED) {
             Log.w("ScheduleWidget", "Widget preview refresh was rate limited")
         } else {
-            preferences.edit()
-                .putString(ScheduleWidgetPreviewSignatureKey, currentSignature)
-                .apply()
+            preferences.edit {
+                putString(ScheduleWidgetPreviewSignatureKey, currentSignature)
+            }
         }
     }.onFailure { Log.w("ScheduleWidget", "Failed to publish widget preview", it) }
 }

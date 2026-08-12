@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -319,7 +320,7 @@ fun ScoreApp(
                                 context.startActivity(
                                     android.content.Intent(
                                         android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(SCHOOL_CALENDAR_WEB_URL),
+                                        SCHOOL_CALENDAR_WEB_URL.toUri(),
                                     ),
                                 )
                             }.onFailure {
@@ -499,7 +500,7 @@ private fun android.content.Context.openAnnouncementUrl(value: String) {
         return
     }
     runCatching {
-        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
     }.onFailure {
         android.widget.Toast.makeText(this, "無法開啟連結", android.widget.Toast.LENGTH_SHORT).show()
     }

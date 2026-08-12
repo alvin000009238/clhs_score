@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -26,6 +27,7 @@ internal fun Context.areNotificationsEnabled(): Boolean =
 internal fun Context.canPostNotifications(): Boolean =
     hasPostNotificationsPermission() && areNotificationsEnabled()
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 internal fun Context.shouldShowPostNotificationsRationale(): Boolean =
     findActivity()?.let { activity ->
         ActivityCompat.shouldShowRequestPermissionRationale(

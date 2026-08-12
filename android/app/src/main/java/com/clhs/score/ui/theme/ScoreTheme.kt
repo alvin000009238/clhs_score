@@ -1,6 +1,5 @@
 package com.clhs.score.ui.theme
 
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +24,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toDrawable
 import com.clhs.score.R
 import com.clhs.score.data.ThemeMode
 
@@ -199,7 +199,7 @@ fun ScoreTheme(
     if (!view.isInEditMode) {
         androidx.compose.runtime.SideEffect {
             val window = (view.context as android.app.Activity).window
-            window.setBackgroundDrawable(ColorDrawable(colorScheme.background.toArgb()))
+            window.setBackgroundDrawable(colorScheme.background.toArgb().toDrawable())
             androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !useDark
             androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !useDark
         }

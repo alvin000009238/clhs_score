@@ -4,8 +4,6 @@
     android:minHeight="203dp"
     android:minResizeWidth="180dp"
     android:minResizeHeight="110dp"
-    android:maxResizeWidth="460dp"
-    android:maxResizeHeight="500dp"
     android:updatePeriodMillis="0"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"

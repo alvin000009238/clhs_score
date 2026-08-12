@@ -65,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -641,9 +642,9 @@ internal fun isAllowedFeedbackFormUrl(value: String): Boolean {
 fun OpenSourceLicensesScreen(
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val outfitLicenseText = remember {
-        context.resources.openRawResource(R.raw.outfit_ofl)
+    val resources = LocalResources.current
+    val outfitLicenseText = remember(resources) {
+        resources.openRawResource(R.raw.outfit_ofl)
             .bufferedReader()
             .use { it.readText() }
     }
