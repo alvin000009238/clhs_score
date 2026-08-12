@@ -56,8 +56,7 @@ flowchart TB
 | 目錄 | 說明 | 文件 |
 |------|------|------|
 | [`android/`](android/) | Kotlin / Jetpack Compose 原生 App | [android/README.md](android/README.md) |
-| [`demo/`](demo/) | 展示素材與截圖頁面 | |
-| [`.github/workflows/`](.github/workflows/) | Android release、demo deploy 與程式碼掃描 workflow | |
+| [`.github/workflows/`](.github/workflows/) | Android release 與程式碼掃描 workflow | |
 
 ## 快速開始
 

@@ -56,8 +56,7 @@ flowchart TB
 | Directory                                  | Description                                                        | Documentation                          |
 | ------------------------------------------ | ------------------------------------------------------------------ | -------------------------------------- |
 | [`android/`](android/)                     | Native Kotlin / Jetpack Compose app                                | [android/README.md](android/README.md) |
-| [`demo/`](demo/)                           | Demo assets and screenshot pages                                   |                                        |
-| [`.github/workflows/`](.github/workflows/) | Workflows for Android releases, demo deployment, and code scanning |                                        |
+| [`.github/workflows/`](.github/workflows/) | Workflows for Android releases and code scanning                   |                                        |
 
 ## Quick Start
 

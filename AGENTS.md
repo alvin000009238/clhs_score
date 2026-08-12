@@ -5,8 +5,7 @@
 ## 專案結構
 
 - `android/`：獨立 Kotlin / Jetpack Compose / Material 3 Android app，package 為 `com.clhs.score`。
-- `demo/`：展示素材與截圖頁面。
-- `.github/workflows/`：此 repo 的 Android release、demo deploy 與通用檢查 workflow。
+- `.github/workflows/`：此 repo 的 Android release 與通用檢查 workflow。
 
 ## 工作規則
 
