@@ -97,22 +97,24 @@ class SchoolCalendarTest {
 
     @Test
     fun cancellingCalendarLoadStopsTheBlockingHttpCall() = runBlocking {
-        server.enqueue(calendarResponse().setBodyDelay(5, TimeUnit.SECONDS))
-        val cacheDirectory = Files.createTempDirectory("school-calendar-cancel-test").toFile()
-        val repository = NetworkSchoolCalendarRepository(
-            cacheDirectory = cacheDirectory,
-            feedUrl = server.url("/calendar.ics").toString(),
-        )
+        repeat(20) {
+            server.enqueue(calendarResponse().setBodyDelay(5, TimeUnit.SECONDS))
+            val cacheDirectory = Files.createTempDirectory("school-calendar-cancel-test").toFile()
+            val repository = NetworkSchoolCalendarRepository(
+                cacheDirectory = cacheDirectory,
+                feedUrl = server.url("/calendar.ics").toString(),
+            )
 
-        try {
-            val load = launch(Dispatchers.Default) { repository.load(forceRefresh = true) }
-            assertTrue(server.takeRequest(2, TimeUnit.SECONDS) != null)
-            load.cancel()
+            try {
+                val load = launch(Dispatchers.Default) { repository.load(forceRefresh = true) }
+                assertTrue(server.takeRequest(2, TimeUnit.SECONDS) != null)
+                load.cancel()
 
-            withTimeout(1_000L) { load.join() }
-            assertTrue(load.isCancelled)
-        } finally {
-            cacheDirectory.deleteRecursively()
+                withTimeout(1_000L) { load.join() }
+                assertTrue(load.isCancelled)
+            } finally {
+                cacheDirectory.deleteRecursively()
+            }
         }
     }
 
