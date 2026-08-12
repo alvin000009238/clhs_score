@@ -116,7 +116,7 @@ jobs:
         working-directory: android
         run: |
           version_name="${GITHUB_REF_NAME#v}"
-          ./gradlew --no-daemon test assembleRelease \
+          ./gradlew --no-daemon test :app:compileDebugAndroidTestKotlin assembleRelease \
             -PversionName="$version_name" \
             -PversionCode="${GITHUB_RUN_NUMBER}"
 

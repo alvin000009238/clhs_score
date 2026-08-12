@@ -53,10 +53,6 @@ android {
         versionCode = releaseVersionCode.get()
         versionName = releaseVersionName.get()
 
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "USE_FAKE_DATA", useFakeData.get().toString())
     }
@@ -91,6 +87,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
