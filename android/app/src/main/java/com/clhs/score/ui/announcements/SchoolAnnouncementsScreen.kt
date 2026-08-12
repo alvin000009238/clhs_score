@@ -524,7 +524,7 @@ private fun AnnouncementAttachmentButton(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         shapes = ButtonDefaults.shapes(),
     ) {
-        OutlinedRoundedSymbol(icon = "download", size = 24.dp, contentDescription = null)
+        OutlinedRoundedSymbol(icon = "arrow_outward", size = 24.dp, contentDescription = null)
         Column(
             modifier = Modifier
                 .weight(1f)

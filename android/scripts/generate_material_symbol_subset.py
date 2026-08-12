@@ -44,6 +44,7 @@ ICONS = (
     "notifications",
     "notifications_active",
     "download",
+    "arrow_outward",
     "keyboard_arrow_down",
     "keyboard_arrow_right",
     "keyboard_arrow_up",
