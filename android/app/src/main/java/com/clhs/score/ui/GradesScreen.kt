@@ -58,7 +58,7 @@ import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.ShortNavigationBarItemDefaults
 import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
+import androidx.compose.material3.SplitButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -730,7 +730,7 @@ private fun GradeSelectionPill(
     )
 
     Box {
-        SplitButtonLayout(
+        SplitButton(
             leadingButton = {
                 SplitButtonDefaults.TonalLeadingButton(
                     modifier = Modifier.height(48.dp),
