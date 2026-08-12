@@ -26,11 +26,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamOption
-import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
 import com.clhs.score.data.StudentScenario
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.buildGradeAnalysis
+import com.clhs.score.data.buildScoreInsights
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
@@ -246,7 +246,7 @@ class ScoreUiTest {
                 isLoadingTrend = isLoadingTrend,
                 trendError = trendError,
                 trend = trend,
-                insights = LocalScoreInsightProvider().buildInsights(report, analysis, trend),
+                insights = buildScoreInsights(report, analysis, trend),
                 expandedSubjectKeys = expanded,
             ),
             settings = AppSettings(),

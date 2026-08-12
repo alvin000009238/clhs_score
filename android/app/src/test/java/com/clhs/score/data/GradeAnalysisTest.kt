@@ -262,7 +262,7 @@ class GradeAnalysisTest {
             customClassRank = 18.0,
         )
         val analysis = buildGradeAnalysis(current, previous, "第二次段考")
-        val insights = LocalScoreInsightProvider().buildInsights(current, analysis)
+        val insights = buildScoreInsights(current, analysis)
 
         assertNotNull(insights.projection)
         assertTrue(insights.items.any { it.title == "最值得補強" && it.body.contains("社會") })
@@ -389,7 +389,7 @@ class GradeAnalysisTest {
         val current = MockGradeSystem.generateReport(customClassRank = null)
         val reportWithNullClassCount = current.copy(examSummary = current.examSummary?.copy(classCount = null))
         val analysis = buildGradeAnalysis(reportWithNullClassCount)
-        val insights = LocalScoreInsightProvider().buildInsights(reportWithNullClassCount, analysis)
+        val insights = buildScoreInsights(reportWithNullClassCount, analysis)
 
         assertNull(insights.projection?.estimatedClassRank)
         assertTrue(insights.items.any { it.body.contains("排名資料不足") })

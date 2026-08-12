@@ -97,73 +97,63 @@ data class ScoreInsightSet(
     val projection: RankProjection?,
 )
 
-interface ScoreInsightProvider {
-    fun buildInsights(
-        report: GradeReport,
-        analysis: GradeAnalysis,
-        trend: GradeTrend? = null,
-    ): ScoreInsightSet
-}
-
-class LocalScoreInsightProvider : ScoreInsightProvider {
-    override fun buildInsights(
-        report: GradeReport,
-        analysis: GradeAnalysis,
-        trend: GradeTrend?,
-    ): ScoreInsightSet {
-        val focus = focusSubject(report)
-        val strength = report.subjects.maxByOrNull { it.diffValue }
-        val projection = focus?.let { buildRankProjection(report, analysis.comparison, it) }
-        val items = buildList {
-            focus?.let {
-                val body = if (it.diffValue < -0.05) {
-                    "${shortenSubjectName(it.subjectName)} 低於平均 ${"%.1f".format(abs(it.diffValue))} 分，先補這科最有感。"
-                } else {
-                    "${shortenSubjectName(it.subjectName)} 是目前最適合再拉高的科目，先提升 ${"%.1f".format(min(8.0, max(3.0, abs(it.diffValue))))} 分。"
-                }
-                add(
-                    ScoreInsight(
-                        title = "最值得補強",
-                        body = body,
-                        tone = ScoreInsightTone.Warning,
-                    ),
-                )
+fun buildScoreInsights(
+    report: GradeReport,
+    analysis: GradeAnalysis,
+    trend: GradeTrend? = null,
+): ScoreInsightSet {
+    val focus = focusSubject(report)
+    val strength = report.subjects.maxByOrNull { it.diffValue }
+    val projection = focus?.let { buildRankProjection(report, analysis.comparison, it) }
+    val items = buildList {
+        focus?.let {
+            val body = if (it.diffValue < -0.05) {
+                "${shortenSubjectName(it.subjectName)} 低於平均 ${"%.1f".format(abs(it.diffValue))} 分，先補這科最有感。"
+            } else {
+                "${shortenSubjectName(it.subjectName)} 是目前最適合再拉高的科目，先提升 ${"%.1f".format(min(8.0, max(3.0, abs(it.diffValue))))} 分。"
             }
-            strength?.let {
-                val label = if (it.diffValue >= 0.0) {
-                    "高於平均 ${signedDiff(it.diffValue)} 分"
-                } else {
-                    "低於平均 ${"%.1f".format(abs(it.diffValue))} 分，但已是目前最接近平均的科目"
-                }
-                add(
-                    ScoreInsight(
-                        title = "最具優勢",
-                        body = "${shortenSubjectName(it.subjectName)} $label。",
-                        tone = ScoreInsightTone.Positive,
-                    ),
-                )
-            }
-            projection?.let {
-                add(
-                    ScoreInsight(
-                        title = "排名推估",
-                        body = projectionText(it),
-                        tone = ScoreInsightTone.Neutral,
-                    ),
-                )
-            }
-            trend?.takeIf { it.points.size >= 2 }?.let {
-                add(
-                    ScoreInsight(
-                        title = "近 ${it.points.size} 次平均",
-                        body = it.averageLine,
-                        tone = ScoreInsightTone.Neutral,
-                    ),
-                )
-            }
+            add(
+                ScoreInsight(
+                    title = "最值得補強",
+                    body = body,
+                    tone = ScoreInsightTone.Warning,
+                ),
+            )
         }
-        return ScoreInsightSet(items = items, projection = projection)
+        strength?.let {
+            val label = if (it.diffValue >= 0.0) {
+                "高於平均 ${signedDiff(it.diffValue)} 分"
+            } else {
+                "低於平均 ${"%.1f".format(abs(it.diffValue))} 分，但已是目前最接近平均的科目"
+            }
+            add(
+                ScoreInsight(
+                    title = "最具優勢",
+                    body = "${shortenSubjectName(it.subjectName)} $label。",
+                    tone = ScoreInsightTone.Positive,
+                ),
+            )
+        }
+        projection?.let {
+            add(
+                ScoreInsight(
+                    title = "排名推估",
+                    body = projectionText(it),
+                    tone = ScoreInsightTone.Neutral,
+                ),
+            )
+        }
+        trend?.takeIf { it.points.size >= 2 }?.let {
+            add(
+                ScoreInsight(
+                    title = "近 ${it.points.size} 次平均",
+                    body = it.averageLine,
+                    tone = ScoreInsightTone.Neutral,
+                ),
+            )
+        }
     }
+    return ScoreInsightSet(items = items, projection = projection)
 }
 
 data class GradeComparison(

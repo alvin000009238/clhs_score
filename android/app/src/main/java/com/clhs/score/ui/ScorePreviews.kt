@@ -10,10 +10,10 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.FakeData
-import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.MockGradeSystem
 import com.clhs.score.data.StudentScenario
 import com.clhs.score.data.buildGradeAnalysis
+import com.clhs.score.data.buildScoreInsights
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.ui.theme.ScoreTheme
@@ -251,7 +251,7 @@ private fun fakeGradesState(
         trend = trend,
         simulatorHistoryReports = FakeData.simulatorHistoryReports(),
         simulatorHistoryLabel = "近 3 次段考",
-        insights = LocalScoreInsightProvider().buildInsights(report, analysis, trend),
+        insights = buildScoreInsights(report, analysis, trend),
         analysis = analysis,
         expandedSubjectKeys = expandedSubjectKeys,
     )

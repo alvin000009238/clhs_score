@@ -23,17 +23,16 @@ import com.clhs.score.data.GradeReport
 import com.clhs.score.data.GradeReportDiffer
 import com.clhs.score.data.GradeRepository
 import com.clhs.score.data.GradeTrend
-import com.clhs.score.data.LocalScoreInsightProvider
 import com.clhs.score.data.SchoolException
 import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SchoolGradeRepository
-import com.clhs.score.data.ScoreInsightProvider
 import com.clhs.score.data.ScoreInsightSet
 import com.clhs.score.data.SessionStore
 import com.clhs.score.data.SessionStorageException
 import com.clhs.score.data.SimulationHistorySource
 import com.clhs.score.data.YearTermOption
 import com.clhs.score.data.buildGradeAnalysis
+import com.clhs.score.data.buildScoreInsights
 import com.clhs.score.data.buildGradeTrend
 import com.clhs.score.data.cleanSubjectName
 import com.clhs.score.data.latestExam
@@ -107,7 +106,6 @@ data class SubjectTrendUiState(
 
 class ScoreViewModel(
     private val repository: GradeRepository,
-    private val insightProvider: ScoreInsightProvider = LocalScoreInsightProvider(),
     private val appContext: Context? = null,
     private val sessionStore: SessionStore? = null,
     private val gradeReminderRepository: GradeReminderRepository? = null,
@@ -867,7 +865,7 @@ class ScoreViewModel(
                 simulatorHistoryReports = emptyList(),
                 simulatorHistoryLabel = null,
                 analysis = analysis,
-                insights = insightProvider.buildInsights(report, analysis),
+                insights = buildScoreInsights(report, analysis),
                 errorMessage = null,
                 gradeReminderChangeSet = gradeReminderChangeSet,
             )
@@ -911,7 +909,7 @@ class ScoreViewModel(
                     trendHistoryLabel = null,
                     simulatorHistoryReports = emptyList(),
                     simulatorHistoryLabel = null,
-                    insights = insightProvider.buildInsights(report, analysis, null),
+                    insights = buildScoreInsights(report, analysis),
                 )
             }
             return
@@ -981,7 +979,7 @@ class ScoreViewModel(
                         trend = trend,
                         simulatorHistoryReports = simulatorReports,
                         simulatorHistoryLabel = simulatorSource?.label,
-                        insights = insightProvider.buildInsights(report, analysis, trend),
+                        insights = buildScoreInsights(report, analysis, trend),
                         analysis = analysis,
                     )
                 }
@@ -1001,7 +999,7 @@ class ScoreViewModel(
                         trendHistoryLabel = null,
                         simulatorHistoryReports = emptyList(),
                         simulatorHistoryLabel = null,
-                        insights = insightProvider.buildInsights(report, analysis, null),
+                        insights = buildScoreInsights(report, analysis),
                     )
                 }
             }
