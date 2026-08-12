@@ -51,6 +51,23 @@ private data class ChartData(
     val dashedLines: Map<String, List<Triple<Triple<Int, Double, String>, Triple<Int, Double, String>, Color>>>
 )
 
+internal fun buildSubjectTrendChartDescription(
+    exams: List<Pair<String, String>>,
+    subjectPoints: Map<String, List<Double?>>,
+): String {
+    val points = exams.flatMapIndexed { index, exam ->
+        subjectPoints.mapNotNull { (subject, scores) ->
+            scores.getOrNull(index)?.let { score ->
+                "${exam.second}，${shortenSubjectName(subject)} ${"%.0f".format(score)} 分"
+            }
+        }
+    }
+    return buildString {
+        append("${exams.size} 次考試的成績趨勢。")
+        append(points.joinToString("；"))
+    }
+}
+
 @Composable
 fun SubjectTrendLineChart(
     reports: List<GradeReport>,
@@ -166,18 +183,7 @@ fun SubjectTrendLineChart(
     val minSpacing = 80.dp
     val scrollState = rememberScrollState()
     val chartSummary = remember(chartData) {
-        chartData.subjectPoints.entries.joinToString(
-            prefix = "${chartData.exams.size} 次考試的成績趨勢。",
-            separator = "；",
-        ) { (subject, points) ->
-            val available = points.filterNotNull()
-            when {
-                available.isEmpty() -> "${shortenSubjectName(subject)}無成績"
-                available.size == 1 -> "${shortenSubjectName(subject)} ${"%.0f".format(available.first())} 分"
-                else -> "${shortenSubjectName(subject)}由 ${"%.0f".format(available.first())} 分到 " +
-                    "${"%.0f".format(available.last())} 分"
-            }
-        }
+        buildSubjectTrendChartDescription(chartData.exams, chartData.subjectPoints)
     }
 
     BoxWithConstraints(modifier = modifier) {

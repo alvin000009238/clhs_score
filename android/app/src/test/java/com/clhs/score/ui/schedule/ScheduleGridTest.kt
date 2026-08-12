@@ -42,6 +42,39 @@ class ScheduleGridTest {
         assertEquals("國文", cells.last().item?.subjectName)
     }
 
+    @Test
+    fun cellDescriptionsIncludeDayPeriodAndCourseContext() {
+        assertEquals(
+            "週一，第 1 至 2 節，國文，教師王老師，教室101",
+            scheduleCellContentDescription(
+                dayOfWeek = 1,
+                cell = ScheduleGridCell(
+                    period = 1,
+                    periodCount = 2,
+                    item = lesson(period = 1),
+                    change = null,
+                ),
+            ),
+        )
+        assertEquals(
+            "週三，第 3 節，停課，原課程國文，教師王老師，教室101",
+            scheduleCellContentDescription(
+                dayOfWeek = 3,
+                cell = ScheduleGridCell(
+                    period = 3,
+                    periodCount = 1,
+                    item = null,
+                    change = ScheduleChange(
+                        type = ScheduleChangeType.REMOVED,
+                        dayOfWeek = 3,
+                        period = 3,
+                        semesterItem = lesson(period = 3),
+                    ),
+                ),
+            ),
+        )
+    }
+
     private fun lesson(period: Int, classroom: String = "101") =
         ScheduleItem(
             dayOfWeek = 1,

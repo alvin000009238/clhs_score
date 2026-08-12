@@ -66,6 +66,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -523,6 +525,34 @@ internal data class ScheduleGridCell(
     val change: ScheduleChange?,
 )
 
+private val WEEKDAY_LABELS = listOf("週一", "週二", "週三", "週四", "週五")
+
+internal fun scheduleCellContentDescription(
+    dayOfWeek: Int,
+    cell: ScheduleGridCell,
+): String = buildList {
+    add(WEEKDAY_LABELS.getOrElse(dayOfWeek - 1) { "星期 $dayOfWeek" })
+    add(
+        if (cell.periodCount == 1) {
+            "第 ${cell.period} 節"
+        } else {
+            "第 ${cell.period} 至 ${cell.period + cell.periodCount - 1} 節"
+        },
+    )
+    val changeType = cell.change?.type
+    when (changeType) {
+        ScheduleChangeType.ADDED -> add("新增課程")
+        ScheduleChangeType.MODIFIED -> add("調課")
+        ScheduleChangeType.REMOVED -> add("停課")
+        null -> Unit
+    }
+    (cell.item ?: cell.change?.semesterItem)?.let { item ->
+        add(if (changeType == ScheduleChangeType.REMOVED) "原課程${item.subjectName}" else item.subjectName)
+        if (item.teacherName.isNotBlank()) add("教師${item.teacherName}")
+        if (item.classroom.isNotBlank()) add("教室${item.classroom}")
+    }
+}.joinToString("，")
+
 internal fun scheduleGridPeriods(
     items: List<ScheduleItem>,
     changes: List<ScheduleChange>,
@@ -583,7 +613,7 @@ fun ScheduleGrid(
     modifier: Modifier = Modifier,
     changes: List<ScheduleChange> = emptyList(),
 ) {
-    val days = listOf("時間", "週一", "週二", "週三", "週四", "週五")
+    val days = listOf("時間") + WEEKDAY_LABELS
     val periods = remember(items, changes) { scheduleGridPeriods(items, changes) }
     val cellsByDay = remember(items, changes, periods) {
         (1..5).associateWith { day -> scheduleGridCells(items, changes, day, periods) }
@@ -662,8 +692,12 @@ fun ScheduleGrid(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .semantics(mergeDescendants = true) {
+                                            contentDescription = scheduleCellContentDescription(day, cell)
+                                        }
                                         .clickable(
                                             role = Role.Button,
+                                            onClickLabel = "查看課程詳情",
                                             onClick = { selectedChange = change },
                                         ),
                                     shape = RoundedCornerShape(8.dp),
@@ -696,8 +730,12 @@ fun ScheduleGrid(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .semantics(mergeDescendants = true) {
+                                            contentDescription = scheduleCellContentDescription(day, cell)
+                                        }
                                         .clickable(
                                             role = Role.Button,
+                                            onClickLabel = "查看課程詳情",
                                             onClick = {
                                                 if (change != null) selectedChange = change else selectedItem = item
                                             },
