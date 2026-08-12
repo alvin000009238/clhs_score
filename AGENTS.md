@@ -73,6 +73,9 @@
 ## Android R8 與安裝包大小
 
 - Release build 已啟用 `isMinifyEnabled` 與 `isShrinkResources`；新增 library 或功能時不要用 `-keep class androidx.**`、`-keep class org.jsoup.**` 這類 broad keep 擋住 R8。優先依賴 library 自帶的 consumer rules，只針對 app 端需要反射或跨版本保留名稱的入口加最小規則，例如 WorkManager worker class name，並用 `:app:assembleRelease` 比對 APK 大小。
+- `com.clhs.score.data.proto` 的 protobuf-lite message metadata 會以原始欄位名稱反射；minified release 必須保留這個 app-owned package 的 generated message 與欄位名稱。Debug build 不會重現欄位改名造成的 session migration 失敗，修改相關 R8 規則後需同時檢查 release DEX／mapping 與 `ArchitectureBoundaryTest`。
+- Biweekly 會透過 `Biweekly.class.getResourceAsStream("biweekly.properties")` 讀取相對路徑資源，並以反射建立 `biweekly.parameter.EnumParameterValue` 子類及列舉其 public static 常數；R8 必須保留 `biweekly.Biweekly` 類別名稱和這些 parameter constructor／欄位。只用簡化 ICS 驗證不足，修改規則後需以公開 Google Calendar 的完整 ICS 檢查 minified release parser。
+- App 只提供繁體中文介面，Android resources 只保留 default 與 `zh-TW` locale；APK 不需封裝編譯期 `.proto` schema。Release 保持預設的未壓縮 DEX，讓支援裝置直接 mmap，APK 體積最佳化不得為了 ZIP 檔案較小改回需要安裝時解壓 DEX 的 legacy packaging。
 
 ## Android FCM notifications
 

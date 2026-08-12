@@ -9,6 +9,45 @@ import java.nio.file.Paths
 
 class ArchitectureBoundaryTest {
     @Test
+    fun releaseKeepsBiweeklyClassNameUsedForRelativeResourceLookup() {
+        val rules = readSource("app/proguard-rules.pro")
+
+        assertTrue(rules.contains("-keepnames class biweekly.Biweekly"))
+    }
+
+    @Test
+    fun releaseKeepsBiweeklyParameterMembersUsedByReflection() {
+        val rules = readSource("app/proguard-rules.pro")
+
+        assertTrue(
+            rules.contains(
+                """
+                -keepclassmembers class biweekly.parameter.** extends biweekly.parameter.EnumParameterValue {
+                  <init>(java.lang.String);
+                  <init>(java.lang.String, biweekly.ICalVersion[]);
+                  public static <fields>;
+                }
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
+    fun releaseKeepsAppProtoFieldNamesUsedByLiteReflection() {
+        val rules = readSource("app/proguard-rules.pro")
+
+        assertTrue(
+            rules.contains(
+                """
+                -keep class com.clhs.score.data.proto.** extends com.google.protobuf.GeneratedMessageLite {
+                  *;
+                }
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
     fun sessionStorageKeepsCryptoMigrationAndBackupBoundaries() {
         val sessionStore = readSource("app/src/main/java/com/clhs/score/data/SessionStore.kt")
         val crypto = readSource("app/src/main/java/com/clhs/score/data/SessionCrypto.kt")

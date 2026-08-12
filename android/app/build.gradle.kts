@@ -100,6 +100,14 @@ android {
         }
     }
 
+    packaging {
+        resources.excludes += "**/*.proto"
+    }
+
+    androidResources {
+        localeFilters += "zh-rTW"
+    }
+
     lint {
         disable += "ChromeOsAbiSupport"
     }
