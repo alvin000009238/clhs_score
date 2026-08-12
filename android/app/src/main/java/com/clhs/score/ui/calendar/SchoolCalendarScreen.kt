@@ -294,15 +294,17 @@ private fun CalendarMessageState(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onAction,
+                        modifier = Modifier.fillMaxWidth(),
                         shapes = ButtonDefaults.shapes(),
                     ) {
                         Text(actionLabel)
                     }
                     FilledTonalButton(
                         onClick = onOpenGoogleCalendar,
+                        modifier = Modifier.fillMaxWidth(),
                         shapes = ButtonDefaults.shapes(),
                     ) {
                         Text("Google 行事曆")

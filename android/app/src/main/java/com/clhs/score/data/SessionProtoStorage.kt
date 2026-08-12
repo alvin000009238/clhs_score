@@ -3,6 +3,7 @@ package com.clhs.score.data
 import android.content.Context
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
 import com.clhs.score.data.proto.EncryptedSessionPayload
@@ -19,6 +20,9 @@ internal const val SESSION_DATASTORE_FILE = "session_storage.pb"
 internal val Context.sessionDataStore: DataStore<SessionStorage> by dataStore(
     fileName = SESSION_DATASTORE_FILE,
     serializer = SessionStorageSerializer,
+    corruptionHandler = ReplaceFileCorruptionHandler {
+        SessionStorage.getDefaultInstance()
+    },
 )
 
 internal object SessionStorageSerializer : Serializer<SessionStorage> {

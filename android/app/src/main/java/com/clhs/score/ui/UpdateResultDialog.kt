@@ -33,6 +33,7 @@ import androidx.core.net.toUri
 import com.clhs.score.data.ApkAsset
 import com.clhs.score.data.UpdateResult
 import com.mikepenz.markdown.m3.Markdown
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -125,6 +126,14 @@ fun UpdateResultDialog(
                                     }
                                     openApkInstaller(context, apk)
                                     onDismiss()
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (_: UpdateApkTooLargeException) {
+                                    Toast.makeText(
+                                        context,
+                                        "更新檔過大，請前往 GitHub 下載",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
                                 } catch (_: ChecksumMismatchException) {
                                     Toast.makeText(
                                         context,
@@ -193,6 +202,7 @@ private suspend fun downloadUpdateApk(
             updateDownloadClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) error("HTTP ${response.code}")
                 val totalBytes = response.body.contentLength()
+                if (totalBytes > MAX_UPDATE_APK_BYTES) throw UpdateApkTooLargeException()
                 if (totalBytes <= 0) reportProgress(null)
                 var lastPercent = -1
                 response.body.byteStream().use { input ->
@@ -219,8 +229,10 @@ internal suspend fun writeVerifiedApk(
     input: InputStream,
     destination: File,
     expectedSha256: String,
+    maxBytes: Long = MAX_UPDATE_APK_BYTES,
     onBytesCopied: suspend (Long) -> Unit = {},
 ): File {
+    require(maxBytes > 0) { "maxBytes must be positive" }
     val digest = MessageDigest.getInstance("SHA-256")
     try {
         destination.outputStream().use { output ->
@@ -229,6 +241,7 @@ internal suspend fun writeVerifiedApk(
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
+                if (read.toLong() > maxBytes - copiedBytes) throw UpdateApkTooLargeException()
                 output.write(buffer, 0, read)
                 digest.update(buffer, 0, read)
                 copiedBytes += read
@@ -245,6 +258,9 @@ internal suspend fun writeVerifiedApk(
 }
 
 internal class ChecksumMismatchException : Exception()
+internal class UpdateApkTooLargeException : Exception()
+
+internal const val MAX_UPDATE_APK_BYTES = 256L * 1024 * 1024
 
 private fun openApkInstaller(context: Context, apk: File) {
     val uri = FileProvider.getUriForFile(

@@ -186,14 +186,18 @@ class ArchitectureBoundaryTest {
 
     @Test
     fun coroutineCancellationIsNotConvertedToUiOrWorkerErrors() {
+        val mainActivity = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
         val scoreViewModel = readSource("app/src/main/java/com/clhs/score/viewmodel/ScoreViewModel.kt")
         val scheduleViewModel = readSource("app/src/main/java/com/clhs/score/viewmodel/ScheduleViewModel.kt")
         val schoolClient = readSource("app/src/main/java/com/clhs/score/data/SchoolGradeClient.kt")
         val reminderWorker = readSource("app/src/main/java/com/clhs/score/reminders/GradeReminderWorker.kt")
         val updateChecker = readSource("app/src/main/java/com/clhs/score/data/UpdateChecker.kt")
+        val updateDialog = readSource("app/src/main/java/com/clhs/score/ui/UpdateResultDialog.kt")
 
+        assertTrue(mainActivity.countOccurrences("error.throwIfCancellation()") >= 3)
+        assertTrue(mainActivity.contains("private fun Throwable.throwIfCancellation()"))
         assertTrue(scoreViewModel.contains("import kotlinx.coroutines.CancellationException"))
-        assertTrue(scoreViewModel.countOccurrences("error.throwIfCancellation()") >= 7)
+        assertTrue(scoreViewModel.countOccurrences("error.throwIfCancellation()") >= 8)
         assertTrue(scoreViewModel.contains("private fun Throwable.throwIfCancellation()"))
 
         assertTrue(scheduleViewModel.contains("import kotlinx.coroutines.CancellationException"))
@@ -206,11 +210,22 @@ class ArchitectureBoundaryTest {
 
         assertTrue(updateChecker.contains("catch (e: CancellationException)"))
         assertTrue(updateChecker.contains("throw e"))
+        assertTrue(updateDialog.contains("catch (error: CancellationException)"))
+        assertTrue(updateDialog.contains("throw error"))
+    }
+
+    @Test
+    fun encryptedSessionDataStoreRecoversFromMalformedProto() {
+        val source = readSource("app/src/main/java/com/clhs/score/data/SessionProtoStorage.kt")
+
+        assertTrue(source.contains("corruptionHandler = ReplaceFileCorruptionHandler"))
+        assertTrue(source.contains("SessionStorage.getDefaultInstance()"))
     }
 
     @Test
     fun webViewLoginBridgeIsLimitedToTrustedSchoolLoginPage() {
         val source = readSource("app/src/main/java/com/clhs/score/ui/WebViewLoginScreen.kt")
+        val mainActivity = readSource("app/src/main/java/com/clhs/score/MainActivity.kt")
 
         assertTrue(source.contains("shouldOverrideUrlLoading"))
         assertTrue(source.contains("return !isTrustedSchoolUrl(url)"))
@@ -218,6 +233,30 @@ class ArchitectureBoundaryTest {
         assertTrue(source.contains("isTrustedLoginPage = isTrustedSchoolLoginUrl(url)"))
         assertTrue(source.contains("uri.scheme == \"https\""))
         assertTrue(source.contains("SCHOOL_DOMAIN"))
+        assertTrue(source.contains("uri.port == -1 || uri.port == 443"))
+        assertFalse(source.contains("CookieManager.getInstance().flush()"))
+        assertFalse(mainActivity.contains("CookieManager.getInstance().flush()"))
+    }
+
+    @Test
+    fun publicSchoolErrorActionsRemainUsableAtLargeTextSizes() {
+        val announcementSource = readSource(
+            "app/src/main/java/com/clhs/score/ui/announcements/SchoolAnnouncementsScreen.kt",
+        )
+        val calendarSource = readSource(
+            "app/src/main/java/com/clhs/score/ui/calendar/SchoolCalendarScreen.kt",
+        )
+        val announcementState = announcementSource
+            .substringAfter("private fun AnnouncementMessageState(")
+            .substringBefore("@Composable")
+        val calendarState = calendarSource
+            .substringAfter("private fun CalendarMessageState(")
+            .substringBefore("@Composable")
+
+        assertFalse(announcementState.contains("Row(horizontalArrangement"))
+        assertTrue(announcementState.countOccurrences("modifier = Modifier.fillMaxWidth()") >= 3)
+        assertFalse(calendarState.contains("Row(horizontalArrangement"))
+        assertTrue(calendarState.countOccurrences("modifier = Modifier.fillMaxWidth()") >= 3)
     }
 
     @Test

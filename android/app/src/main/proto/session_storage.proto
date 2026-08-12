@@ -14,4 +14,6 @@ message SessionStorage {
   EncryptedSessionPayload general_session = 1;
   EncryptedSessionPayload reminder_session = 2;
   bool legacy_migration_complete = 3;
+  bool general_legacy_migration_complete = 4;
+  bool reminder_legacy_migration_complete = 5;
 }

@@ -1,16 +1,22 @@
 package com.clhs.score.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.nio.file.Files
 import java.time.Instant
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 class SchoolCalendarTest {
     private lateinit var server: MockWebServer
@@ -66,6 +72,27 @@ class SchoolCalendarTest {
             assertEquals(fetchedAt, cached?.fetchedAt)
             assertNull(server.takeRequest().getHeader("Cookie"))
             assertNull(server.takeRequest().getHeader("Cookie"))
+        } finally {
+            cacheDirectory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun cancellingCalendarLoadStopsTheBlockingHttpCall() = runBlocking {
+        server.enqueue(calendarResponse().setBodyDelay(5, TimeUnit.SECONDS))
+        val cacheDirectory = Files.createTempDirectory("school-calendar-cancel-test").toFile()
+        val repository = NetworkSchoolCalendarRepository(
+            cacheDirectory = cacheDirectory,
+            feedUrl = server.url("/calendar.ics").toString(),
+        )
+
+        try {
+            val load = launch(Dispatchers.Default) { repository.load(forceRefresh = true) }
+            assertTrue(server.takeRequest(2, TimeUnit.SECONDS) != null)
+            load.cancel()
+
+            withTimeout(1_000L) { load.join() }
+            assertTrue(load.isCancelled)
         } finally {
             cacheDirectory.deleteRecursively()
         }

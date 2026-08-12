@@ -577,10 +577,15 @@ private fun AnnouncementMessageState(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onAction, shapes = ButtonDefaults.shapes()) { Text(actionLabel) }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onAction,
+                        modifier = Modifier.fillMaxWidth(),
+                        shapes = ButtonDefaults.shapes(),
+                    ) { Text(actionLabel) }
                     FilledTonalButton(
                         onClick = onOpenOfficialWebsite,
+                        modifier = Modifier.fillMaxWidth(),
                         shapes = ButtonDefaults.shapes(),
                     ) {
                         Text(officialLabel)

@@ -40,4 +40,21 @@ class UpdateApkChecksumTest {
         assertTrue(destination.exists())
         assertArrayEquals("hello".toByteArray(), destination.readBytes())
     }
+
+    @Test
+    fun oversizedApkIsRejectedAndDeletedBeforeChecksumVerification() = runTest {
+        val destination = temporaryFolder.newFile("oversized-update.apk")
+
+        try {
+            writeVerifiedApk(
+                input = ByteArrayInputStream("123456".toByteArray()),
+                destination = destination,
+                expectedSha256 = "0".repeat(64),
+                maxBytes = 5,
+            )
+            throw AssertionError("Expected oversized APK rejection")
+        } catch (_: UpdateApkTooLargeException) {
+            assertFalse(destination.exists())
+        }
+    }
 }

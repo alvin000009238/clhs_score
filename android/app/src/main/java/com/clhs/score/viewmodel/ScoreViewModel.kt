@@ -677,7 +677,8 @@ class ScoreViewModel(
                     }
                     loadStructure()
                 }
-                .onFailure {
+                .onFailure { error ->
+                    error.throwIfCancellation()
                     _gradesState.update { it.copy(isRestoringSession = false) }
                     _loginState.update {
                         it.copy(errorMessage = "無法讀取登入資訊，請重新登入")

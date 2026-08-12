@@ -51,7 +51,7 @@ class SessionStore private constructor(
         val generation = generalWriteGeneration.get()
         storageMutex.withLock {
             if (generation != generalWriteGeneration.get()) return@withLock
-            migrateLegacyIfNeeded()
+            migrateGeneralLegacyIfNeeded()
             val payload = cipher.encrypt(SessionSerializer.serialize(session), GENERAL_AAD)
             if (generation != generalWriteGeneration.get()) return@withLock
             updateStorage { storage -> storage.toBuilder().setGeneralSession(payload.toProto()).build() }
@@ -59,7 +59,7 @@ class SessionStore private constructor(
     }
 
     suspend fun loadSession(): AuthenticatedSession? = storageMutex.withLock {
-        migrateLegacyIfNeeded()
+        migrateGeneralLegacyIfNeeded()
         val storage = readStorage()
         if (!storage.hasGeneralSession()) return@withLock null
         decodeGeneral(storage.generalSession)
@@ -69,7 +69,7 @@ class SessionStore private constructor(
         val generation = reminderWriteGeneration.get()
         storageMutex.withLock {
             if (generation != reminderWriteGeneration.get()) return@withLock
-            migrateLegacyIfNeeded()
+            migrateReminderLegacyIfNeeded()
             val payload = cipher.encrypt(
                 SessionSerializer.serialize(session, expiresAtMillis),
                 REMINDER_AAD,
@@ -84,7 +84,7 @@ class SessionStore private constructor(
         expectedStudentNo: String? = null,
     ): AuthenticatedSession? =
         storageMutex.withLock {
-            migrateLegacyIfNeeded()
+            migrateReminderLegacyIfNeeded()
             val storage = readStorage()
             if (!storage.hasReminderSession()) return@withLock null
             val reminder = decodeReminder(storage.reminderSession)
@@ -104,9 +104,13 @@ class SessionStore private constructor(
     suspend fun clearReminderSession() {
         reminderWriteGeneration.incrementAndGet()
         storageMutex.withLock {
-            migrateLegacyIfNeeded()
-            updateStorage { storage -> storage.toBuilder().clearReminderSession().build() }
             legacySource.clearReminder()
+            updateStorage { storage ->
+                storage.toBuilder()
+                    .clearReminderSession()
+                    .setReminderLegacyMigrationComplete(true)
+                    .build()
+            }
         }
     }
 
@@ -127,9 +131,13 @@ class SessionStore private constructor(
     suspend fun clearNormalSession() {
         generalWriteGeneration.incrementAndGet()
         storageMutex.withLock {
-            migrateLegacyIfNeeded()
             legacySource.clearGeneral()
-            updateStorage { storage -> storage.toBuilder().clearGeneralSession().build() }
+            updateStorage { storage ->
+                storage.toBuilder()
+                    .clearGeneralSession()
+                    .setGeneralLegacyMigrationComplete(true)
+                    .build()
+            }
         }
     }
 
@@ -140,6 +148,8 @@ class SessionStore private constructor(
             updateStorage {
                 SessionStorage.newBuilder()
                     .setLegacyMigrationComplete(true)
+                    .setGeneralLegacyMigrationComplete(true)
+                    .setReminderLegacyMigrationComplete(true)
                     .build()
             }
             var failure: SessionStorageException? = null
@@ -157,13 +167,11 @@ class SessionStore private constructor(
         }
     }
 
-    private suspend fun migrateLegacyIfNeeded() {
+    private suspend fun migrateGeneralLegacyIfNeeded() {
         var storage = readStorage()
-        if (storage.legacyMigrationComplete) return
+        if (storage.legacyMigrationComplete || storage.generalLegacyMigrationComplete) return
 
         var generalToVerify: AuthenticatedSession? = null
-        var reminderToVerify: LegacyReminderSession? = null
-        var legacyCleanupComplete = true
         val builder = storage.toBuilder()
 
         if (storage.hasGeneralSession()) {
@@ -172,7 +180,7 @@ class SessionStore private constructor(
                 try {
                     legacySource.clearGeneral()
                 } catch (_: SessionStorageException) {
-                    legacyCleanupComplete = false
+                    return
                 }
             } catch (error: SessionStorageException) {
                 val legacy = legacySource.readGeneral() ?: throw error
@@ -192,13 +200,38 @@ class SessionStore private constructor(
             }
         }
 
+        if (generalToVerify != null) {
+            updateStorage { builder.build() }
+            storage = readStorage()
+            if (!storage.hasGeneralSession() || decodeGeneral(storage.generalSession) != generalToVerify) {
+                throw SessionMigrationException()
+            }
+            try {
+                legacySource.clearGeneral()
+            } catch (_: SessionStorageException) {
+                return
+            }
+        }
+
+        updateStorage { current ->
+            current.toBuilder().setGeneralLegacyMigrationComplete(true).build()
+        }
+    }
+
+    private suspend fun migrateReminderLegacyIfNeeded() {
+        var storage = readStorage()
+        if (storage.legacyMigrationComplete || storage.reminderLegacyMigrationComplete) return
+
+        var reminderToVerify: LegacyReminderSession? = null
+        val builder = storage.toBuilder()
+
         if (storage.hasReminderSession()) {
             try {
                 decodeReminder(storage.reminderSession)
                 try {
                     legacySource.clearReminder()
                 } catch (_: SessionStorageException) {
-                    legacyCleanupComplete = false
+                    return
                 }
             } catch (error: SessionStorageException) {
                 val legacy = legacySource.readReminder() ?: throw error
@@ -218,35 +251,25 @@ class SessionStore private constructor(
             }
         }
 
-        if (generalToVerify != null || reminderToVerify != null) {
+        if (reminderToVerify != null) {
             updateStorage { builder.build() }
             storage = readStorage()
-            generalToVerify?.let { expected ->
-                if (!storage.hasGeneralSession() || decodeGeneral(storage.generalSession) != expected) {
-                    throw SessionMigrationException()
-                }
-                try {
-                    legacySource.clearGeneral()
-                } catch (_: SessionStorageException) {
-                    legacyCleanupComplete = false
-                }
+            if (!storage.hasReminderSession()) throw SessionMigrationException()
+            val actual = decodeReminder(storage.reminderSession)
+            if (actual.session != reminderToVerify.session ||
+                actual.expiresAtMillis != reminderToVerify.expiresAtMillis
+            ) {
+                throw SessionMigrationException()
             }
-            reminderToVerify?.let { expected ->
-                if (!storage.hasReminderSession()) throw SessionMigrationException()
-                val actual = decodeReminder(storage.reminderSession)
-                if (actual.session != expected.session || actual.expiresAtMillis != expected.expiresAtMillis) {
-                    throw SessionMigrationException()
-                }
-                try {
-                    legacySource.clearReminder()
-                } catch (_: SessionStorageException) {
-                    legacyCleanupComplete = false
-                }
+            try {
+                legacySource.clearReminder()
+            } catch (_: SessionStorageException) {
+                return
             }
         }
 
-        if (legacyCleanupComplete) {
-            updateStorage { current -> current.toBuilder().setLegacyMigrationComplete(true).build() }
+        updateStorage { current ->
+            current.toBuilder().setReminderLegacyMigrationComplete(true).build()
         }
     }
 

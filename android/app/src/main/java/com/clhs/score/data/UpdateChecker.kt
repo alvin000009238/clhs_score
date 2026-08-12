@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -46,7 +47,7 @@ class UpdateChecker(
                 val json = SchoolJson.parseToJsonElement(body).jsonObject
                 val tagName = json["tag_name"]?.jsonPrimitive?.content.orEmpty()
                 val remoteVersion = tagName.removePrefix("v")
-                val htmlUrl = json["html_url"]?.jsonPrimitive?.content.orEmpty().takeIfValidHttpUrl()
+                val htmlUrl = json["html_url"]?.jsonPrimitive?.content.orEmpty().takeIfValidHttpsUrl()
                 val releaseBody = json["body"]?.jsonPrimitive?.content.orEmpty()
                 val apkAsset = json["assets"]?.jsonArray
                     ?.firstOrNull { asset ->
@@ -56,7 +57,7 @@ class UpdateChecker(
                         val downloadUrl = asset["browser_download_url"]
                             ?.jsonPrimitive
                             ?.content
-                            ?.takeIfValidHttpUrl()
+                            ?.takeIfValidHttpsUrl()
                         val sha256 = asset["digest"]
                             ?.jsonPrimitive
                             ?.content
@@ -68,7 +69,9 @@ class UpdateChecker(
                         }
                     }
 
-                if (!isNewer(remoteVersion, currentVersionName)) {
+                val isNewer = isNewer(remoteVersion, currentVersionName)
+                    ?: return@withContext UpdateResult.Error("版本格式不正確")
+                if (!isNewer) {
                     return@withContext UpdateResult.UpToDate
                 }
                 if (htmlUrl == null && apkAsset == null) {
@@ -88,9 +91,9 @@ class UpdateChecker(
         }
     }
 
-    private fun isNewer(remote: String, current: String): Boolean {
-        val remoteParts = remote.split(".").mapNotNull { it.toIntOrNull() }
-        val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
+    private fun isNewer(remote: String, current: String): Boolean? {
+        val remoteParts = remote.versionPartsOrNull() ?: return null
+        val currentParts = current.versionPartsOrNull() ?: return null
         val maxLen = maxOf(remoteParts.size, currentParts.size)
         for (i in 0 until maxLen) {
             val r = remoteParts.getOrElse(i) { 0 }
@@ -101,11 +104,13 @@ class UpdateChecker(
         return false
     }
 
-    private fun String.takeIfValidHttpUrl(): String? =
-        takeIf { value ->
-            value.startsWith("https://", ignoreCase = true) ||
-                value.startsWith("http://", ignoreCase = true)
-        }
+    private fun String.versionPartsOrNull(): List<Int>? {
+        if (!VERSION_PATTERN.matches(this)) return null
+        return split('.').map { part -> part.toIntOrNull() ?: return null }
+    }
+
+    private fun String.takeIfValidHttpsUrl(): String? =
+        takeIf { value -> value.toHttpUrlOrNull()?.isHttps == true }
 
     private fun String.takeIfValidSha256(): String? =
         takeIf { value ->
@@ -119,6 +124,7 @@ class UpdateChecker(
     private companion object {
         const val SHA256_PREFIX = "sha256:"
         const val SHA256_HEX_LENGTH = 64
+        val VERSION_PATTERN = Regex("[0-9]+(?:\\.[0-9]+)*")
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/alvin000009238/clhs_score/releases/latest"
 

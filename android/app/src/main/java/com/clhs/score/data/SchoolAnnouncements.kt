@@ -88,7 +88,7 @@ class NetworkSchoolAnnouncementsRepository(
         readCache()
     }
 
-    suspend fun loadPage(pageIndex: Int): SchoolAnnouncementPage = withContext(Dispatchers.IO) {
+    suspend fun loadPage(pageIndex: Int): SchoolAnnouncementPage = runInterruptibleHttp {
         require(pageIndex >= 0) { "pageIndex must not be negative" }
         val requestBody = FormBody.Builder()
             .add("auth_type", "user")
@@ -114,7 +114,7 @@ class NetworkSchoolAnnouncementsRepository(
     }
 
     suspend fun loadDetail(id: String, categoryHint: String = ""): SchoolAnnouncementDetail =
-        withContext(Dispatchers.IO) {
+        runInterruptibleHttp {
             require(id.isNotBlank()) { "Announcement id is required" }
             val officialUrl = announcementUrl(id, baseUrl)
             val viewRequest = Request.Builder().url(officialUrl).get().build()
@@ -325,7 +325,7 @@ internal object SchoolAnnouncementParser {
                 sizeBytes = (fields.getOrNull(1) as? JsonPrimitive)?.contentOrNull?.toLongOrNull(),
                 url = attachmentUrl(newsId, name),
             )
-        }
+        }.distinctBy(SchoolAnnouncementAttachment::url)
     }
 
     private fun parseArray(source: String, errorMessage: String): JsonArray =

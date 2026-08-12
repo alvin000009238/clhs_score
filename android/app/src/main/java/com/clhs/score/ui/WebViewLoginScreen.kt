@@ -374,7 +374,9 @@ private fun WebViewContent(
 
 private fun isTrustedSchoolUrl(url: String?): Boolean {
     val uri = runCatching { url?.toUri() }.getOrNull() ?: return false
-    return uri.scheme == "https" && uri.host.equals(SCHOOL_DOMAIN, ignoreCase = true)
+    return uri.scheme == "https" &&
+        uri.host.equals(SCHOOL_DOMAIN, ignoreCase = true) &&
+        (uri.port == -1 || uri.port == 443)
 }
 
 private fun isTrustedSchoolLoginUrl(url: String?): Boolean {
@@ -406,7 +408,6 @@ private fun WebView.configureForSchoolSite() {
         loadWithOverviewMode = true
         useWideViewPort = true
         userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
-        saveFormData = false
     }
     CookieManager.getInstance().apply {
         setAcceptCookie(true)
@@ -431,7 +432,6 @@ private fun WebView.clearSchoolWebData(clearCookies: Boolean) {
     WebStorage.getInstance().deleteAllData()
     if (clearCookies) {
         CookieManager.getInstance().removeAllCookies(null)
-        CookieManager.getInstance().flush()
     }
 }
 

@@ -42,6 +42,7 @@ import com.clhs.score.ui.ScoreApp
 import com.clhs.score.ui.theme.ScoreTheme
 import com.clhs.score.viewmodel.ScoreViewModel
 import com.clhs.score.viewmodel.SettingsViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -249,7 +250,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         },
                         onLogout = {
                             android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                            android.webkit.CookieManager.getInstance().flush()
                             scoreVm.logout(AnalyticsValues.SOURCE_LOCK_SCREEN)
                             clearWidgetScheduleCache()
                             settingsVm.setBiometricEnabled(false)
@@ -272,7 +272,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                         onReload = scoreVm::reloadStructure,
                         onLogout = {
                             android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                            android.webkit.CookieManager.getInstance().flush()
                             scoreVm.logout()
                             clearWidgetScheduleCache()
                         },
@@ -322,7 +321,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                                             "已關閉生物識別解鎖",
                                             Toast.LENGTH_SHORT,
                                         ).show()
-                                    }.onFailure {
+                                    }.onFailure { error ->
+                                        error.throwIfCancellation()
                                         Toast.makeText(
                                             applicationContext,
                                             "無法安全保存登入資訊，生物識別解鎖維持開啟",
@@ -583,7 +583,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                                 "已開啟生物識別解鎖",
                                 Toast.LENGTH_SHORT,
                             ).show()
-                        }.onFailure {
+                        }.onFailure { error ->
+                            error.throwIfCancellation()
                             if (replaceInvalidatedKey) {
                                 fallBackToNormalSession(currentSession, settingsVm)
                             } else {
@@ -645,7 +646,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             }.onSuccess {
                 settingsVm.setBiometricEnabled(false)
                 isBiometricInvalidated.value = false
-            }.onFailure {
+            }.onFailure { error ->
+                error.throwIfCancellation()
                 Toast.makeText(
                     this@MainActivity,
                     "無法安全保存登入資訊，請稍後再試",
@@ -691,8 +693,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             runCatching {
                 GradeCacheStore(applicationContext).clearWidgetScheduleReport()
                 com.clhs.score.widget.syncAllScheduleWidgets(applicationContext)
-            }
+            }.onFailure { error -> error.throwIfCancellation() }
         }
+    }
+
+    private fun Throwable.throwIfCancellation() {
+        if (this is CancellationException) throw this
     }
 
     private companion object {

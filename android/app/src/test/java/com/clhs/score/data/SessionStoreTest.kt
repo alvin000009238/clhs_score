@@ -7,6 +7,7 @@ import com.clhs.score.data.proto.SessionStorage
 import com.google.protobuf.ByteString
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -129,6 +130,40 @@ class SessionStoreTest {
     }
 
     @Test
+    fun corruptReminderStorageDoesNotBlockGeneralSession() = runTest {
+        val dataStore = dataStore()
+        val generalPayload = cipher.encrypt(
+            SessionSerializer.serialize(sessionA),
+            GENERAL_AAD,
+        )
+        dataStore.updateData {
+            it.toBuilder()
+                .setGeneralSession(generalPayload.toProto())
+                .setReminderSession(corruptPayload())
+                .build()
+        }
+
+        assertEquals(sessionA, store(dataStore = dataStore).loadSession())
+    }
+
+    @Test
+    fun corruptGeneralStorageDoesNotBlockReminderSession() = runTest {
+        val dataStore = dataStore()
+        val reminderPayload = cipher.encrypt(
+            SessionSerializer.serialize(sessionB, expiresAtMillis = 2_000L),
+            REMINDER_AAD,
+        )
+        dataStore.updateData {
+            it.toBuilder()
+                .setGeneralSession(corruptPayload())
+                .setReminderSession(reminderPayload.toProto())
+                .build()
+        }
+
+        assertEquals(sessionB, store(dataStore = dataStore).loadReminderSession(nowMillis = 1_000L))
+    }
+
+    @Test
     fun normalSessionClearCannotReimportLeftoverLegacyData() = runTest {
         val legacy = FakeLegacySource(general = sessionA, retainAfterClear = true)
         val store = store(legacy = legacy)
@@ -136,6 +171,45 @@ class SessionStoreTest {
         store.clearNormalSession()
 
         assertNull(store.loadSession())
+    }
+
+    @Test
+    fun normalSessionClearDoesNotReadDataItIsDeleting() = runTest {
+        val legacy = FakeLegacySource(
+            general = sessionA,
+            generalReadFailure = SessionMigrationException(),
+        )
+        val store = store(legacy = legacy)
+
+        store.clearNormalSession()
+
+        assertTrue(legacy.generalCleared)
+        assertNull(store.loadSession())
+    }
+
+    @Test
+    fun reminderSessionRemainsRecoverableWhenLegacyCleanupFails() = runTest {
+        val dataStore = dataStore()
+        val reminderPayload = cipher.encrypt(
+            SessionSerializer.serialize(sessionB, expiresAtMillis = 2_000L),
+            REMINDER_AAD,
+        )
+        dataStore.updateData {
+            it.toBuilder()
+                .setReminderSession(reminderPayload.toProto())
+                .build()
+        }
+        val legacy = FakeLegacySource(
+            reminder = LegacyReminderSession(sessionA, 2_000L),
+            reminderClearFailure = SessionMigrationException(),
+        )
+
+        val error = runCatching {
+            store(dataStore = dataStore, legacy = legacy).clearReminderSession()
+        }.exceptionOrNull()
+
+        assertTrue(error is SessionMigrationException)
+        assertTrue(dataStore.data.first().hasReminderSession())
     }
 
     @Test
@@ -279,6 +353,7 @@ class SessionStoreTest {
         private val biometric: BiometricSessionRecord? = null,
         private val generalReadFailure: SessionStorageException? = null,
         private val generalClearFailure: SessionStorageException? = null,
+        private val reminderClearFailure: SessionStorageException? = null,
         private val retainAfterClear: Boolean = false,
     ) : LegacySessionSource {
         var generalCleared = false
@@ -302,6 +377,7 @@ class SessionStoreTest {
         }
 
         override fun clearReminder() {
+            reminderClearFailure?.let { throw it }
             reminderCleared = true
             if (!retainAfterClear) reminder = null
         }
@@ -330,5 +406,6 @@ class SessionStoreTest {
     private companion object {
         val fileCounter = AtomicInteger()
         val GENERAL_AAD = "app/session/general/v1".encodeToByteArray()
+        val REMINDER_AAD = "app/session/reminder/v1".encodeToByteArray()
     }
 }

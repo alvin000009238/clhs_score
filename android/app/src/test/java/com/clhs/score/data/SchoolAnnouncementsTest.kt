@@ -1,6 +1,10 @@
 package com.clhs.score.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -12,6 +16,7 @@ import org.junit.Before
 import org.junit.Test
 import java.nio.file.Files
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class SchoolAnnouncementsTest {
     private lateinit var server: MockWebServer
@@ -77,6 +82,27 @@ class SchoolAnnouncementsTest {
     }
 
     @Test
+    fun cancellingPageLoadStopsTheBlockingHttpCall() = runBlocking {
+        server.enqueue(jsonResponse(RECORDED_LIST_JSON).setBodyDelay(5, TimeUnit.SECONDS))
+        val cacheDirectory = Files.createTempDirectory("school-announcement-cancel-test").toFile()
+        val repository = NetworkSchoolAnnouncementsRepository(
+            cacheDirectory = cacheDirectory,
+            baseUrl = server.url("/"),
+        )
+
+        try {
+            val load = launch(Dispatchers.Default) { repository.loadPage(0) }
+            assertTrue(server.takeRequest(2, TimeUnit.SECONDS) != null)
+            load.cancel()
+
+            withTimeout(1_000L) { load.join() }
+            assertTrue(load.isCancelled)
+        } finally {
+            cacheDirectory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun detailParserSanitizesActiveContentAndDecodesOfficialAttachments() {
         val detail = SchoolAnnouncementParser.parseDetail(RECORDED_DETAIL_JSON, "45072", "公告")
 
@@ -93,6 +119,24 @@ class SchoolAnnouncementsTest {
         assertEquals(245_760L, detail.attachments.single().sizeBytes)
         assertTrue(detail.attachments.single().url.endsWith("/%E5%85%AB%E6%9C%88%E9%96%8B%E9%A4%A8%E6%99%82%E9%96%93.pdf"))
         assertNull(safeAnnouncementWebUrl("javascript:alert(1)"))
+    }
+
+    @Test
+    fun duplicateAttachmentsAreCollapsedByUrl() {
+        val detail = SchoolAnnouncementParser.parseDetail(
+            """
+            [{
+              "rcode":200,
+              "newsId":"45072",
+              "content":"",
+              "attachedfile":"[[\"opaque\",123,\"same.pdf\"],[\"opaque\",123,\"same.pdf\"]]"
+            }]
+            """.trimIndent(),
+            "45072",
+            "公告",
+        )
+
+        assertEquals("same.pdf", detail.attachments.single().name)
     }
 
     @Test

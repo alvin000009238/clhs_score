@@ -60,13 +60,13 @@ class NetworkSchoolCalendarRepository(
         readCache()
     }
 
-    suspend fun load(forceRefresh: Boolean): SchoolCalendarSnapshot = withContext(Dispatchers.IO) {
+    suspend fun load(forceRefresh: Boolean): SchoolCalendarSnapshot = runInterruptibleHttp {
         val now = nowProvider()
         val cached = readCache()
         if (!forceRefresh && cached != null &&
             Duration.between(cached.fetchedAt, now).let { !it.isNegative && it <= CACHE_MAX_AGE }
         ) {
-            return@withContext cached
+            return@runInterruptibleHttp cached
         }
 
         val request = Request.Builder().url(feedUrl).get().build()

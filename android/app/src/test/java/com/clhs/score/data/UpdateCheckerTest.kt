@@ -135,6 +135,54 @@ class UpdateCheckerTest {
     }
 
     @Test
+    fun cleartextReleaseLinksAreRejected() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.0",
+                  "html_url": "http://github.com/alvin000009238/clhs_score/releases/tag/v1.2.0",
+                  "body": "",
+                  "assets": [
+                    {
+                      "name": "clhs-score.apk",
+                      "digest": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                      "browser_download_url": "http://github.com/alvin000009238/clhs_score/releases/download/v1.2.0/app.apk"
+                    }
+                  ]
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val result = checker().check("1.1.9")
+
+        result as UpdateResult.Error
+        assertEquals("更新連結格式不正確", result.message)
+    }
+
+    @Test
+    fun malformedReleaseVersionIsRejected() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.bad.3",
+                  "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.bad.3",
+                  "body": "",
+                  "assets": []
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val result = checker().check("1.2.0")
+
+        result as UpdateResult.Error
+        assertEquals("版本格式不正確", result.message)
+    }
+
+    @Test
     fun missingMalformedOrUnsupportedDigestFallsBackToValidHtmlUrl() = runTest {
         val digestFields = listOf(
             "",
