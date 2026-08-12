@@ -21,6 +21,8 @@ import java.io.IOException
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
+internal const val MAX_SCHOOL_RESPONSE_BYTES = 8L * 1024 * 1024
+
 open class SchoolException(
     message: String,
     cause: Throwable? = null,
@@ -432,7 +434,13 @@ class SchoolGradeClient(
 
     private fun executeBody(request: Request, expectJson: Boolean = false): String =
         execute(request).use { response ->
-            val body = response.body.string()
+            val responseBody = response.body
+            if (responseBody.contentLength() > MAX_SCHOOL_RESPONSE_BYTES ||
+                responseBody.source().request(MAX_SCHOOL_RESPONSE_BYTES + 1)
+            ) {
+                throw SchoolException("學校系統回應內容過大")
+            }
+            val body = responseBody.string()
             if (expectJson && body.trimStart().startsWith("<")) {
                 if (body.contains("CloudLogin", ignoreCase = true) ||
                     body.contains("name=\"LoginId\"", ignoreCase = true)

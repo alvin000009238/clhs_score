@@ -85,6 +85,37 @@ class SchoolGradeClientTest {
     }
 
     @Test
+    fun loadStructureRejectsOversizedContentLength() = runTest {
+        server.enqueue(jsonResponse("x".repeat(MAX_SCHOOL_RESPONSE_BYTES.toInt() + 1)))
+
+        val error = runCatching { client.loadStructure(testSession()) }.exceptionOrNull()
+
+        assertEquals("學校系統回應內容過大", error?.message)
+    }
+
+    @Test
+    fun loadStructureRejectsOversizedChunkedBody() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json; charset=utf-8")
+                .setChunkedBody("x".repeat(MAX_SCHOOL_RESPONSE_BYTES.toInt() + 1), 1024),
+        )
+
+        val error = runCatching { client.loadStructure(testSession()) }.exceptionOrNull()
+
+        assertEquals("學校系統回應內容過大", error?.message)
+    }
+
+    @Test
+    fun loadStructureAcceptsBodyAtSizeLimit() = runTest {
+        server.enqueue(
+            jsonResponse("[]" + " ".repeat(MAX_SCHOOL_RESPONSE_BYTES.toInt() - 2)),
+        )
+
+        assertTrue(client.loadStructure(testSession()).isEmpty())
+    }
+
+    @Test
     fun parseYearTermMatchesFetcherBehavior() {
         assertEquals("114" to "1", parseYearTerm("114_1"))
         assertEquals("114" to "1", parseYearTerm("1141"))
