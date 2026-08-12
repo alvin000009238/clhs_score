@@ -21,7 +21,7 @@ import com.clhs.score.data.ScheduleScope
 import com.clhs.score.data.ScheduleYearTermOption
 import com.clhs.score.data.SchoolGradeClient
 import com.clhs.score.data.SessionStore
-import com.clhs.score.data.parseYearTerm
+import com.clhs.score.data.parseYearTermOrNull
 import com.clhs.score.data.refreshTargetDateAt
 import com.clhs.score.data.shouldRefreshAt
 import kotlinx.coroutines.CancellationException
@@ -219,7 +219,9 @@ class ScheduleViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false) }
             try {
-                val (year, term) = parseYearTerm(yearValue)
+                val (year, term) = requireNotNull(parseYearTermOrNull(yearValue)) {
+                    "學期資料格式錯誤"
+                }
                 
                 val classes = repository.getScheduleClasses(year, term)
                 if (requestId != scheduleRequestId) return@launch
@@ -255,7 +257,9 @@ class ScheduleViewModel(
         scheduleJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isError = false, noticeMessage = null) }
             try {
-                val (year, term) = parseYearTerm(query.yearValue)
+                val (year, term) = requireNotNull(parseYearTermOrNull(query.yearValue)) {
+                    "學期資料格式錯誤"
+                }
                 
                 val report = repository.fetchSchedule(
                     query.yearValue,

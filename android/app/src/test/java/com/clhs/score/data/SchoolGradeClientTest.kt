@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -116,10 +117,23 @@ class SchoolGradeClientTest {
     }
 
     @Test
-    fun parseYearTermMatchesFetcherBehavior() {
-        assertEquals("114" to "1", parseYearTerm("114_1"))
-        assertEquals("114" to "1", parseYearTerm("1141"))
-        assertEquals("114" to "1", parseYearTerm("bad"))
+    fun strictYearTermParserRejectsMalformedValuesWithoutHardcodedYear() {
+        assertEquals("114" to "1", parseYearTermOrNull("114_1"))
+        assertEquals("115" to "4", parseYearTermOrNull("115_4"))
+        assertEquals("999" to "2", parseYearTermOrNull("999_2"))
+        listOf(null, "", "1141", "114_1_extra", "year_1", "114_term").forEach { value ->
+            assertNull(value, parseYearTermOrNull(value))
+        }
+    }
+
+    @Test
+    fun fetchGradesRejectsMalformedYearBeforeNetworkRequest() = runTest {
+        val error = runCatching {
+            client.fetchGrades(testSession(), "bad", "期末考")
+        }.exceptionOrNull()
+
+        assertEquals("學期資料格式錯誤", error?.message)
+        assertEquals(0, server.requestCount)
     }
 
     @Test

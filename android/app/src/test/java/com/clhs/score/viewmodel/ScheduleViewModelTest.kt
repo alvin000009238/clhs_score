@@ -78,6 +78,21 @@ class ScheduleViewModelTest {
     }
 
     @Test
+    fun malformedYearDoesNotRequestScheduleClasses() = runTest(dispatcher) {
+        val repository = ControllableScheduleRepository()
+        val viewModel = ScheduleViewModel(repository)
+        runCurrent()
+
+        repository.yearsDeferred.complete(
+            listOf(ScheduleYearTermOption(text = "格式錯誤", value = "bad")),
+        )
+        runCurrent()
+
+        assertEquals(emptyList<Pair<String, String>>(), repository.classRequests)
+        assertEquals("學期資料格式錯誤", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun refreshRetriesFailedPersonalScheduleQuery() = runTest(dispatcher) {
         val repository = ControllableScheduleRepository()
         val viewModel = ScheduleViewModel(repository)
@@ -376,6 +391,7 @@ class ScheduleViewModelTest {
         private val latestSchedule: ScheduleReport? = null,
     ) : ScheduleRepository {
         val yearsDeferred = CompletableDeferred<List<ScheduleYearTermOption>>()
+        val classRequests = mutableListOf<Pair<String, String>>()
         val scheduleClassNos = mutableListOf<String>()
         val scheduleScopes = mutableListOf<ScheduleScope>()
         val scheduleTargetDates = mutableListOf<LocalDate>()
@@ -384,8 +400,10 @@ class ScheduleViewModelTest {
 
         override suspend fun getScheduleYears(): List<ScheduleYearTermOption> = yearsDeferred.await()
 
-        override suspend fun getScheduleClasses(year: String, term: String): List<ScheduleClassOption> =
-            classes.getOrPut(year to term) { CompletableDeferred() }.await()
+        override suspend fun getScheduleClasses(year: String, term: String): List<ScheduleClassOption> {
+            classRequests += year to term
+            return classes.getOrPut(year to term) { CompletableDeferred() }.await()
+        }
 
         override suspend fun fetchSchedule(
             yearValue: String,

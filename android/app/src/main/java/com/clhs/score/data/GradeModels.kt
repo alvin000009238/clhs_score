@@ -116,12 +116,20 @@ data class ScoreDistribution(
     val isMine: Boolean,
 )
 
-fun parseYearTerm(value: String?, defaultYear: String = "114", defaultTerm: String = "1"): Pair<String, String> {
+private val YEAR_TERM_PATTERN = Regex("^(\\d+)_(\\d+)$")
+
+fun parseYearTermOrNull(value: String?): Pair<String, String>? =
+    value?.trim()?.let(YEAR_TERM_PATTERN::matchEntire)?.destructured?.let { (year, term) ->
+        year to term
+    }
+
+fun parseYearTerm(value: String?, defaultYear: String = "", defaultTerm: String = ""): Pair<String, String> {
+    parseYearTermOrNull(value)?.let { return it }
     val raw = value.orEmpty()
-    return when {
-        "_" in raw -> raw.split("_", limit = 2).let { it[0] to it.getOrElse(1) { defaultTerm } }
-        raw.length >= 4 -> raw.dropLast(1) to raw.takeLast(1)
-        else -> defaultYear to defaultTerm
+    return if (raw.length >= 2 && raw.all(Char::isDigit)) {
+        raw.dropLast(1) to raw.takeLast(1)
+    } else {
+        defaultYear to defaultTerm
     }
 }
 

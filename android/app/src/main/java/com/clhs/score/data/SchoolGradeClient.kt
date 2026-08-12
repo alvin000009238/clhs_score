@@ -96,7 +96,8 @@ class SchoolGradeClient(
         examValue: String,
     ): GradeReport = withContext(Dispatchers.IO) {
         prepareSession(session)
-        val (year, term) = parseYearTerm(yearValue, defaultYear = "114", defaultTerm = "2")
+        val (year, term) = parseYearTermOrNull(yearValue)
+            ?: throw SchoolException("學期資料格式錯誤")
         val body = postForm(
             path = "ICampus/TutorShGrade/GetScoreForStudentExamContent",
             referer = gradesPageUrl().toString(),
@@ -366,7 +367,8 @@ class SchoolGradeClient(
     }
 
     private suspend fun loadExams(session: AuthenticatedSession, yearValue: String): List<ExamOption> {
-        val (year, term) = parseYearTerm(yearValue, defaultYear = "114", defaultTerm = "1")
+        val (year, term) = parseYearTermOrNull(yearValue)
+            ?: throw SchoolException("學期資料格式錯誤")
         return postOptions(
             path = "ICampus/CommonData/GetGradeCanQueryExamNoListByStudentNo",
             referer = gradesPageUrl().toString(),
