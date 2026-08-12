@@ -80,6 +80,24 @@ class UpdateCheckerTest {
     }
 
     @Test
+    fun debugVersionSuffixDoesNotBreakComparison() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "tag_name": "v1.2.4",
+                  "html_url": "https://github.com/alvin000009238/clhs_score/releases/tag/v1.2.4",
+                  "body": "",
+                  "assets": []
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(checker().check("1.0-debug") is UpdateResult.NewVersion)
+    }
+
+    @Test
     fun invalidReleaseLinksReturnErrorInsteadOfActionableUpdate() = runTest {
         server.enqueue(
             jsonResponse(

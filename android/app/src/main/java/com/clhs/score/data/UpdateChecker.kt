@@ -93,7 +93,7 @@ class UpdateChecker(
 
     private fun isNewer(remote: String, current: String): Boolean? {
         val remoteParts = remote.versionPartsOrNull() ?: return null
-        val currentParts = current.versionPartsOrNull() ?: return null
+        val currentParts = current.substringBefore('-').versionPartsOrNull() ?: return null
         val maxLen = maxOf(remoteParts.size, currentParts.size)
         for (i in 0 until maxLen) {
             val r = remoteParts.getOrElse(i) { 0 }
