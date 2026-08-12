@@ -13,7 +13,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -358,20 +357,6 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             intent.getStringExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE) == "true" ||
             intent.getStringExtra("action") == "check_update" ||
             intent.getBooleanExtra(ScoreFirebaseMessagingService.EXTRA_CHECK_UPDATE, false)
-
-        val urlExtra = intent.getStringExtra("url")
-        if (!urlExtra.isNullOrBlank() && !isUpdateTopic) {
-            val safeUri = urlExtra.toUri().takeIf { it.scheme in listOf("http", "https") }
-            if (safeUri != null) {
-                val viewIntent = Intent(Intent.ACTION_VIEW, safeUri)
-                try {
-                    startActivity(viewIntent)
-                } catch (e: Exception) {
-                    // Ignore if no browser available
-                }
-                intent.removeExtra("url")
-            }
-        }
 
         if (isUpdateTopic) {
             routeSource = AnalyticsValues.SOURCE_NOTIFICATION_UPDATE
