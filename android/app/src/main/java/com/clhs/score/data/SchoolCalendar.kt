@@ -60,17 +60,17 @@ class NetworkSchoolCalendarRepository(
         readCache()
     }
 
-    suspend fun load(forceRefresh: Boolean): SchoolCalendarSnapshot = runInterruptibleHttp {
+    suspend fun load(forceRefresh: Boolean): SchoolCalendarSnapshot {
         val now = nowProvider()
-        val cached = readCache()
+        val cached = runInterruptibleHttp { readCache() }
         if (!forceRefresh && cached != null &&
             Duration.between(cached.fetchedAt, now).let { !it.isNegative && it <= CACHE_MAX_AGE }
         ) {
-            return@runInterruptibleHttp cached
+            return cached
         }
 
         val request = Request.Builder().url(feedUrl).get().build()
-        client.newCall(request).execute().use { response ->
+        return client.newCall(request).executeCancellable { response ->
             if (!response.isSuccessful) {
                 throw IOException("Calendar request failed with HTTP ${response.code}")
             }
