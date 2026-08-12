@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,10 +90,10 @@ internal fun WidgetSettingsScreen(
     )
 
     var isSaving by remember { mutableStateOf(false) }
-    var showTeacher by remember { mutableStateOf(initialPreferences.showTeacher) }
-    var showClassroom by remember { mutableStateOf(initialPreferences.showClassroom) }
-    var showTime by remember { mutableStateOf(initialPreferences.showTime) }
-    var afterLastClass by remember { mutableStateOf(initialPreferences.afterLastClass) }
+    var showTeacher by rememberSaveable { mutableStateOf(initialPreferences.showTeacher) }
+    var showClassroom by rememberSaveable { mutableStateOf(initialPreferences.showClassroom) }
+    var showTime by rememberSaveable { mutableStateOf(initialPreferences.showTime) }
+    var afterLastClass by rememberSaveable { mutableStateOf(initialPreferences.afterLastClass) }
     val widgetCornerRadius = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         dimensionResource(android.R.dimen.system_app_widget_background_radius)
     } else {
