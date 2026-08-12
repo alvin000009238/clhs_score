@@ -16,6 +16,7 @@ import org.junit.Test
 import java.nio.file.Files
 import java.time.Instant
 import java.time.LocalDateTime
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 class SchoolCalendarTest {
@@ -49,6 +50,23 @@ class SchoolCalendarTest {
         assertEquals(LocalDateTime.of(2026, 8, 12, 9, 0), timed.start)
         assertEquals(LocalDateTime.of(2026, 8, 12, 10, 30), timed.endExclusive)
         assertEquals("圖書館;二樓", timed.location)
+    }
+
+    @Test
+    fun allDayDatesDoNotDependOnDeviceTimeZone() {
+        val originalTimeZone = TimeZone.getDefault()
+        try {
+            listOf("Asia/Tokyo", "UTC", "America/Los_Angeles").forEach { zoneId ->
+                TimeZone.setDefault(TimeZone.getTimeZone(zoneId))
+
+                val allDay = SchoolCalendarIcsParser.parse(SAMPLE_ICS).events.first()
+
+                assertEquals(zoneId, LocalDateTime.of(2026, 8, 10, 0, 0), allDay.start)
+                assertEquals(zoneId, LocalDateTime.of(2026, 8, 12, 0, 0), allDay.endExclusive)
+            }
+        } finally {
+            TimeZone.setDefault(originalTimeZone)
+        }
     }
 
     @Test
