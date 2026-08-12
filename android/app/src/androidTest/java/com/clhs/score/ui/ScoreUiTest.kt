@@ -1,14 +1,18 @@
 package com.clhs.score.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
@@ -18,6 +22,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.clhs.score.data.AppSettings
 import com.clhs.score.data.ExamOption
 import com.clhs.score.data.LocalScoreInsightProvider
@@ -51,6 +57,50 @@ class ScoreUiTest {
         composeRule.runOnIdle {
             assert(clicked)
         }
+    }
+
+    @Test
+    fun introLoginRemainsReachableInSmallWindowWithLargeText() {
+        var clicked = false
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                ScoreTheme {
+                    Box(Modifier.size(320.dp)) {
+                        IntroScreen(onLoginClick = { clicked = true })
+                    }
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("使用學校帳號登入")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle {
+            assert(clicked)
+        }
+    }
+
+    @Test
+    fun biometricUnlockOptionsRemainReachableInSmallWindowWithLargeText() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                ScoreTheme {
+                    Box(Modifier.size(320.dp)) {
+                        BiometricLockScreen(
+                            isBiometricInvalidated = false,
+                            onTriggerBiometric = {},
+                            onUnlockWithPin = {},
+                            onLogout = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("生物識別解鎖").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("使用備用密碼解鎖").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("登出").performScrollTo().assertIsDisplayed()
     }
 
     @Test
